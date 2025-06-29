@@ -2,6 +2,7 @@ from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 from django.contrib.auth import get_user_model
 from .serializers import UserSerializer, UserRegistrationSerializer
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -15,7 +16,7 @@ class UserViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
-        if self.action in ['register', 'login']:
+        if self.action in ['register', 'login', 'refresh_token']:
             return [AllowAny()]
         return super().get_permissions()
 
@@ -73,10 +74,8 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def login(self, request):
-        print("Type de request:", type(request))
-        print("request.data:", getattr(request, 'data', None))
-        email = request.data.get('email') if hasattr(request, 'data') else None
-        password = request.data.get('password') if hasattr(request, 'data') else None
+        email = request.data.get('email')
+        password = request.data.get('password')
         
         if not email or not password:
             return Response({
@@ -101,12 +100,35 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response({
                 'error': 'Identifiants invalides',
                 'details': {'password': 'Mot de passe incorrect'}
-            }, status=status.HTTP_400_BAD_REQUEST)
+            }, status=status.HTTP_401_UNAUTHORIZED)
         except User.DoesNotExist:
             return Response({
                 'error': 'Identifiants invalides',
                 'details': {'email': 'Aucun compte associé à cet email'}
             }, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=False, methods=['post'])
+    def refresh_token(self, request):
+        """Endpoint pour rafraîchir un token d'accès."""
+        refresh_token = request.data.get('refresh')
+        
+        if not refresh_token:
+            return Response({
+                'error': 'Refresh token requis',
+                'details': {'refresh': 'Le refresh token est requis'}
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            refresh = RefreshToken(refresh_token)
+            return Response({
+                'access': str(refresh.access_token),
+                'refresh': str(refresh)
+            })
+        except TokenError:
+            return Response({
+                'error': 'Token invalide',
+                'details': {'refresh': 'Le refresh token est invalide ou expiré'}
+            }, status=status.HTTP_401_UNAUTHORIZED)
 
     @action(detail=False, methods=['get'])
     def me(self, request):

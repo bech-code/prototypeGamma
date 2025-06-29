@@ -5,7 +5,7 @@ from .views import (
     RequestDocumentViewSet, ReviewViewSet, PaymentViewSet,
     ConversationViewSet, MessageViewSet, MessageAttachmentViewSet,
     NotificationViewSet, TechnicianLocationViewSet, SystemConfigurationViewSet,
-    CinetPayViewSet
+    CinetPayViewSet, PublicTestViewSet
 )
 
 router = DefaultRouter()
@@ -22,6 +22,9 @@ router.register(r'notifications', NotificationViewSet)
 router.register(r'locations', TechnicianLocationViewSet)
 router.register(r'configurations', SystemConfigurationViewSet)
 router.register(r'cinetpay', CinetPayViewSet, basename='cinetpay')
+
+# Routes de test publiques
+router.register(r'test', PublicTestViewSet, basename='test')
 
 urlpatterns = [
     path('api/', include(router.urls)),

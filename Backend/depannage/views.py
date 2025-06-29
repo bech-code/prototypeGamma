@@ -28,7 +28,45 @@ from .serializers import (
 
 logger = logging.getLogger(__name__)
 
-# Create your views here.
+# ============================================================================
+# VUES DE TEST PUBLIQUES
+# ============================================================================
+
+class PublicTestViewSet(viewsets.ViewSet):
+    """ViewSet pour les tests publics de l'API."""
+    permission_classes = [AllowAny]
+    
+    @action(detail=False, methods=['get'])
+    def health_check(self, request):
+        """Vérification de santé de l'API."""
+        return Response({
+            'status': 'healthy',
+            'message': 'API DepanneTeliman fonctionne correctement',
+            'timestamp': timezone.now().isoformat(),
+            'version': '1.0.0'
+        })
+    
+    @action(detail=False, methods=['get'])
+    def api_info(self, request):
+        """Informations sur l'API."""
+        return Response({
+            'name': 'DepanneTeliman API',
+            'description': 'API pour la gestion des services de dépannage',
+            'endpoints': {
+                'auth': '/users/login/',
+                'register': '/users/register/',
+                'repair_requests': '/depannage/api/repair-requests/',
+                'technicians': '/depannage/api/technicians/',
+                'clients': '/depannage/api/clients/',
+                'admin': '/admin/'
+            },
+            'authentication': 'JWT (Bearer Token)',
+            'documentation': 'Consultez les endpoints pour plus d\'informations'
+        })
+
+# ============================================================================
+# VIEWSETS EXISTANTES
+# ============================================================================
 
 class CinetPayViewSet(viewsets.ModelViewSet):
     """ViewSet pour gérer les paiements CinetPay."""

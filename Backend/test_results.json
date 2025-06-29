@@ -1,0 +1,58 @@
+[
+  {
+    "test": "Health Check",
+    "success": true,
+    "timestamp": "2025-06-29T21:04:02.129744",
+    "status_code": 200,
+    "error": null
+  },
+  {
+    "test": "API Info",
+    "success": true,
+    "timestamp": "2025-06-29T21:04:02.131233",
+    "status_code": 200,
+    "error": null
+  },
+  {
+    "test": "Admin Interface",
+    "success": false,
+    "timestamp": "2025-06-29T21:04:02.173276",
+    "status_code": null,
+    "error": null
+  },
+  {
+    "test": "Login",
+    "success": false,
+    "timestamp": "2025-06-29T21:04:02.299316",
+    "status_code": null,
+    "error": null
+  },
+  {
+    "test": "User Profile (Protected)",
+    "success": false,
+    "timestamp": "2025-06-29T21:04:02.299343",
+    "status_code": null,
+    "error": "No token available"
+  },
+  {
+    "test": "Unauthorized Access",
+    "success": true,
+    "timestamp": "2025-06-29T21:04:02.301005",
+    "status_code": null,
+    "error": null
+  },
+  {
+    "test": "Non-existent Route",
+    "success": true,
+    "timestamp": "2025-06-29T21:04:02.304319",
+    "status_code": null,
+    "error": null
+  },
+  {
+    "test": "Response Time (1.12ms)",
+    "success": true,
+    "timestamp": "2025-06-29T21:04:02.305473",
+    "status_code": 200,
+    "error": null
+  }
+]
