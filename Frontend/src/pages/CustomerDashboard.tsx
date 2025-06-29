@@ -1,0 +1,538 @@
+import React, { useState, useEffect } from 'react';
+import { Calendar, Star, Clock, FileText, CreditCard, MessageSquare, Phone, AlertCircle, CheckCircle } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+// import { Link } from 'react-router-dom'; // Removed for artifact compatibility
+import AnimatedBackground from '../components/AnimatedBackground';
+import customerVideo from '../assets/video/customer1-bg.mp4';
+
+interface RepairRequest {
+  id: number;
+  title: string;
+  description: string;
+  specialty_needed: string;
+  status: 'pending' | 'assigned' | 'in_progress' | 'completed' | 'cancelled';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  estimated_cost: number;
+  created_at: string;
+  assigned_at?: string;
+  started_at?: string;
+  completed_at?: string;
+  technician?: {
+    id: number;
+    user: {
+      first_name: string;
+      last_name: string;
+      email: string;
+    };
+    phone: string;
+    hourly_rate: number;
+    average_rating: number;
+  };
+  conversation?: {
+    id: number;
+    unread_count: number;
+  };
+}
+
+interface DashboardStats {
+  total_requests: number;
+  active_requests: number;
+  completed_requests: number;
+}
+
+interface Notification {
+  id: number;
+  title: string;
+  message: string;
+  type: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+const CustomerDashboard = () => {
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState('requests');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [repairRequests, setRepairRequests] = useState<RepairRequest[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      };
+
+      // Fetch repair requests
+      const requestsResponse = await fetch('http://127.0.0.1:8000/depannage/api/repair-requests/', { headers });
+      const requestsData = await requestsResponse.json();
+      
+      if (requestsResponse.ok) {
+        setRepairRequests(requestsData.results || requestsData);
+      }
+
+      // Fetch notifications
+      const notificationsResponse = await fetch('http://localhost:8000/depannage/api/notifications/', { headers });
+      if (notificationsResponse.ok) {
+        const notificationsData = await notificationsResponse.json();
+        setNotifications(notificationsData.results || notificationsData || []);
+      }
+
+      // Fetch stats
+      const statsResponse = await fetch('http://127.0.0.1:8000/depannage/api/repair-requests/dashboard_stats/', { headers });
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json();
+        setStats(statsData);
+      }
+
+    } catch (error) {
+      console.error('Erreur lors du chargement des données:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredRequests = repairRequests.filter(request => {
+    if (filterStatus === 'all') return true;
+    return request.status === filterStatus;
+  });
+  
+  const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      'pending': { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'En attente' },
+      'assigned': { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Assignée' },
+      'in_progress': { bg: 'bg-orange-100', text: 'text-orange-800', label: 'En cours' },
+      'completed': { bg: 'bg-green-100', text: 'text-green-800', label: 'Terminée' },
+      'cancelled': { bg: 'bg-red-100', text: 'text-red-800', label: 'Annulée' }
+    };
+    
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
+    return (
+      <span className={`px-2 py-1 ${config.bg} ${config.text} rounded-full text-xs font-medium`}>
+        {config.label}
+      </span>
+    );
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return 'bg-red-500';
+      case 'high': return 'bg-orange-500';
+      case 'medium': return 'bg-yellow-500';
+      case 'low': return 'bg-green-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Chargement...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Hero Section */}
+      <section className="relative text-white py-24 overflow-hidden">
+        <AnimatedBackground 
+          videoSrc={customerVideo}
+          overlayColor="rgba(0, 0, 0, 0.3)"
+        />
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="max-w-4xl mx-auto text-center">
+            <h1 className="text-3xl md:text-4xl font-bold mb-4">
+              Bienvenue, {user && user.first_name ? user.first_name : 'Utilisateurs'} !
+              </h1>
+            <p className="text-lg text-white mb-6">
+              Gérez vos demandes de réparation et suivez leur progression.
+            </p>
+            <button 
+              className="inline-flex items-center px-6 py-3 bg-white text-blue-700 rounded-full font-medium hover:bg-blue-50 transition-colors duration-200 shadow-sm"
+              onClick={() => window.location.href = '/booking'}
+            >
+              Nouvelle demande
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Main Content */}
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Stats Cards */}
+          {stats && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div className="bg-white text-gray-800 rounded-xl shadow-sm p-6 border border-gray-100">
+              <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold">Demandes actives</h3>
+                  <Clock className="h-6 w-6 text-blue-600" />
+              </div>
+              <p className="text-3xl font-bold mb-2 text-blue-600">
+                  {stats.active_requests}
+              </p>
+                <p className="text-gray-500">En cours de traitement</p>
+            </div>
+            
+            <div className="bg-white text-gray-800 rounded-xl shadow-sm p-6 border border-gray-100">
+              <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold">Demandes terminées</h3>
+                  <CheckCircle className="h-6 w-6 text-green-500" />
+              </div>
+                <p className="text-3xl font-bold mb-2 text-green-500">
+                  {stats.completed_requests}
+              </p>
+              <p className="text-gray-500">Services complétés</p>
+            </div>
+            
+            <div className="bg-white text-gray-800 rounded-xl shadow-sm p-6 border border-gray-100">
+              <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold">Total des demandes</h3>
+                  <MessageSquare className="h-6 w-6 text-purple-600" />
+                </div>
+                <p className="text-3xl font-bold mb-2 text-purple-600">
+                  {stats.total_requests}
+                </p>
+                <p className="text-gray-500">Toutes vos demandes</p>
+              </div>
+            </div>
+          )}
+          
+          {/* Main Content Section */}
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-10 border border-gray-100">
+            <div className="border-b border-gray-100">
+              <nav className="flex overflow-x-auto">
+                <button
+                  onClick={() => setActiveTab('requests')}
+                  className={`px-6 py-4 text-sm font-medium whitespace-nowrap ${
+                    activeTab === 'requests'
+                      ? 'border-b-2 border-blue-600 text-blue-600'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Mes demandes ({repairRequests.length})
+                </button>
+                <button
+                  onClick={() => setActiveTab('notifications')}
+                  className={`px-6 py-4 text-sm font-medium whitespace-nowrap ${
+                    activeTab === 'notifications'
+                      ? 'border-b-2 border-blue-600 text-blue-600'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Notifications ({notifications.filter(n => !n.is_read).length})
+                </button>
+              </nav>
+            </div>
+            
+            <div className="p-6">
+              {activeTab === 'requests' && (
+                <div>
+                  {/* Filtres */}
+                  <div className="mb-6">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setFilterStatus('all')}
+                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                          filterStatus === 'all'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        Toutes
+                      </button>
+                      <button
+                        onClick={() => setFilterStatus('pending')}
+                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                          filterStatus === 'pending'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        En attente
+                      </button>
+                      <button
+                        onClick={() => setFilterStatus('assigned')}
+                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                          filterStatus === 'assigned'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        Assignées
+                      </button>
+                      <button
+                        onClick={() => setFilterStatus('in_progress')}
+                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                          filterStatus === 'in_progress'
+                            ? 'bg-orange-100 text-orange-800'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        En cours
+                      </button>
+                      <button
+                        onClick={() => setFilterStatus('completed')}
+                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                          filterStatus === 'completed'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        Terminées
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Liste des demandes */}
+                  {filteredRequests.length === 0 ? (
+                    <div className="text-center py-12">
+                      <MessageSquare className="mx-auto h-12 w-12 text-gray-400" />
+                      <h3 className="mt-2 text-sm font-medium text-gray-900">Aucune demande</h3>
+                      <p className="mt-1 text-sm text-gray-500">
+                        {filterStatus === 'all' 
+                          ? 'Vous n\'avez pas encore créé de demande de réparation.'
+                          : 'Aucune demande avec ce statut.'
+                        }
+                      </p>
+                      {filterStatus === 'all' && (
+                        <div className="mt-6">
+                          <button
+                            className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                            onClick={() => window.location.href = '/booking'}
+                          >
+                            Créer une demande
+                          </button>
+                        </div>
+                      )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                      {filteredRequests.map((request) => (
+                        <div key={request.id} className="border border-gray-100 rounded-lg p-6 hover:shadow-md transition-all duration-200">
+                          <div className="flex flex-col lg:flex-row justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-3 mb-3">
+                            <div className="h-12 w-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 font-semibold">
+                                  {request.specialty_needed?.substring(0, 2) || 'RE'}
+                                </div>
+                                <div>
+                                  <h4 className="font-semibold text-lg text-gray-800">{request.title}</h4>
+                                  <div className="flex items-center space-x-2 mt-1">
+                                    {getStatusBadge(request.status)}
+                                    <div className={`w-3 h-3 rounded-full ${getPriorityColor(request.priority)}`}></div>
+                            </div>
+                          </div>
+                              </div>
+                              
+                              <p className="text-gray-600 mb-4">{request.description}</p>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-500 mb-4">
+                                <div className="flex items-center">
+                                  <Calendar className="h-4 w-4 mr-2" />
+                                  <span>Créée le {formatDate(request.created_at)}</span>
+                                </div>
+                                <div>
+                                  <span className="font-medium">Spécialité:</span> {request.specialty_needed}
+                                </div>
+                                <div>
+                                  <span className="font-medium">Coût estimé:</span> {request.estimated_cost?.toLocaleString()} FCFA
+                                </div>
+                              </div>
+
+                              {/* Informations du technicien */}
+                              {request.technician && (
+                                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                                  <h5 className="font-medium text-gray-900 mb-2">Technicien assigné</h5>
+                                  <div className="flex flex-wrap items-center gap-4 text-sm">
+                                    <div className="flex items-center space-x-2">
+                                      <span className="font-medium">
+                                        {request.technician.user.first_name} {request.technician.user.last_name}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <Phone className="h-4 w-4 text-gray-400" />
+                                      <span className="text-gray-600">{request.technician.phone}</span>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <Star className="h-4 w-4 text-yellow-400" />
+                                      <span className="text-gray-600">{request.technician.average_rating}/5</span>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <span className="text-gray-600">{request.technician.hourly_rate} FCFA/h</span>
+                            </div>
+                          </div>
+                        </div>
+                              )}
+                            </div>
+                            
+                            <div className="mt-4 lg:mt-0 lg:ml-6 flex flex-col space-y-2 lg:items-end">
+                              {request.conversation && (
+                                <button
+                                className="inline-flex items-center px-3 py-2 border border-blue-600 text-blue-600 rounded-full hover:bg-blue-50 transition-colors text-sm"
+                                onClick={() => window.location.href = `/chat/${request.conversation?.id}`}
+                              >
+                                <MessageSquare className="h-4 w-4 mr-2" />
+                                Messages
+                                  {request.conversation.unread_count > 0 && (
+                                    <span className="ml-2 bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
+                                      {request.conversation.unread_count}
+                                    </span>
+                                  )}
+                                </button>
+                              )}
+                              
+                              {request.status === 'pending' && (
+                                <button
+                                  onClick={() => {
+                                    if (confirm('Êtes-vous sûr de vouloir annuler cette demande ?')) {
+                                      // Appel API pour annuler
+                                    }
+                                  }}
+                                  className="inline-flex items-center px-3 py-2 border border-red-600 text-red-600 rounded-full hover:bg-red-50 transition-colors text-sm"
+                                >
+                                  Annuler
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'notifications' && (
+                <div>
+                  {notifications.length === 0 ? (
+                    <div className="text-center py-12">
+                      <AlertCircle className="mx-auto h-12 w-12 text-gray-400" />
+                      <h3 className="mt-2 text-sm font-medium text-gray-900">Aucune notification</h3>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Vous n'avez pas encore de notifications.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {notifications.map((notification) => (
+                        <div
+                          key={notification.id}
+                          className={`p-4 rounded-lg border transition-all duration-200 ${
+                            notification.is_read 
+                              ? 'bg-gray-50 border-gray-200' 
+                              : 'bg-blue-50 border-blue-200 shadow-sm'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h4 className={`font-medium ${notification.is_read ? 'text-gray-900' : 'text-blue-900'}`}>
+                                {notification.title}
+                              </h4>
+                              <p className={`mt-1 text-sm ${notification.is_read ? 'text-gray-600' : 'text-blue-700'}`}>
+                                {notification.message}
+                              </p>
+                              <p className="mt-2 text-xs text-gray-500">
+                                {formatDate(notification.created_at)}
+                              </p>
+                            </div>
+                            {!notification.is_read && (
+                              <div className="ml-4">
+                                <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Quick Actions Section */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+              <div className="flex items-center mb-6">
+                <FileText className="h-5 w-5 text-blue-600 mr-2" />
+                <h3 className="text-lg font-semibold text-gray-800">Actions rapides</h3>
+              </div>
+              <div className="space-y-3">
+                <button
+                  className="block p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors text-center"
+                  onClick={() => window.location.href = '/booking'}
+                >
+                  <span className="text-sm font-medium text-gray-700">Nouvelle demande</span>
+                </button>
+                <button
+                  className="block p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors text-center"
+                  onClick={() => window.location.href = '/profile'}
+                >
+                  <span className="text-sm font-medium text-gray-700">Mon profil</span>
+                </button>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+              <div className="flex items-center mb-6">
+                <CreditCard className="h-5 w-5 text-blue-600 mr-2" />
+                <h3 className="text-lg font-semibold text-gray-800">Support</h3>
+              </div>
+              <div className="space-y-3">
+                <div className="p-3 border border-gray-100 rounded-lg">
+                  <div className="text-sm font-medium text-gray-700">Besoin d'aide ?</div>
+                  <div className="text-xs text-gray-500 mt-1">Contactez notre équipe</div>
+                </div>
+                <button className="w-full text-blue-600 text-sm font-medium hover:text-blue-700 transition-colors">
+                  Contacter le support
+                </button>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+              <div className="flex items-center mb-6">
+                <MessageSquare className="h-5 w-5 text-blue-600 mr-2" />
+                <h3 className="text-lg font-semibold text-gray-800">Activité récente</h3>
+              </div>
+              <div className="space-y-3">
+                {repairRequests.slice(0, 2).map((request) => (
+                  <div key={request.id} className="p-3 border border-gray-100 rounded-lg">
+                    <div className="text-sm font-medium text-gray-700 truncate">{request.title}</div>
+                    <div className="text-xs text-gray-500 mt-1">{formatDate(request.created_at)}</div>
+                  </div>
+                ))}
+                {repairRequests.length === 0 && (
+                  <div className="p-3 border border-gray-100 rounded-lg text-center">
+                    <div className="text-sm text-gray-500">Aucune activité récente</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default CustomerDashboard;

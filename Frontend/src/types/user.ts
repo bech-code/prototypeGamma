@@ -1,0 +1,21 @@
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  user_type: 'technician' | 'client' | 'admin';
+  is_verified: boolean;
+  is_superuser: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Profile {
+  type: 'client' | 'technician';
+  address?: string;
+  phone?: string;
+  specialty?: string;
+  years_experience?: number;
+  is_verified?: boolean;
+}
