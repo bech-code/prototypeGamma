@@ -61,7 +61,7 @@ const TechnicianDashboard: React.FC = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      
+
       // Récupérer les demandes de réparation
       const requestsResponse = await fetch('http://127.0.0.1:8000/depannage/api/repair-requests/', {
         headers: {
@@ -69,12 +69,12 @@ const TechnicianDashboard: React.FC = () => {
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (requestsResponse.ok) {
         const data = await requestsResponse.json();
         setRepairRequests(data.results || data || []);
       }
-      
+
       // Récupérer les statistiques
       const statsResponse = await fetch('http://127.0.0.1:8000/depannage/api/repair-requests/dashboard_stats/', {
         headers: {
@@ -82,12 +82,12 @@ const TechnicianDashboard: React.FC = () => {
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
         setStats(statsData);
       }
-      
+
       // Récupérer les notifications
       const notificationsResponse = await fetch('http://127.0.0.1:8000/depannage/api/notifications/', {
         headers: {
@@ -95,12 +95,12 @@ const TechnicianDashboard: React.FC = () => {
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (notificationsResponse.ok) {
         const notificationsData = await notificationsResponse.json();
         setNotifications(notificationsData.results || notificationsData || []);
       }
-      
+
     } catch (error) {
       console.error('Erreur lors du chargement des données:', error);
     } finally {
@@ -194,11 +194,11 @@ const TechnicianDashboard: React.FC = () => {
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
                 Tableau de bord technicien
-            </h1>
+              </h1>
               <p className="mt-1 text-sm text-gray-500">
                 Bienvenue, {user?.username} - {stats?.specialty}
-            </p>
-              </div>
+              </p>
+            </div>
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => window.location.href = '/technician/profile'}
@@ -225,8 +225,8 @@ const TechnicianDashboard: React.FC = () => {
                   <p className="text-2xl font-bold text-gray-900">{stats.assigned_requests}</p>
                 </div>
               </div>
-              </div>
-              
+            </div>
+
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center">
                 <div className="p-2 bg-orange-100 rounded-lg">
@@ -237,8 +237,8 @@ const TechnicianDashboard: React.FC = () => {
                   <p className="text-2xl font-bold text-gray-900">{stats.pending_requests}</p>
                 </div>
               </div>
-              </div>
-              
+            </div>
+
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center">
                 <div className="p-2 bg-green-100 rounded-lg">
@@ -259,7 +259,7 @@ const TechnicianDashboard: React.FC = () => {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-500">Taux de réussite</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {stats.assigned_requests > 0 
+                    {stats.assigned_requests > 0
                       ? Math.round((stats.completed_requests / stats.assigned_requests) * 100)
                       : 0}%
                   </p>
@@ -271,32 +271,30 @@ const TechnicianDashboard: React.FC = () => {
 
         {/* Onglets */}
         <div className="bg-white rounded-lg shadow mb-6">
-              <div className="border-b border-gray-200">
+          <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-8 px-6">
-                  <button
+              <button
                 onClick={() => setActiveTab('requests')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'requests'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'requests'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 Mes demandes ({repairRequests.length})
-                  </button>
-                  <button
+              </button>
+              <button
                 onClick={() => setActiveTab('notifications')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'notifications'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'notifications'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 Notifications ({notifications.filter(n => !n.is_read).length})
-                  </button>
-                </nav>
-              </div>
-              
-              <div className="p-6">
+              </button>
+            </nav>
+          </div>
+
+          <div className="p-6">
             {activeTab === 'requests' && (
               <div>
                 {/* Filtres */}
@@ -304,41 +302,37 @@ const TechnicianDashboard: React.FC = () => {
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => setFilterStatus('all')}
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        filterStatus === 'all'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
+                      className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'all'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
                     >
                       Toutes
                     </button>
                     <button
                       onClick={() => setFilterStatus('assigned')}
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        filterStatus === 'assigned'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
+                      className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'assigned'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
                     >
                       Assignées
                     </button>
                     <button
                       onClick={() => setFilterStatus('in_progress')}
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        filterStatus === 'in_progress'
-                          ? 'bg-orange-100 text-orange-800'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
+                      className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'in_progress'
+                        ? 'bg-orange-100 text-orange-800'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
                     >
                       En cours
                     </button>
                     <button
                       onClick={() => setFilterStatus('completed')}
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        filterStatus === 'completed'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
+                      className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'completed'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
                     >
                       Terminées
                     </button>
@@ -351,7 +345,7 @@ const TechnicianDashboard: React.FC = () => {
                     <Wrench className="mx-auto h-12 w-12 text-gray-400" />
                     <h3 className="mt-2 text-sm font-medium text-gray-900">Aucune demande</h3>
                     <p className="mt-1 text-sm text-gray-500">
-                      {filterStatus === 'all' 
+                      {filterStatus === 'all'
                         ? 'Vous n\'avez pas encore de demandes assignées.'
                         : 'Aucune demande avec ce statut.'
                       }
@@ -370,20 +364,20 @@ const TechnicianDashboard: React.FC = () => {
                               </span>
                               <div className={`w-3 h-3 rounded-full ${getPriorityColor(request.priority)}`}></div>
                             </div>
-                            
+
                             <p className="text-gray-600 mb-3">{request.description}</p>
-                            
+
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-500 mb-4">
                               <div>
                                 <span className="font-medium">Spécialité:</span> {request.specialty_needed}
                               </div>
                               <div>
-                                <span className="font-medium">Coût estimé:</span> {request.estimated_cost.toLocaleString()} FCFA
+                                <span className="font-medium">Coût estimé:</span> {request.estimated_cost !== undefined && request.estimated_cost !== null ? request.estimated_cost.toLocaleString() : "N/A"} FCFA
                               </div>
                               <div>
                                 <span className="font-medium">Créée le:</span> {formatDate(request.created_at)}
                               </div>
-                      <div>
+                              <div>
                                 <span className="font-medium">Client:</span> {request.client.user.username}
                               </div>
                             </div>
@@ -406,7 +400,7 @@ const TechnicianDashboard: React.FC = () => {
                               </div>
                             </div>
                           </div>
-                          
+
                           <div className="flex flex-col space-y-2 ml-4">
                             {request.conversation && (
                               <button
@@ -422,7 +416,7 @@ const TechnicianDashboard: React.FC = () => {
                                 )}
                               </button>
                             )}
-                            
+
                             {/* Actions selon le statut */}
                             {request.status === 'assigned' && (
                               <button
@@ -432,7 +426,7 @@ const TechnicianDashboard: React.FC = () => {
                                 Commencer
                               </button>
                             )}
-                            
+
                             {request.status === 'in_progress' && (
                               <button
                                 onClick={() => updateRequestStatus(request.id, 'completed')}
@@ -465,9 +459,8 @@ const TechnicianDashboard: React.FC = () => {
                     {notifications.map((notification) => (
                       <div
                         key={notification.id}
-                        className={`p-4 rounded-lg border ${
-                          notification.is_read ? 'bg-gray-50 border-gray-200' : 'bg-blue-50 border-blue-200'
-                        }`}
+                        className={`p-4 rounded-lg border ${notification.is_read ? 'bg-gray-50 border-gray-200' : 'bg-blue-50 border-blue-200'
+                          }`}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">

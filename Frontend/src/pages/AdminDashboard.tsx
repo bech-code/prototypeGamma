@@ -94,7 +94,7 @@ const AdminDashboard: React.FC = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      
+
       // Récupérer les demandes de réparation
       const requestsResponse = await fetch('http://127.0.0.1:8000/depannage/api/repair-requests/', {
         headers: {
@@ -102,12 +102,12 @@ const AdminDashboard: React.FC = () => {
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (requestsResponse.ok) {
         const data = await requestsResponse.json();
         setRepairRequests(data.results || data || []);
       }
-      
+
       // Récupérer les statistiques
       const statsResponse = await fetch('http://127.0.0.1:8000/depannage/api/repair-requests/dashboard_stats/', {
         headers: {
@@ -115,12 +115,12 @@ const AdminDashboard: React.FC = () => {
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
         setStats(statsData);
       }
-      
+
       // Récupérer les notifications
       const notificationsResponse = await fetch('http://127.0.0.1:8000/depannage/api/notifications/', {
         headers: {
@@ -128,12 +128,12 @@ const AdminDashboard: React.FC = () => {
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (notificationsResponse.ok) {
         const notificationsData = await notificationsResponse.json();
         setNotifications(notificationsData.results || notificationsData || []);
       }
-      
+
     } catch (error) {
       console.error('Erreur lors du chargement des données:', error);
     } finally {
@@ -149,7 +149,7 @@ const AdminDashboard: React.FC = () => {
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (response.ok) {
         const techniciansData = await response.json();
         setAvailableTechnicians(techniciansData);
@@ -242,7 +242,7 @@ const AdminDashboard: React.FC = () => {
       </div>
     );
   }
-  
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -252,11 +252,11 @@ const AdminDashboard: React.FC = () => {
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
                 Tableau de bord administrateur
-            </h1>
+              </h1>
               <p className="mt-1 text-sm text-gray-500">
                 Bienvenue, {user?.username}
-            </p>
-              </div>
+              </p>
+            </div>
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => window.location.href = '/admin/users'}
@@ -272,48 +272,48 @@ const AdminDashboard: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Statistiques */}
         {stats && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center">
                 <div className="p-2 bg-blue-100 rounded-lg">
                   <Wrench className="h-6 w-6 text-blue-600" />
-                    </div>
+                </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-500">Total des demandes</p>
                   <p className="text-2xl font-bold text-gray-900">{stats.total_requests}</p>
                 </div>
-                </div>
               </div>
-              
+            </div>
+
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center">
                 <div className="p-2 bg-yellow-100 rounded-lg">
                   <Clock className="h-6 w-6 text-yellow-600" />
-                    </div>
+                </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-500">En attente</p>
                   <p className="text-2xl font-bold text-gray-900">{stats.pending_requests}</p>
                 </div>
-                </div>
               </div>
-              
+            </div>
+
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center">
                 <div className="p-2 bg-orange-100 rounded-lg">
                   <TrendingUp className="h-6 w-6 text-orange-600" />
-                    </div>
+                </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-500">En cours</p>
                   <p className="text-2xl font-bold text-gray-900">{stats.in_progress_requests}</p>
                 </div>
-                </div>
               </div>
-              
+            </div>
+
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center">
                 <div className="p-2 bg-green-100 rounded-lg">
                   <CheckCircle className="h-6 w-6 text-green-600" />
-                    </div>
+                </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-500">Terminées</p>
                   <p className="text-2xl font-bold text-gray-900">{stats.completed_requests}</p>
@@ -344,38 +344,35 @@ const AdminDashboard: React.FC = () => {
             <nav className="-mb-px flex space-x-8 px-6">
               <button
                 onClick={() => setActiveTab('requests')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'requests'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'requests'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 Demandes ({repairRequests.length})
               </button>
               <button
                 onClick={() => setActiveTab('technicians')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'technicians'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'technicians'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 Techniciens
               </button>
               <button
                 onClick={() => setActiveTab('notifications')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'notifications'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'notifications'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 Notifications ({notifications.filter(n => !n.is_read).length})
               </button>
             </nav>
           </div>
 
-                <div className="p-6">
+          <div className="p-6">
             {activeTab === 'requests' && (
               <div>
                 {/* Filtres */}
@@ -383,56 +380,51 @@ const AdminDashboard: React.FC = () => {
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => setFilterStatus('all')}
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        filterStatus === 'all'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
+                      className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'all'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
                     >
                       Toutes
                     </button>
                     <button
                       onClick={() => setFilterStatus('pending')}
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        filterStatus === 'pending'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
+                      className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'pending'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
                     >
                       En attente
                     </button>
                     <button
                       onClick={() => setFilterStatus('assigned')}
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        filterStatus === 'assigned'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
+                      className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'assigned'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
                     >
                       Assignées
                     </button>
                     <button
                       onClick={() => setFilterStatus('in_progress')}
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        filterStatus === 'in_progress'
-                          ? 'bg-orange-100 text-orange-800'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
+                      className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'in_progress'
+                        ? 'bg-orange-100 text-orange-800'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
                     >
                       En cours
                     </button>
                     <button
                       onClick={() => setFilterStatus('completed')}
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        filterStatus === 'completed'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
+                      className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'completed'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
                     >
                       Terminées
                     </button>
+                  </div>
                 </div>
-              </div>
 
                 {/* Liste des demandes */}
                 {filteredRequests.length === 0 ? (
@@ -440,12 +432,12 @@ const AdminDashboard: React.FC = () => {
                     <Wrench className="mx-auto h-12 w-12 text-gray-400" />
                     <h3 className="mt-2 text-sm font-medium text-gray-900">Aucune demande</h3>
                     <p className="mt-1 text-sm text-gray-500">
-                      {filterStatus === 'all' 
+                      {filterStatus === 'all'
                         ? 'Aucune demande de réparation.'
                         : 'Aucune demande avec ce statut.'
                       }
                     </p>
-                </div>
+                  </div>
                 ) : (
                   <div className="space-y-4">
                     {filteredRequests.map((request) => (
@@ -459,23 +451,23 @@ const AdminDashboard: React.FC = () => {
                               </span>
                               <div className={`w-3 h-3 rounded-full ${getPriorityColor(request.priority)}`}></div>
                             </div>
-                            
+
                             <p className="text-gray-600 mb-3">{request.description}</p>
-                            
+
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-500 mb-4">
                               <div>
                                 <span className="font-medium">Spécialité:</span> {request.specialty_needed}
                               </div>
                               <div>
-                                <span className="font-medium">Coût estimé:</span> {request.estimated_cost.toLocaleString()} FCFA
-                        </div>
-                        <div>
+                                <span className="font-medium">Coût estimé:</span> {request.estimated_cost !== undefined && request.estimated_cost !== null ? request.estimated_cost.toLocaleString() : "N/A"} FCFA
+                              </div>
+                              <div>
                                 <span className="font-medium">Créée le:</span> {formatDate(request.created_at)}
-                          </div>
+                              </div>
                               <div>
                                 <span className="font-medium">Client:</span> {request.client.user.username}
-                        </div>
-                      </div>
+                              </div>
+                            </div>
 
                             {/* Informations du client */}
                             <div className="mt-4 p-4 bg-gray-50 rounded-lg">
@@ -488,12 +480,12 @@ const AdminDashboard: React.FC = () => {
                                 <div className="flex items-center space-x-2">
                                   <Phone className="h-4 w-4 text-gray-400" />
                                   <span className="text-sm text-gray-600">{request.client.phone}</span>
-                  </div>
+                                </div>
                                 <div className="flex items-center space-x-2">
                                   <span className="text-sm text-gray-600">{request.client.user.email}</span>
-                </div>
-              </div>
-            </div>
+                                </div>
+                              </div>
+                            </div>
 
                             {/* Informations du technicien assigné */}
                             {request.technician && (
@@ -515,7 +507,7 @@ const AdminDashboard: React.FC = () => {
                                     <span className="text-sm text-gray-600">{request.technician.hourly_rate} FCFA/h</span>
                                   </div>
                                 </div>
-                </div>
+                              </div>
                             )}
 
                             {request.conversation && (
@@ -532,8 +524,8 @@ const AdminDashboard: React.FC = () => {
                                 )}
                               </button>
                             )}
-                            </div>
-                          
+                          </div>
+
                           <div className="flex flex-col space-y-2 ml-4">
                             {request.status === 'pending' && (
                               <button
@@ -543,7 +535,7 @@ const AdminDashboard: React.FC = () => {
                                 Assigner un technicien
                               </button>
                             )}
-                            
+
                             {request.status === 'assigned' && (
                               <button
                                 onClick={() => openAssignModal(request)}
@@ -582,15 +574,14 @@ const AdminDashboard: React.FC = () => {
                     <p className="mt-1 text-sm text-gray-500">
                       Vous n'avez pas encore de notifications.
                     </p>
-                </div>
+                  </div>
                 ) : (
                   <div className="space-y-4">
                     {notifications.map((notification) => (
                       <div
                         key={notification.id}
-                        className={`p-4 rounded-lg border ${
-                          notification.is_read ? 'bg-gray-50 border-gray-200' : 'bg-blue-50 border-blue-200'
-                        }`}
+                        className={`p-4 rounded-lg border ${notification.is_read ? 'bg-gray-50 border-gray-200' : 'bg-blue-50 border-blue-200'
+                          }`}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
@@ -607,7 +598,7 @@ const AdminDashboard: React.FC = () => {
                           {!notification.is_read && (
                             <div className="ml-4">
                               <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                        </div>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -631,7 +622,7 @@ const AdminDashboard: React.FC = () => {
               <p className="text-sm text-gray-500 mb-4">
                 Spécialité requise: {selectedRequest.specialty_needed}
               </p>
-              
+
               {availableTechnicians.length === 0 ? (
                 <p className="text-sm text-gray-500">Aucun technicien disponible pour cette spécialité.</p>
               ) : (
@@ -643,7 +634,7 @@ const AdminDashboard: React.FC = () => {
                       onClick={() => assignTechnician(selectedRequest.id, technician.id)}
                     >
                       <div className="flex justify-between items-center">
-                          <div>
+                        <div>
                           <p className="font-medium text-gray-900">{technician.user.username}</p>
                           <p className="text-sm text-gray-500">{technician.specialty}</p>
                         </div>
@@ -655,11 +646,11 @@ const AdminDashboard: React.FC = () => {
                           <p className="text-sm text-gray-500">{technician.hourly_rate} FCFA/h</p>
                         </div>
                       </div>
-                      </div>
-                    ))}
+                    </div>
+                  ))}
                 </div>
               )}
-              
+
               <div className="mt-6 flex justify-end space-x-3">
                 <button
                   onClick={() => setShowAssignModal(false)}
