@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, MessageSquare, MapPin, Phone, AlertCircle, CheckCircle, Wrench, TrendingUp } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { fetchWithAuth } from '../contexts/fetchWithAuth';
+import TechnicianRequestsMap from '../components/TechnicianRequestsMap';
 
 interface RepairRequest {
   id: number;
@@ -27,6 +29,8 @@ interface RepairRequest {
     id: number;
     unread_count: number;
   };
+  latitude?: number;
+  longitude?: number;
 }
 
 interface DashboardStats {
@@ -45,6 +49,52 @@ interface Notification {
   created_at: string;
 }
 
+// Mapping quartiers -> communes (doit être le même que côté admin)
+const quartierToCommune: Record<string, string> = {
+  'Sotuba': 'Commune I',
+  'Magnambougou': 'Commune VI',
+  'Yirimadio': 'Commune VI',
+  'Sabalibougou': 'Commune V',
+  'Lafiabougou': 'Commune IV',
+  'Badalabougou': 'Commune V',
+  'Hamdallaye': 'Commune IV',
+  'Missira': 'Commune II',
+  'Niamakoro': 'Commune VI',
+  'Banankabougou': 'Commune VI',
+  'Daoudabougou': 'Commune V',
+  'Djicoroni': 'Commune IV',
+  'Sogoniko': 'Commune VI',
+  'Faladié': 'Commune V',
+  'Niaréla': 'Commune II',
+  'Quinzambougou': 'Commune II',
+  'Medina Coura': 'Commune II',
+  'Bacodjicoroni': 'Commune V',
+  'Torokorobougou': 'Commune V',
+  'Sebenicoro': 'Commune IV',
+  'Kalaban Coura': 'Commune V',
+  'Kalabanbougou': 'Commune V',
+  // ... compléter selon besoin
+};
+
+function isCoherent(quartier?: string, city?: string) {
+  if (!quartier || !city) return true;
+  const commune = quartierToCommune[quartier];
+  if (!commune) return true;
+  return city.toLowerCase().includes(commune.toLowerCase());
+}
+
+function extractQuartier(address: string) {
+  if (!address) return '';
+  const parts = address.split(',');
+  return parts[0]?.trim() || '';
+}
+
+function extractCommune(address: string) {
+  if (!address) return '';
+  const parts = address.split(',');
+  return parts[1]?.trim() || '';
+}
+
 const TechnicianDashboard: React.FC = () => {
   const { user, token } = useAuth();
   const [repairRequests, setRepairRequests] = useState<RepairRequest[]>([]);
@@ -53,9 +103,20 @@ const TechnicianDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'requests' | 'notifications'>('requests');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [suggestingRequestId, setSuggestingRequestId] = useState<number | null>(null);
+  const [suggestQuartier, setSuggestQuartier] = useState('');
+  const [suggestCommune, setSuggestCommune] = useState('');
+  const [suggestionsList, setSuggestionsList] = useState<string[]>([]);
+  const [showSuggestionsList, setShowSuggestionsList] = useState(false);
+  const suggestionsListRef = React.useRef<HTMLDivElement>(null);
+  const [suggestionSent, setSuggestionSent] = useState(false);
+  const [showOnlyIncoherent, setShowOnlyIncoherent] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
+    // Debug: afficher les données utilisateur
+    console.log('TechnicianDashboard - User object:', user);
+    console.log('TechnicianDashboard - User.technician:', user?.technician);
   }, []);
 
   const fetchDashboardData = async () => {
@@ -63,7 +124,7 @@ const TechnicianDashboard: React.FC = () => {
       setLoading(true);
 
       // Récupérer les demandes de réparation
-      const requestsResponse = await fetch('http://127.0.0.1:8000/depannage/api/repair-requests/', {
+      const requestsResponse = await fetchWithAuth('http://127.0.0.1:8000/depannage/api/repair-requests/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -76,7 +137,7 @@ const TechnicianDashboard: React.FC = () => {
       }
 
       // Récupérer les statistiques
-      const statsResponse = await fetch('http://127.0.0.1:8000/depannage/api/repair-requests/dashboard_stats/', {
+      const statsResponse = await fetchWithAuth('http://127.0.0.1:8000/depannage/api/repair-requests/dashboard_stats/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -89,7 +150,7 @@ const TechnicianDashboard: React.FC = () => {
       }
 
       // Récupérer les notifications
-      const notificationsResponse = await fetch('http://127.0.0.1:8000/depannage/api/notifications/', {
+      const notificationsResponse = await fetchWithAuth('http://127.0.0.1:8000/depannage/api/notifications/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -176,6 +237,55 @@ const TechnicianDashboard: React.FC = () => {
     if (filterStatus === 'all') return true;
     return request.status === filterStatus;
   });
+
+  // Suggestions auto-complétion pour suggestion
+  const handleSuggestQuartierChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSuggestQuartier(value);
+    if (value.length < 1) {
+      setSuggestionsList([]);
+      setShowSuggestionsList(false);
+      return;
+    }
+    const filtered = Object.keys(quartierToCommune).filter(q => q.toLowerCase().includes(value.toLowerCase()));
+    setSuggestionsList(filtered);
+    setShowSuggestionsList(filtered.length > 0);
+  };
+  const handleSuggestListClick = (quartier: string) => {
+    setSuggestQuartier(quartier);
+    setSuggestionsList([]);
+    setShowSuggestionsList(false);
+    setSuggestCommune(quartierToCommune[quartier] || '');
+  };
+  // Fermer suggestions si clic en dehors
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (suggestionsListRef.current && !suggestionsListRef.current.contains(event.target as Node)) {
+        setShowSuggestionsList(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+  // Envoi suggestion
+  const handleSendSuggestion = async (requestId: number) => {
+    try {
+      await fetchWithAuth(`http://127.0.0.1:8000/depannage/api/repair-requests/${requestId}/suggest_correction/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quartier: suggestQuartier, commune: suggestCommune })
+      });
+      setSuggestionSent(true);
+      setTimeout(() => setSuggestionSent(false), 3000);
+      setSuggestingRequestId(null);
+      setSuggestQuartier('');
+      setSuggestCommune('');
+    } catch (e) {
+      alert('Erreur lors de l\'envoi de la suggestion');
+    }
+  };
 
   if (loading) {
     return (
@@ -339,6 +449,33 @@ const TechnicianDashboard: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Carte des interventions (à placer à l'endroit où la carte est affichée) */}
+                <div className="flex items-center mb-2">
+                  <input
+                    type="checkbox"
+                    id="showOnlyIncoherent"
+                    checked={showOnlyIncoherent}
+                    onChange={e => setShowOnlyIncoherent(e.target.checked)}
+                    className="mr-2"
+                  />
+                  <label htmlFor="showOnlyIncoherent" className="text-sm">Afficher uniquement les incohérences</label>
+                </div>
+                <TechnicianRequestsMap
+                  requests={repairRequests.map(req => ({
+                    id: req.id,
+                    latitude: req.latitude,
+                    longitude: req.longitude,
+                    address: req.client.address,
+                    city: extractCommune(req.client.address),
+                    quartier: extractQuartier(req.client.address),
+                    client: req.client.user.email,
+                    service: req.title,
+                    status: req.status,
+                    is_urgent: req.priority === 'urgent',
+                  }))}
+                  showOnlyIncoherent={showOnlyIncoherent}
+                />
+
                 {/* Liste des demandes */}
                 {filteredRequests.length === 0 ? (
                   <div className="text-center py-12">
@@ -388,7 +525,69 @@ const TechnicianDashboard: React.FC = () => {
                               <div className="flex items-center space-x-4">
                                 <div className="flex items-center space-x-2">
                                   <MapPin className="h-4 w-4 text-gray-400" />
-                                  <span className="text-sm text-gray-600">{request.client.address}</span>
+                                  <span className="text-sm text-gray-600">
+                                    {request.client.address}
+                                    {/* Badge incohérence */}
+                                    {!isCoherent(extractQuartier(request.client.address), extractCommune(request.client.address)) && (
+                                      <>
+                                        <span className="inline-block bg-red-600 text-white text-xs font-bold px-2 py-1 rounded ml-2">Incohérence quartier/commune</span>
+                                        <button
+                                          className="ml-2 text-xs text-blue-700 underline hover:text-blue-900"
+                                          onClick={() => {
+                                            setSuggestingRequestId(request.id);
+                                            setSuggestQuartier('');
+                                            setSuggestCommune('');
+                                          }}
+                                        >Suggérer correction</button>
+                                        {suggestingRequestId === request.id && (
+                                          <div className="mt-2 flex flex-col gap-2 bg-blue-50 p-2 rounded shadow max-w-xs">
+                                            <label className="text-xs font-semibold">Quartier</label>
+                                            <div className="relative">
+                                              <input
+                                                type="text"
+                                                className="w-full p-1 border border-gray-300 rounded"
+                                                value={suggestQuartier}
+                                                onChange={handleSuggestQuartierChange}
+                                                placeholder="Quartier correct"
+                                              />
+                                              {showSuggestionsList && suggestionsList.length > 0 && (
+                                                <div ref={suggestionsListRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-40 overflow-y-auto">
+                                                  {suggestionsList.map((quartier, idx) => (
+                                                    <div
+                                                      key={quartier}
+                                                      className="px-2 py-1 hover:bg-blue-50 cursor-pointer text-xs"
+                                                      onClick={() => handleSuggestListClick(quartier)}
+                                                    >
+                                                      {quartier}
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              )}
+                                            </div>
+                                            <label className="text-xs font-semibold">Commune</label>
+                                            <input
+                                              type="text"
+                                              className="w-full p-1 border border-gray-300 rounded"
+                                              value={suggestCommune}
+                                              onChange={e => setSuggestCommune(e.target.value)}
+                                              placeholder="Commune correcte"
+                                            />
+                                            <button
+                                              className="mt-2 bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3 py-1 rounded"
+                                              onClick={() => handleSendSuggestion(request.id)}
+                                            >Envoyer</button>
+                                            <button
+                                              className="mt-1 text-xs text-gray-500 underline"
+                                              onClick={() => setSuggestingRequestId(null)}
+                                            >Annuler</button>
+                                            {suggestionSent && (
+                                              <div className="text-green-700 text-xs mt-2">Suggestion envoyée à l'administrateur !</div>
+                                            )}
+                                          </div>
+                                        )}
+                                      </>
+                                    )}
+                                  </span>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                   <Phone className="h-4 w-4 text-gray-400" />
@@ -418,6 +617,50 @@ const TechnicianDashboard: React.FC = () => {
                             )}
 
                             {/* Actions selon le statut */}
+                            {request.status === 'pending' && (
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      // Récupérer l'ID du technicien depuis les données utilisateur
+                                      const technicianId = user.technician?.id;
+                                      if (!technicianId) {
+                                        alert('Erreur: ID du technicien non trouvé');
+                                        return;
+                                      }
+
+                                      console.log('Tentative d\'assignation avec technician_id:', technicianId);
+
+                                      const response = await fetch(`http://127.0.0.1:8000/depannage/api/repair-requests/${request.id}/assign_technician/`, {
+                                        method: 'POST',
+                                        headers: {
+                                          'Authorization': `Bearer ${token}`,
+                                          'Content-Type': 'application/json',
+                                        },
+                                        body: JSON.stringify({ technician_id: technicianId }),
+                                      });
+
+                                      if (response.ok) {
+                                        const result = await response.json();
+                                        console.log('Assignation réussie:', result);
+                                        fetchDashboardData();
+                                      } else {
+                                        const errorData = await response.json();
+                                        console.error('Erreur lors de l\'acceptation:', errorData);
+                                        alert(`Erreur lors de l'acceptation de la demande: ${errorData.error || 'Erreur inconnue'}`);
+                                      }
+                                    } catch (e) {
+                                      console.error('Erreur lors de l\'acceptation de la demande:', e);
+                                      alert('Erreur lors de l\'acceptation de la demande');
+                                    }
+                                  }}
+                                  className="inline-flex items-center px-3 py-2 border border-blue-600 text-blue-600 rounded-full hover:bg-blue-50 transition-colors text-sm"
+                                >
+                                  Accepter
+                                </button>
+                              </div>
+                            )}
+
                             {request.status === 'assigned' && (
                               <button
                                 onClick={() => updateRequestStatus(request.id, 'in_progress')}

@@ -48,6 +48,7 @@ class TechnicianSerializer(serializers.ModelSerializer):
 class RepairRequestSerializer(serializers.ModelSerializer):
     client = ClientSerializer(read_only=True)
     technician = TechnicianSerializer(read_only=True)
+    payment_status = serializers.SerializerMethodField()
     
     class Meta:
         model = RepairRequest
@@ -56,9 +57,16 @@ class RepairRequestSerializer(serializers.ModelSerializer):
             'specialty_needed', 'priority', 'status', 'address', 'latitude', 'longitude',
             'preferred_date', 'assigned_at', 'started_at', 'completed_at',
             'estimated_price', 'final_price', 'travel_cost',
-            'created_at', 'updated_at'
+            'is_urgent', 'city', 'postalCode', 'date', 'time', 'service_type',
+            'created_at', 'updated_at', 'payment_status'
         ]
         read_only_fields = ['id', 'uuid', 'created_at', 'updated_at', 'assigned_at', 'started_at', 'completed_at']
+
+    def get_payment_status(self, obj):
+        latest_payment = obj.cinetpay_payments.order_by('-created_at').first()
+        if latest_payment:
+            return latest_payment.status
+        return 'non payé'
 
 
 class RequestDocumentSerializer(serializers.ModelSerializer):
@@ -168,21 +176,26 @@ class SystemConfigurationSerializer(serializers.ModelSerializer):
 # Serializers pour les actions spéciales
 class RepairRequestCreateSerializer(serializers.ModelSerializer):
     """Serializer pour la création de demandes de réparation."""
-    
-    # Champs du frontend (non présents dans le modèle)
-    service_type = serializers.CharField(required=False, help_text="Type de service (sera mappé vers specialty_needed)")
-    date = serializers.DateField(required=False, help_text="Date souhaitée")
-    time = serializers.TimeField(required=False, help_text="Heure souhaitée")
-    is_urgent = serializers.BooleanField(default=False, help_text="Demande urgente")
-    city = serializers.CharField(required=False, help_text="Ville (sera ajoutée à l'adresse)")
-    postalCode = serializers.CharField(required=False, help_text="Code postal (sera ajouté à l'adresse)")
+    # Champs d'aide frontend (acceptés en entrée, jamais renvoyés en sortie)
+    is_urgent = serializers.BooleanField(required=False, write_only=True)
+    city = serializers.CharField(required=False, write_only=True)
+    postalCode = serializers.CharField(required=False, write_only=True)
+    date = serializers.DateField(required=False, write_only=True)
+    time = serializers.TimeField(required=False, write_only=True)
+    service_type = serializers.CharField(required=False, write_only=True)
+    # Champs du modèle manquants
+    urgency_level = serializers.ChoiceField(choices=RepairRequest.UrgencyLevel.choices, required=False)
+    min_experience_level = serializers.ChoiceField(choices=Technician.ExperienceLevel.choices, required=False)
+    min_rating = serializers.IntegerField(required=False, min_value=1, max_value=5)
+    latitude = serializers.FloatField(required=False)
+    longitude = serializers.FloatField(required=False)
     
     class Meta:
         model = RepairRequest
         fields = [
             'title', 'description', 'address', 'specialty_needed', 'priority', 'estimated_price',
-            # Champs supplémentaires du frontend (non dans le modèle)
-            'date', 'time', 'is_urgent', 'service_type', 'city', 'postalCode'
+            'urgency_level', 'min_experience_level', 'min_rating', 'latitude', 'longitude',
+            'is_urgent', 'city', 'postalCode', 'date', 'time', 'service_type'
         ]
         extra_kwargs = {
             'title': {'required': False},
@@ -194,12 +207,10 @@ class RepairRequestCreateSerializer(serializers.ModelSerializer):
         # Mapper service_type vers specialty_needed
         if 'service_type' in data and not data.get('specialty_needed'):
             data['specialty_needed'] = data['service_type']
-        
         # Créer un titre si non fourni
         if not data.get('title'):
             service_name = data.get('specialty_needed', 'Service')
             data['title'] = f"Demande de {service_name}"
-        
         # Construire l'adresse complète avec ville et code postal
         address_parts = []
         if data.get('address'):
@@ -208,23 +219,19 @@ class RepairRequestCreateSerializer(serializers.ModelSerializer):
             address_parts.append(data['city'])
         if data.get('postalCode'):
             address_parts.append(data['postalCode'])
-        
         if address_parts:
             data['address'] = ', '.join(address_parts)
-        
         # Combiner date et time en preferred_date
         if data.get('date') and data.get('time'):
             from django.utils import timezone
             import datetime
             combined_datetime = datetime.datetime.combine(data['date'], data['time'])
             data['preferred_date'] = timezone.make_aware(combined_datetime)
-        
         # Définir la priorité basée sur is_urgent
         if data.get('is_urgent'):
             data['priority'] = 'high'
         elif 'priority' not in data:
             data['priority'] = 'medium'
-        
         return data
 
 
@@ -303,6 +310,7 @@ class CinetPayInitiationSerializer(serializers.Serializer):
     request_id = serializers.IntegerField(help_text="ID de la demande de réparation")
     amount = serializers.DecimalField(max_digits=10, decimal_places=2, help_text="Montant du paiement")
     description = serializers.CharField(max_length=500, help_text="Description du paiement")
+    phone = serializers.CharField(max_length=20, required=False, help_text="Numéro de téléphone du client (optionnel)")
     
     def validate_amount(self, value):
         """Valide que le montant est un multiple de 5."""
@@ -331,27 +339,40 @@ class CinetPayNotificationSerializer(serializers.Serializer):
         return value 
     
 
-class RepairRequestCreateSerializer(serializers.ModelSerializer):
-    client = serializers.PrimaryKeyRelatedField(
-        queryset=Client.objects.all(),
-        default=serializers.CurrentUserDefault()
-    )
+class TechnicianNearbySerializer(serializers.ModelSerializer):
+    """Serializer pour les techniciens proches avec calcul de distance."""
+    
+    user = serializers.SerializerMethodField()
+    distance = serializers.SerializerMethodField()
+    average_rating = serializers.SerializerMethodField()
+    city = serializers.SerializerMethodField()
     
     class Meta:
-        model = RepairRequest
+        model = Technician
         fields = [
-            'client', 'title', 'description', 'specialty_needed',
-            'address', 'preferred_date', 'is_urgent', 'priority',
-            'estimated_price'
+            'id', 'user', 'specialty', 'years_experience', 'hourly_rate',
+            'is_available', 'is_verified', 'distance', 'average_rating', 'city'
         ]
-        extra_kwargs = {
-            'client': {'read_only': True},
+    
+    def get_user(self, obj):
+        return {
+            'id': obj.user.id,
+            'first_name': obj.user.first_name,
+            'last_name': obj.user.last_name,
+            'email': obj.user.email,
+            'username': obj.user.username,
         }
 
-    def validate(self, data):
-        user = self.context['request'].user
-        if not hasattr(user, 'client_profile'):
-            raise serializers.ValidationError("L'utilisateur n'a pas de profil client")
-        
-        data['client'] = user.client_profile
-        return data
+    def get_distance(self, obj):
+        """Retourne la distance calculée en km."""
+        return getattr(obj, 'distance_km', None)
+    
+    def get_average_rating(self, obj):
+        """Retourne la note moyenne du technicien."""
+        return obj.average_rating
+    
+    def get_city(self, obj):
+        """Retourne la ville du technicien (extrait de l'adresse)."""
+        # Pour l'instant, on retourne une ville par défaut
+        # En production, on pourrait extraire la ville de l'adresse du technicien
+        return "Abidjan"  # À adapter selon vos besoins

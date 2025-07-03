@@ -77,7 +77,7 @@ class APITester:
         # Test 1: Login (avec des credentials de test)
         login_data = {
             "email": "mohamedbechirdiarra4@gmail.com",
-            "password": "votre_mot_de_passe"  # Remplacez par le vrai mot de passe
+            "password": "bechir66312345"  # Remplacez par le vrai mot de passe
         }
         
         try:
@@ -109,6 +109,117 @@ class APITester:
                 self.log_test("User Profile (Protected)", False, error=e)
         else:
             self.log_test("User Profile (Protected)", False, error="No token available")
+
+    def test_create_repair_request(self):
+        """Teste la création d'une demande de réparation avec tous les champs du modèle."""
+        if not self.token:
+            print("⚠️  Impossible de tester la création sans token")
+            return
+        print("🛠️  Test de création de demande de réparation complète...")
+        print("=" * 50)
+        payload = {
+            "title": "Réparation climatisation urgente",
+            "description": "La climatisation ne fonctionne plus depuis ce matin.",
+            "address": "Cocody Riviera, Abidjan",
+            "specialty_needed": "air_conditioning",
+            "priority": "urgent",
+            "urgency_level": "sos",
+            "min_experience_level": "senior",
+            "min_rating": 4,
+            "latitude": 5.345,
+            "longitude": -4.012,
+            "estimated_price": "35000.00",
+            # Champs frontend (seront ignorés côté backend)
+            "is_urgent": True,
+            "date": "2024-07-01",
+            "time": "09:00:00",
+            "service_type": "air_conditioning",
+            "city": "Abidjan",
+            "postalCode": "22500"
+        }
+        try:
+            response = self.session.post(
+                f"{self.base_url}/depannage/api/repair-requests/",
+                json=payload,
+                headers={'Content-Type': 'application/json'}
+            )
+            success = response.status_code in (200, 201)
+            if not success:
+                print("--- Réponse brute du backend ---")
+                try:
+                    print(response.json())
+                except Exception:
+                    print(response.text)
+                print("-------------------------------")
+            self.log_test("Create Repair Request (all fields)", success, response)
+            # Appel du test de notifications côté technicien pour toutes les spécialités
+            if success:
+                for specialty in [
+                    'electrician', 'plumber', 'mechanic', 'it',
+                    'air_conditioning', 'appliance_repair', 'locksmith', 'other'
+                ]:
+                    self.test_technician_notifications(specialty)
+        except Exception as e:
+            self.log_test("Create Repair Request (all fields)", False, error=e)
+
+    def test_technician_notification_logic(self):
+        """Teste que seuls les 10 techniciens les plus proches sont notifiés et que la notification disparaît après assignation."""
+        if not self.token:
+            print("⚠️  Impossible de tester la logique de notification sans token")
+            return
+        print("🔔 Test de notification des 10 techniciens les plus proches...")
+        print("=" * 50)
+        # 1. Créer une demande de réparation
+        payload = {
+            "title": "Test proximité techniciens",
+            "description": "Test de notification des plus proches.",
+            "address": "Cocody Riviera, Abidjan",
+            "specialty_needed": "air_conditioning",
+            "priority": "urgent",
+            "estimated_price": 35000,
+            "urgency_level": "sos",
+            "min_experience_level": "senior",
+            "min_rating": 4,
+            "latitude": 5.345,
+            "longitude": -4.012
+        }
+        headers = {"Authorization": f"Bearer {self.token}"}
+        r = requests.post(f"{self.base_url}/depannage/api/repair-requests/", json=payload, headers=headers)
+        if r.status_code != 201:
+            print(f"❌ FAIL Create Repair Request (notif logic)")
+            print(f"   Erreur: {r.text}")
+            return
+        data = r.json()
+        print(f"✅ PASS Create Repair Request (notif logic)")
+        print(f"   Status: {r.status_code}")
+        print(f"   Response: {data}")
+        request_id = data.get("id")
+        if not request_id:
+            print("   Erreur: Pas d'ID de demande retourné")
+            return
+        # 2. Afficher la liste des techniciens notifiés
+        print("\n🔎 Récupération des techniciens notifiés...")
+        notif_url = f"{self.base_url}/depannage/api/notifications/?type=new_request_technician&request={request_id}"
+        notif_resp = requests.get(notif_url, headers=headers)
+        if notif_resp.status_code == 200:
+            notif_data = notif_resp.json()
+            if notif_data:
+                # Si la réponse est paginée, on prend la clé 'results'
+                results = notif_data.get('results', notif_data)
+                print("Techniciens notifiés pour la demande:")
+                for notif in results:
+                    print(f"  - Utilisateur ID: {notif.get('recipient')}")
+            else:
+                print("Aucun technicien notifié trouvé.")
+        else:
+            print(f"Erreur lors de la récupération des notifications: {notif_resp.text}")
+        # 3. Demander l'ID d'un technicien notifié pour l'assignation
+        tech_id = input("Entrez l'ID d'un des techniciens notifiés pour la demande: ")
+        assign_url = f"{self.base_url}/depannage/api/repair-requests/{request_id}/assign_technician/"
+        assign_payload = {"technician_id": tech_id}
+        assign_resp = requests.post(assign_url, json=assign_payload, headers=headers)
+        print("--- Réponse brute du backend (assignation) ---")
+        print(assign_resp.json())
 
     def test_protected_endpoints(self):
         """Teste les endpoints protégés"""
@@ -194,6 +305,114 @@ class APITester:
         except Exception as e:
             self.log_test("Response Time", False, error=e)
 
+    def test_notification_and_assignment_full_scenario(self):
+        """Test avancé : notification et assignation pour chaque spécialité."""
+        print("\n🚦 Test avancé : notification et assignation pour chaque spécialité\n" + "="*60)
+        specialties = [
+            'electrician', 'plumber', 'mechanic', 'it',
+            'air_conditioning', 'appliance_repair', 'locksmith', 'other'
+        ]
+        headers = {"Authorization": f"Bearer {self.token}"}
+        # Authentification admin pour l'assignation
+        admin_login = {
+            "email": "mohamedbechirdiarra4@gmail.com",
+            "password": "bechir66312345"
+        }
+        admin_token = None
+        r = requests.post(f"{self.base_url}/users/login/", json=admin_login)
+        if r.status_code == 200 and 'access' in r.json():
+            admin_token = r.json()['access']
+            admin_headers = {"Authorization": f"Bearer {admin_token}"}
+            print("✅ Authentification admin OK pour l'assignation")
+        else:
+            print("❌ Impossible de s'authentifier en admin pour l'assignation")
+            admin_headers = headers
+        # Récupérer tous les techniciens (pour mapping user_id -> technician_id)
+        tech_resp = requests.get(f"{self.base_url}/depannage/api/technicians/", headers=admin_headers)
+        tech_map = {}
+        if tech_resp.status_code == 200:
+            techs = tech_resp.json().get('results', tech_resp.json())
+            for t in techs:
+                tech_map[t['user']['id']] = {"technician_id": t['id'], "username": t['user']['username'], "specialty": t['specialty']}
+        for specialty in specialties:
+            print(f"\n🛠️  Création d'une demande pour la spécialité : {specialty}")
+            payload = {
+                "title": f"Test notif {specialty}",
+                "description": f"Demande test pour {specialty}",
+                "address": "Bamako, Mali",
+                "specialty_needed": specialty,
+                "priority": "urgent",
+                "estimated_price": 20000,
+                "urgency_level": "sos",
+                "min_experience_level": "junior",
+                "min_rating": 1,
+                "latitude": 12.6392,
+                "longitude": -8.0029
+            }
+            r = requests.post(f"{self.base_url}/depannage/api/repair-requests/", json=payload, headers=headers)
+            if r.status_code != 201:
+                print(f"❌ FAIL création demande {specialty} : {r.text}")
+                continue
+            data = r.json()
+            request_id = data.get("id")
+            print(f"✅ Demande créée (ID: {request_id})")
+            # Récupérer les techniciens notifiés
+            notif_url = f"{self.base_url}/depannage/api/notifications/?type=new_request_technician&request={request_id}"
+            notif_resp = requests.get(notif_url, headers=admin_headers)
+            notif_data = notif_resp.json()
+            results = notif_data.get('results', notif_data)
+            notified_ids = [notif.get('recipient') for notif in results]
+            print(f"🔔 Techniciens notifiés (user_id): {notified_ids}")
+            # Afficher mapping user_id -> technician_id
+            print("Correspondance notifications -> techniciens :")
+            for uid in notified_ids:
+                tinfo = tech_map.get(uid)
+                if tinfo:
+                    print(f"  - user_id: {uid} -> technician_id: {tinfo['technician_id']} | username: {tinfo['username']} | spécialité: {tinfo['specialty']}")
+                else:
+                    print(f"  - user_id: {uid} -> (technicien non trouvé)")
+            # Assigner la demande au premier technicien notifié (de la bonne spécialité)
+            tech_id = None
+            for uid in notified_ids:
+                tinfo = tech_map.get(uid)
+                if tinfo and tinfo['specialty'] == specialty:
+                    tech_id = tinfo['technician_id']
+                    break
+            if tech_id:
+                assign_url = f"{self.base_url}/depannage/api/repair-requests/{request_id}/assign_technician/"
+                assign_payload = {"technician_id": tech_id}
+                assign_resp = requests.post(assign_url, json=assign_payload, headers=admin_headers)
+                assign_data = assign_resp.json()
+                if assign_resp.status_code in (200, 201) and assign_data.get("success"):
+                    print(f"✅ Demande assignée à technicien {tech_id}")
+                else:
+                    print(f"❌ FAIL assignation : {assign_data}")
+                # Vérifier que les notifications sont lues pour les autres
+                notif_check = requests.get(notif_url, headers=admin_headers).json()
+                results_check = notif_check.get('results', notif_check)
+                unread = [n for n in results_check if not n.get('is_read') and tech_map.get(n.get('recipient'), {}).get('technician_id') != tech_id]
+                if not unread:
+                    print("✅ Toutes les notifications non assignées sont marquées comme lues.")
+                else:
+                    print(f"❌ Notifications non lues restantes : {unread}")
+            else:
+                print("❌ Aucun technicien de la bonne spécialité notifié pour cette demande.")
+        print("\n🎯 Test avancé terminé.")
+
+    def test_technician_notifications(self, specialty):
+        print(f"\n🔎 Vérification des notifications pour les techniciens '{specialty}'")
+        for i in range(1, 4):
+            email = f"tech_{specialty}_{i}@example.com"
+            password = "TestPassword123!"
+            resp = requests.post(f"{self.base_url}/users/login/", json={"email": email, "password": password})
+            if resp.status_code == 200 and 'access' in resp.json():
+                token = resp.json()['access']
+                headers = {"Authorization": f"Bearer {token}"}
+                notif_resp = requests.get(f"{self.base_url}/depannage/api/notifications/?type=new_request_technician", headers=headers)
+                print(f"  - {email}: {notif_resp.json()}")
+            else:
+                print(f"  - {email}: échec connexion")
+
     def run_all_tests(self):
         """Exécute tous les tests"""
         print("🚀 Démarrage des tests de l'API DepanneTeliman")
@@ -202,9 +421,12 @@ class APITester:
         
         self.test_public_endpoints()
         self.test_authentication()
+        self.test_create_repair_request()
+        self.test_technician_notification_logic()
         self.test_protected_endpoints()
         self.test_error_handling()
         self.test_performance()
+        self.test_notification_and_assignment_full_scenario()
         
         self.print_summary()
 

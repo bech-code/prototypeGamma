@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Star, Clock, FileText, CreditCard, MessageSquare, Phone, AlertCircle, CheckCircle } from 'lucide-react';
+import { Calendar, Star, Clock, FileText, CreditCard, MessageSquare, Phone, AlertCircle, CheckCircle, MapPin } from 'lucide-react';
+import TechnicianMap from '../components/TechnicianMap';
 import { useAuth } from '../contexts/AuthContext';
 // import { Link } from 'react-router-dom'; // Removed for artifact compatibility
 import AnimatedBackground from '../components/AnimatedBackground';
 import customerVideo from '../assets/video/customer1-bg.mp4';
+import { fetchWithAuth } from '../contexts/fetchWithAuth';
 
 interface RepairRequest {
   id: number;
@@ -32,6 +34,11 @@ interface RepairRequest {
     id: number;
     unread_count: number;
   };
+  client: {
+    address: string;
+  };
+  payment_status: string;
+  estimated_price: number;
 }
 
 interface DashboardStats {
@@ -57,6 +64,113 @@ const CustomerDashboard = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showOnlyIncoherent, setShowOnlyIncoherent] = useState(false);
+
+  // Mapping quartiers -> communes (doit être le même que côté admin/technicien)
+  const quartierToCommune: Record<string, string> = {
+    'Sotuba': 'Commune I',
+    'Magnambougou': 'Commune VI',
+    'Yirimadio': 'Commune VI',
+    'Sabalibougou': 'Commune V',
+    'Lafiabougou': 'Commune IV',
+    'Badalabougou': 'Commune V',
+    'Hamdallaye': 'Commune IV',
+    'Missira': 'Commune II',
+    'Niamakoro': 'Commune VI',
+    'Banankabougou': 'Commune VI',
+    'Daoudabougou': 'Commune V',
+    'Djicoroni': 'Commune IV',
+    'Sogoniko': 'Commune VI',
+    'Faladié': 'Commune V',
+    'Niaréla': 'Commune II',
+    'Quinzambougou': 'Commune II',
+    'Medina Coura': 'Commune II',
+    'Bacodjicoroni': 'Commune V',
+    'Torokorobougou': 'Commune V',
+    'Sebenicoro': 'Commune IV',
+    'Kalaban Coura': 'Commune V',
+    'Kalabanbougou': 'Commune V',
+    // ... compléter selon besoin
+  };
+
+  function isCoherent(quartier?: string, city?: string) {
+    if (!quartier || !city) return true;
+    const commune = quartierToCommune[quartier];
+    if (!commune) return true;
+    return city.toLowerCase().includes(commune.toLowerCase());
+  }
+
+  function extractQuartier(address: string) {
+    if (!address) return '';
+    const parts = address.split(',');
+    return parts[0]?.trim() || '';
+  }
+
+  function extractCommune(address: string) {
+    if (!address) return '';
+    const parts = address.split(',');
+    return parts[1]?.trim() || '';
+  }
+
+  const [suggestingRequestId, setSuggestingRequestId] = useState<number | null>(null);
+  const [suggestQuartier, setSuggestQuartier] = useState('');
+  const [suggestCommune, setSuggestCommune] = useState('');
+  const [suggestionsList, setSuggestionsList] = useState<string[]>([]);
+  const [showSuggestionsList, setShowSuggestionsList] = useState(false);
+  const suggestionsListRef = React.useRef<HTMLDivElement>(null);
+  const [suggestionSent, setSuggestionSent] = useState(false);
+
+  // Suggestions auto-complétion pour suggestion
+  const handleSuggestQuartierChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSuggestQuartier(value);
+    if (value.length < 1) {
+      setSuggestionsList([]);
+      setShowSuggestionsList(false);
+      return;
+    }
+    const filtered = Object.keys(quartierToCommune).filter(q => q.toLowerCase().includes(value.toLowerCase()));
+    setSuggestionsList(filtered);
+    setShowSuggestionsList(filtered.length > 0);
+  };
+
+  const handleSuggestListClick = (quartier: string) => {
+    setSuggestQuartier(quartier);
+    setSuggestionsList([]);
+    setShowSuggestionsList(false);
+    setSuggestCommune(quartierToCommune[quartier] || '');
+  };
+
+  // Fermer suggestions si clic en dehors
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (suggestionsListRef.current && !suggestionsListRef.current.contains(event.target as Node)) {
+        setShowSuggestionsList(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Envoi suggestion
+  const handleSendSuggestion = async (requestId: number) => {
+    try {
+      await fetchWithAuth(`http://127.0.0.1:8000/depannage/api/repair-requests/${requestId}/suggest_correction/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quartier: suggestQuartier, commune: suggestCommune })
+      });
+      setSuggestionSent(true);
+      setTimeout(() => setSuggestionSent(false), 3000);
+      setSuggestingRequestId(null);
+      setSuggestQuartier('');
+      setSuggestCommune('');
+    } catch (e) {
+      alert('Erreur lors de l\'envoi de la suggestion');
+    }
+  };
 
   useEffect(() => {
     fetchData();
@@ -71,22 +185,22 @@ const CustomerDashboard = () => {
       };
 
       // Fetch repair requests
-      const requestsResponse = await fetch('http://127.0.0.1:8000/depannage/api/repair-requests/', { headers });
+      const requestsResponse = await fetchWithAuth('http://127.0.0.1:8000/depannage/api/repair-requests/', { headers });
       const requestsData = await requestsResponse.json();
-      
+
       if (requestsResponse.ok) {
         setRepairRequests(requestsData.results || requestsData);
       }
 
       // Fetch notifications
-      const notificationsResponse = await fetch('http://localhost:8000/depannage/api/notifications/', { headers });
+      const notificationsResponse = await fetchWithAuth('http://localhost:8000/depannage/api/notifications/', { headers });
       if (notificationsResponse.ok) {
         const notificationsData = await notificationsResponse.json();
         setNotifications(notificationsData.results || notificationsData || []);
       }
 
       // Fetch stats
-      const statsResponse = await fetch('http://127.0.0.1:8000/depannage/api/repair-requests/dashboard_stats/', { headers });
+      const statsResponse = await fetchWithAuth('http://127.0.0.1:8000/depannage/api/repair-requests/dashboard_stats/', { headers });
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
         setStats(statsData);
@@ -103,7 +217,7 @@ const CustomerDashboard = () => {
     if (filterStatus === 'all') return true;
     return request.status === filterStatus;
   });
-  
+
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       'pending': { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'En attente' },
@@ -112,7 +226,7 @@ const CustomerDashboard = () => {
       'completed': { bg: 'bg-green-100', text: 'text-green-800', label: 'Terminée' },
       'cancelled': { bg: 'bg-red-100', text: 'text-red-800', label: 'Annulée' }
     };
-    
+
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
     return (
       <span className={`px-2 py-1 ${config.bg} ${config.text} rounded-full text-xs font-medium`}>
@@ -149,12 +263,12 @@ const CustomerDashboard = () => {
       </div>
     );
   }
-  
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
       <section className="relative text-white py-24 overflow-hidden">
-        <AnimatedBackground 
+        <AnimatedBackground
           videoSrc={customerVideo}
           overlayColor="rgba(0, 0, 0, 0.3)"
         />
@@ -162,11 +276,11 @@ const CustomerDashboard = () => {
           <div className="max-w-4xl mx-auto text-center">
             <h1 className="text-3xl md:text-4xl font-bold mb-4">
               Bienvenue, {user && user.first_name ? user.first_name : 'Utilisateurs'} !
-              </h1>
+            </h1>
             <p className="text-lg text-white mb-6">
               Gérez vos demandes de réparation et suivez leur progression.
             </p>
-            <button 
+            <button
               className="inline-flex items-center px-6 py-3 bg-white text-blue-700 rounded-full font-medium hover:bg-blue-50 transition-colors duration-200 shadow-sm"
               onClick={() => window.location.href = '/booking'}
             >
@@ -179,33 +293,42 @@ const CustomerDashboard = () => {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto">
+          {/* Carte de recherche de technicien */}
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-10 border border-gray-100 p-6">
+            <div className="flex items-center mb-4">
+              <MapPin className="h-6 w-6 text-blue-600 mr-2" />
+              <h2 className="text-xl font-semibold">Trouver un technicien proche</h2>
+            </div>
+            <TechnicianMap />
+          </div>
+
           {/* Stats Cards */}
           {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-            <div className="bg-white text-gray-800 rounded-xl shadow-sm p-6 border border-gray-100">
-              <div className="flex justify-between items-center mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+              <div className="bg-white text-gray-800 rounded-xl shadow-sm p-6 border border-gray-100">
+                <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold">Demandes actives</h3>
                   <Clock className="h-6 w-6 text-blue-600" />
-              </div>
-              <p className="text-3xl font-bold mb-2 text-blue-600">
+                </div>
+                <p className="text-3xl font-bold mb-2 text-blue-600">
                   {stats.active_requests}
-              </p>
+                </p>
                 <p className="text-gray-500">En cours de traitement</p>
-            </div>
-            
-            <div className="bg-white text-gray-800 rounded-xl shadow-sm p-6 border border-gray-100">
-              <div className="flex justify-between items-center mb-4">
+              </div>
+
+              <div className="bg-white text-gray-800 rounded-xl shadow-sm p-6 border border-gray-100">
+                <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold">Demandes terminées</h3>
                   <CheckCircle className="h-6 w-6 text-green-500" />
-              </div>
+                </div>
                 <p className="text-3xl font-bold mb-2 text-green-500">
                   {stats.completed_requests}
-              </p>
-              <p className="text-gray-500">Services complétés</p>
-            </div>
-            
-            <div className="bg-white text-gray-800 rounded-xl shadow-sm p-6 border border-gray-100">
-              <div className="flex justify-between items-center mb-4">
+                </p>
+                <p className="text-gray-500">Services complétés</p>
+              </div>
+
+              <div className="bg-white text-gray-800 rounded-xl shadow-sm p-6 border border-gray-100">
+                <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold">Total des demandes</h3>
                   <MessageSquare className="h-6 w-6 text-purple-600" />
                 </div>
@@ -216,34 +339,32 @@ const CustomerDashboard = () => {
               </div>
             </div>
           )}
-          
+
           {/* Main Content Section */}
           <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-10 border border-gray-100">
             <div className="border-b border-gray-100">
               <nav className="flex overflow-x-auto">
                 <button
                   onClick={() => setActiveTab('requests')}
-                  className={`px-6 py-4 text-sm font-medium whitespace-nowrap ${
-                    activeTab === 'requests'
-                      ? 'border-b-2 border-blue-600 text-blue-600'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
+                  className={`px-6 py-4 text-sm font-medium whitespace-nowrap ${activeTab === 'requests'
+                    ? 'border-b-2 border-blue-600 text-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                    }`}
                 >
                   Mes demandes ({repairRequests.length})
                 </button>
                 <button
                   onClick={() => setActiveTab('notifications')}
-                  className={`px-6 py-4 text-sm font-medium whitespace-nowrap ${
-                    activeTab === 'notifications'
-                      ? 'border-b-2 border-blue-600 text-blue-600'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
+                  className={`px-6 py-4 text-sm font-medium whitespace-nowrap ${activeTab === 'notifications'
+                    ? 'border-b-2 border-blue-600 text-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                    }`}
                 >
                   Notifications ({notifications.filter(n => !n.is_read).length})
                 </button>
               </nav>
             </div>
-            
+
             <div className="p-6">
               {activeTab === 'requests' && (
                 <div>
@@ -252,51 +373,46 @@ const CustomerDashboard = () => {
                     <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => setFilterStatus('all')}
-                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                          filterStatus === 'all'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
+                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${filterStatus === 'all'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
                       >
                         Toutes
                       </button>
                       <button
                         onClick={() => setFilterStatus('pending')}
-                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                          filterStatus === 'pending'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
+                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${filterStatus === 'pending'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
                       >
                         En attente
                       </button>
                       <button
                         onClick={() => setFilterStatus('assigned')}
-                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                          filterStatus === 'assigned'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
+                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${filterStatus === 'assigned'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
                       >
                         Assignées
                       </button>
                       <button
                         onClick={() => setFilterStatus('in_progress')}
-                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                          filterStatus === 'in_progress'
-                            ? 'bg-orange-100 text-orange-800'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
+                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${filterStatus === 'in_progress'
+                          ? 'bg-orange-100 text-orange-800'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
                       >
                         En cours
                       </button>
                       <button
                         onClick={() => setFilterStatus('completed')}
-                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                          filterStatus === 'completed'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
+                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${filterStatus === 'completed'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
                       >
                         Terminées
                       </button>
@@ -309,7 +425,7 @@ const CustomerDashboard = () => {
                       <MessageSquare className="mx-auto h-12 w-12 text-gray-400" />
                       <h3 className="mt-2 text-sm font-medium text-gray-900">Aucune demande</h3>
                       <p className="mt-1 text-sm text-gray-500">
-                        {filterStatus === 'all' 
+                        {filterStatus === 'all'
                           ? 'Vous n\'avez pas encore créé de demande de réparation.'
                           : 'Aucune demande avec ce statut.'
                         }
@@ -324,15 +440,15 @@ const CustomerDashboard = () => {
                           </button>
                         </div>
                       )}
-                </div>
-              ) : (
-                <div className="space-y-4">
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
                       {filteredRequests.map((request) => (
                         <div key={request.id} className="border border-gray-100 rounded-lg p-6 hover:shadow-md transition-all duration-200">
                           <div className="flex flex-col lg:flex-row justify-between">
                             <div className="flex-1">
                               <div className="flex items-center space-x-3 mb-3">
-                            <div className="h-12 w-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 font-semibold">
+                                <div className="h-12 w-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 font-semibold">
                                   {request.specialty_needed?.substring(0, 2) || 'RE'}
                                 </div>
                                 <div>
@@ -340,12 +456,12 @@ const CustomerDashboard = () => {
                                   <div className="flex items-center space-x-2 mt-1">
                                     {getStatusBadge(request.status)}
                                     <div className={`w-3 h-3 rounded-full ${getPriorityColor(request.priority)}`}></div>
-                            </div>
-                          </div>
+                                  </div>
+                                </div>
                               </div>
-                              
+
                               <p className="text-gray-600 mb-4">{request.description}</p>
-                              
+
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-500 mb-4">
                                 <div className="flex items-center">
                                   <Calendar className="h-4 w-4 mr-2" />
@@ -379,20 +495,85 @@ const CustomerDashboard = () => {
                                     </div>
                                     <div className="flex items-center space-x-2">
                                       <span className="text-gray-600">{request.technician.hourly_rate} FCFA/h</span>
-                            </div>
-                          </div>
-                        </div>
+                                    </div>
+                                  </div>
+                                </div>
                               )}
+
+                              {/* À l'endroit où l'adresse du client est affichée dans la liste des demandes */}
+                              <span className="text-gray-700">
+                                {request.client.address}
+                                {/* Badge incohérence + suggestion */}
+                                {!isCoherent(extractQuartier(request.client.address), extractCommune(request.client.address)) && (
+                                  <>
+                                    <span className="inline-block bg-red-600 text-white text-xs font-bold px-2 py-1 rounded ml-2">Incohérence quartier/commune</span>
+                                    <button
+                                      className="ml-2 text-xs text-blue-700 underline hover:text-blue-900"
+                                      onClick={() => {
+                                        setSuggestingRequestId(request.id);
+                                        setSuggestQuartier('');
+                                        setSuggestCommune('');
+                                      }}
+                                    >Suggérer correction</button>
+                                    {suggestingRequestId === request.id && (
+                                      <div className="mt-2 flex flex-col gap-2 bg-blue-50 p-2 rounded shadow max-w-xs">
+                                        <label className="text-xs font-semibold">Quartier</label>
+                                        <div className="relative">
+                                          <input
+                                            type="text"
+                                            className="w-full p-1 border border-gray-300 rounded"
+                                            value={suggestQuartier}
+                                            onChange={handleSuggestQuartierChange}
+                                            placeholder="Quartier correct"
+                                          />
+                                          {showSuggestionsList && suggestionsList.length > 0 && (
+                                            <div ref={suggestionsListRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-40 overflow-y-auto">
+                                              {suggestionsList.map((quartier, idx) => (
+                                                <div
+                                                  key={quartier}
+                                                  className="px-2 py-1 hover:bg-blue-50 cursor-pointer text-xs"
+                                                  onClick={() => handleSuggestListClick(quartier)}
+                                                >
+                                                  {quartier}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                        <label className="text-xs font-semibold">Commune</label>
+                                        <input
+                                          type="text"
+                                          className="w-full p-1 border border-gray-300 rounded"
+                                          value={suggestCommune}
+                                          onChange={e => setSuggestCommune(e.target.value)}
+                                          placeholder="Commune correcte"
+                                        />
+                                        <button
+                                          className="mt-2 bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3 py-1 rounded"
+                                          onClick={() => handleSendSuggestion(request.id)}
+                                        >Envoyer</button>
+                                        <button
+                                          className="mt-1 text-xs text-gray-500 underline"
+                                          onClick={() => setSuggestingRequestId(null)}
+                                        >Annuler</button>
+                                        {suggestionSent && (
+                                          <div className="text-green-700 text-xs mt-2">Suggestion envoyée à l'administrateur !</div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                              </span>
                             </div>
-                            
+
                             <div className="mt-4 lg:mt-0 lg:ml-6 flex flex-col space-y-2 lg:items-end">
                               {request.conversation && (
                                 <button
-                                className="inline-flex items-center px-3 py-2 border border-blue-600 text-blue-600 rounded-full hover:bg-blue-50 transition-colors text-sm"
-                                onClick={() => window.location.href = `/chat/${request.conversation?.id}`}
-                              >
-                                <MessageSquare className="h-4 w-4 mr-2" />
-                                Messages
+                                  className="inline-flex items-center px-3 py-2 border border-blue-600 text-blue-600 rounded-full hover:bg-blue-50 transition-colors text-sm"
+                                  onClick={() => window.location.href = `/chat/${request.conversation?.id}`}
+                                >
+                                  <MessageSquare className="h-4 w-4 mr-2" />
+                                  Messages
                                   {request.conversation.unread_count > 0 && (
                                     <span className="ml-2 bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
                                       {request.conversation.unread_count}
@@ -400,12 +581,30 @@ const CustomerDashboard = () => {
                                   )}
                                 </button>
                               )}
-                              
+
                               {request.status === 'pending' && (
                                 <button
-                                  onClick={() => {
+                                  onClick={async () => {
                                     if (confirm('Êtes-vous sûr de vouloir annuler cette demande ?')) {
-                                      // Appel API pour annuler
+                                      try {
+                                        const token = localStorage.getItem('token');
+                                        const response = await fetch(`http://127.0.0.1:8000/depannage/api/repair-requests/${request.id}/`, {
+                                          method: 'PATCH',
+                                          headers: {
+                                            'Authorization': `Bearer ${token}`,
+                                            'Content-Type': 'application/json',
+                                          },
+                                          body: JSON.stringify({ status: 'cancelled' }),
+                                        });
+                                        if (response.ok) {
+                                          // Rafraîchir la liste des demandes
+                                          fetchData();
+                                        } else {
+                                          alert('Erreur lors de l\'annulation');
+                                        }
+                                      } catch (e) {
+                                        alert('Erreur lors de l\'annulation');
+                                      }
                                     }
                                   }}
                                   className="inline-flex items-center px-3 py-2 border border-red-600 text-red-600 rounded-full hover:bg-red-50 transition-colors text-sm"
@@ -437,11 +636,10 @@ const CustomerDashboard = () => {
                       {notifications.map((notification) => (
                         <div
                           key={notification.id}
-                          className={`p-4 rounded-lg border transition-all duration-200 ${
-                            notification.is_read 
-                              ? 'bg-gray-50 border-gray-200' 
-                              : 'bg-blue-50 border-blue-200 shadow-sm'
-                          }`}
+                          className={`p-4 rounded-lg border transition-all duration-200 ${notification.is_read
+                            ? 'bg-gray-50 border-gray-200'
+                            : 'bg-blue-50 border-blue-200 shadow-sm'
+                            }`}
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
@@ -469,7 +667,7 @@ const CustomerDashboard = () => {
               )}
             </div>
           </div>
-          
+
           {/* Quick Actions Section */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
@@ -492,7 +690,7 @@ const CustomerDashboard = () => {
                 </button>
               </div>
             </div>
-            
+
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
               <div className="flex items-center mb-6">
                 <CreditCard className="h-5 w-5 text-blue-600 mr-2" />
@@ -508,7 +706,7 @@ const CustomerDashboard = () => {
                 </button>
               </div>
             </div>
-            
+
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
               <div className="flex items-center mb-6">
                 <MessageSquare className="h-5 w-5 text-blue-600 mr-2" />

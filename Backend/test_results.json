@@ -2,56 +2,91 @@
   {
     "test": "Health Check",
     "success": true,
-    "timestamp": "2025-06-29T21:04:02.129744",
+    "timestamp": "2025-07-02T03:23:57.896851",
     "status_code": 200,
     "error": null
   },
   {
     "test": "API Info",
     "success": true,
-    "timestamp": "2025-06-29T21:04:02.131233",
+    "timestamp": "2025-07-02T03:23:57.898104",
     "status_code": 200,
     "error": null
   },
   {
     "test": "Admin Interface",
-    "success": false,
-    "timestamp": "2025-06-29T21:04:02.173276",
-    "status_code": null,
+    "success": true,
+    "timestamp": "2025-07-02T03:23:57.903763",
+    "status_code": 200,
     "error": null
   },
   {
     "test": "Login",
-    "success": false,
-    "timestamp": "2025-06-29T21:04:02.299316",
-    "status_code": null,
+    "success": true,
+    "timestamp": "2025-07-02T03:23:58.026854",
+    "status_code": 200,
     "error": null
   },
   {
     "test": "User Profile (Protected)",
-    "success": false,
-    "timestamp": "2025-06-29T21:04:02.299343",
-    "status_code": null,
-    "error": "No token available"
+    "success": true,
+    "timestamp": "2025-07-02T03:23:58.029273",
+    "status_code": 200,
+    "error": null
+  },
+  {
+    "test": "Create Repair Request (all fields)",
+    "success": true,
+    "timestamp": "2025-07-02T03:23:58.046192",
+    "status_code": 201,
+    "error": null
+  },
+  {
+    "test": "Repair Requests List",
+    "success": true,
+    "timestamp": "2025-07-02T03:24:12.287291",
+    "status_code": 200,
+    "error": null
+  },
+  {
+    "test": "Technicians List",
+    "success": true,
+    "timestamp": "2025-07-02T03:24:12.297277",
+    "status_code": 200,
+    "error": null
+  },
+  {
+    "test": "Clients List",
+    "success": true,
+    "timestamp": "2025-07-02T03:24:12.303196",
+    "status_code": 200,
+    "error": null
   },
   {
     "test": "Unauthorized Access",
     "success": true,
-    "timestamp": "2025-06-29T21:04:02.301005",
+    "timestamp": "2025-07-02T03:24:12.305386",
     "status_code": null,
     "error": null
   },
   {
     "test": "Non-existent Route",
     "success": true,
-    "timestamp": "2025-06-29T21:04:02.304319",
+    "timestamp": "2025-07-02T03:24:12.311627",
     "status_code": null,
     "error": null
   },
   {
-    "test": "Response Time (1.12ms)",
+    "test": "Invalid Token",
     "success": true,
-    "timestamp": "2025-06-29T21:04:02.305473",
+    "timestamp": "2025-07-02T03:24:12.313171",
+    "status_code": null,
+    "error": null
+  },
+  {
+    "test": "Response Time (2.50ms)",
+    "success": true,
+    "timestamp": "2025-07-02T03:24:12.315740",
     "status_code": 200,
     "error": null
   }

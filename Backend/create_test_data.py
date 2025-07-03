@@ -19,6 +19,15 @@ from users.models import User
 
 User = get_user_model()
 
+# Coordonnées de Bamako (Mali)
+BAMAKO_LAT = 12.6392
+BAMAKO_LNG = -8.0029
+
+SPECIALTIES = [
+    'electrician', 'plumber', 'mechanic', 'it',
+    'air_conditioning', 'appliance_repair', 'locksmith', 'other'
+]
+
 def create_test_data():
     print("Création des données de test...")
     
@@ -77,110 +86,65 @@ def create_test_data():
         clients.append(client)
         print(f"✓ Client créé: {user.get_full_name()} ({user.username})")
     
-    # Créer des techniciens
-    technicians_data = [
-        {
-            'username': 'tech_plombier', 
-            'email': 'plombier@example.com', 
-            'phone': '+2250701234570',
-            'first_name': 'Ahmed',
-            'last_name': 'Diallo',
-            'specialty': 'plumber',
-            'hourly_rate': 5000,
-            'years_experience': 5
-        },
-        {
-            'username': 'tech_electricien', 
-            'email': 'electricien@example.com', 
-            'phone': '+2250701234571',
-            'first_name': 'Kouassi',
-            'last_name': 'Yao',
-            'specialty': 'electrician',
-            'hourly_rate': 6000,
-            'years_experience': 7
-        },
-        {
-            'username': 'tech_serrurier', 
-            'email': 'serrurier@example.com', 
-            'phone': '+2250701234572',
-            'first_name': 'Moussa',
-            'last_name': 'Traoré',
-            'specialty': 'locksmith',
-            'hourly_rate': 4500,
-            'years_experience': 3
-        },
-        {
-            'username': 'tech_informatique', 
-            'email': 'informatique@example.com', 
-            'phone': '+2250701234573',
-            'first_name': 'Fatou',
-            'last_name': 'Coulibaly',
-            'specialty': 'it',
-            'hourly_rate': 7000,
-            'years_experience': 8
-        },
-        {
-            'username': 'tech_climatisation', 
-            'email': 'climatisation@example.com', 
-            'phone': '+2250701234574',
-            'first_name': 'Issouf',
-            'last_name': 'Ouattara',
-            'specialty': 'air_conditioning',
-            'hourly_rate': 5500,
-            'years_experience': 6
-        },
-        {
-            'username': 'tech_electromenager', 
-            'email': 'electromenager@example.com', 
-            'phone': '+2250701234575',
-            'first_name': 'Aminata',
-            'last_name': 'Koné',
-            'specialty': 'appliance_repair',
-            'hourly_rate': 4000,
-            'years_experience': 4
-        },
-        {
-            'username': 'tech_mecanicien', 
-            'email': 'mecanicien@example.com', 
-            'phone': '+2250701234576',
-            'first_name': 'Bakary',
-            'last_name': 'Sangaré',
-            'specialty': 'mechanic',
-            'hourly_rate': 6500,
-            'years_experience': 9
-        }
-    ]
+    # Nettoyage des techniciens et utilisateurs de test existants
+    print("Suppression des techniciens et utilisateurs de test existants...")
+    for i in range(1, 11):
+        username = f"tech_test_{i}"
+        try:
+            user = User.objects.get(username=username)
+            user.delete()
+        except User.DoesNotExist:
+            pass
+
+    from depannage.models import Technician
+    for i in range(1, 11):
+        try:
+            tech = Technician.objects.get(user__username=f"tech_test_{i}")
+            tech.delete()
+        except Technician.DoesNotExist:
+            pass
     
-    technicians = []
-    for tech_data in technicians_data:
+    # Créer 3 techniciens par spécialité autour de Bamako
+    print("\nCréation de techniciens multiples par spécialité...")
+    tech_counter = 1
+    for specialty in SPECIALTIES:
+        for j in range(3):
+            username = f"tech_{specialty}_{j+1}"
+            email = f"tech_{specialty}_{j+1}@example.com"
+            password = "TestPassword123!"
         user, created = User.objects.get_or_create(
-            username=tech_data['username'],
+                username=username,
             defaults={
-                'email': tech_data['email'],
-                'first_name': tech_data['first_name'],
-                'last_name': tech_data['last_name'],
-                'user_type': 'technician'
+                    'first_name': f"Tech{tech_counter}",
+                    'last_name': specialty.capitalize(),
+                    'email': email,
+                    'user_type': 'technician',
+                    'is_active': True,
             }
         )
         if created:
-            user.set_password('tech123')
+                user.set_password(password)
             user.save()
-        
-        technician, created = Technician.objects.get_or_create(
+            lat = BAMAKO_LAT + random.uniform(-0.01, 0.01)
+            lng = BAMAKO_LNG + random.uniform(-0.01, 0.01)
+            tech, t_created = Technician.objects.get_or_create(
             user=user,
             defaults={
-                'phone': tech_data['phone'],
-                'specialty': tech_data['specialty'],
-                'hourly_rate': tech_data['hourly_rate'],
-                'years_experience': tech_data['years_experience'],
+                    'specialty': specialty,
+                    'years_experience': random.randint(1, 10),
+                    'hourly_rate': random.randint(10000, 30000),
                 'is_available': True,
                 'is_verified': True,
-                'bio': f"Technicien expérimenté en {tech_data['specialty']}",
-                'service_radius_km': random.randint(5, 20)
-            }
-        )
-        technicians.append(technician)
-        print(f"✓ Technicien créé: {user.get_full_name()} ({tech_data['specialty']})")
+                    'service_radius_km': 20,
+                    'bio': f"Technicien test {tech_counter} ({specialty}) à Bamako.",
+                    'current_latitude': lat,
+                    'current_longitude': lng,
+                    'created_at': timezone.now(),
+                }
+            )
+            print(f"✅ Technicien créé: {user.username} | Spécialité: {specialty} | Lat: {lat:.5f} | Lng: {lng:.5f}")
+            tech_counter += 1
+    print("\n3 techniciens par spécialité créés autour de Bamako !")
     
     # Créer des demandes de réparation avec une meilleure répartition entre clients
     repair_requests_data = [
@@ -261,9 +225,9 @@ def create_test_data():
         
         # Assigner un technicien selon le statut
         if request_data['status'] in ['assigned', 'in_progress', 'completed']:
-            matching_techs = [t for t in technicians if t.specialty == request_data['specialty_needed']]
-            if matching_techs:
-                technician = random.choice(matching_techs)
+            matching_techs = Technician.objects.filter(specialty=request_data['specialty_needed'])
+            if matching_techs.exists():
+                technician = random.choice(list(matching_techs))
         
         # Créer la demande
         repair_request = RepairRequest.objects.create(
@@ -362,9 +326,14 @@ def create_test_data():
     print("Techniciens: tech_plombier, tech_electricien, etc. / tech123")
     print(f"\nTotal créé:")
     print(f"- {len(clients)} clients")
-    print(f"- {len(technicians)} techniciens")
+    print(f"- {Technician.objects.count()} techniciens")
     print(f"- {len(repair_requests)} demandes de réparation")
     print(f"- {len(notifications_data)} notifications")
+
+    # Diagnostic : afficher tous les techniciens
+    print("\nDiagnostic : Liste des techniciens en base :")
+    for tech in Technician.objects.all():
+        print(f"Technicien ID: {tech.id} | User ID: {tech.user.id} | Username: {tech.user.username} | Spécialité: {tech.specialty}")
 
 if __name__ == '__main__':
     create_test_data() 

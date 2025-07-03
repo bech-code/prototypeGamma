@@ -135,7 +135,32 @@ class UserViewSet(viewsets.ModelViewSet):
         user = request.user
         profile = self.get_profile_data(user)
         serializer = UserSerializer(user)
+        user_data = serializer.data
+        # Ajout de l'objet technicien ou client complet si applicable
+        if user.user_type == 'technician':
+            try:
+                tech = Technician.objects.get(user=user)
+                # On sérialise les champs utiles
+                user_data['technician'] = {
+                    'id': tech.id,
+                    'specialty': tech.specialty,
+                    'phone': tech.phone,
+                    'is_verified': tech.is_verified,
+                    'years_experience': tech.years_experience,
+                }
+            except Technician.DoesNotExist:
+                user_data['technician'] = None
+        elif user.user_type == 'client':
+            try:
+                client = Client.objects.get(user=user)
+                user_data['client'] = {
+                    'id': client.id,
+                    'address': client.address,
+                    'phone': client.phone,
+                }
+            except Client.DoesNotExist:
+                user_data['client'] = None
         return Response({
-            'user': serializer.data,
+            'user': user_data,
             'profile': profile
         })

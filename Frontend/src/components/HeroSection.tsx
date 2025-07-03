@@ -1,52 +1,177 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-const HeroSection: React.FC = () => {
+interface HeroSectionProps {
+  onGetLocation: () => void;
+  loadingLocation: boolean;
+}
+
+const HeroSection: React.FC<HeroSectionProps> = ({ onGetLocation, loadingLocation }) => {
   const [location, setLocation] = useState("");
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
-  
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
+  const [foundAddress, setFoundAddress] = useState<string | null>(null);
+  const [showAddressConfirm, setShowAddressConfirm] = useState(false);
+  const [foundAddressLat, setFoundAddressLat] = useState<string | null>(null);
+  const [foundAddressLng, setFoundAddressLng] = useState<string | null>(null);
+  const [foundAddressDetails, setFoundAddressDetails] = useState<any | null>(null);
+  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
+  const [loadingRefresh, setLoadingRefresh] = useState(false);
+
+  // Auto-complétion Nominatim
+  const handleLocationChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setLocation(value);
+    if (value.length < 3) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    try {
+      const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(value)}&addressdetails=1&limit=5`);
+      const data = await resp.json();
+      setSuggestions(data);
+      setShowSuggestions(true);
+    } catch {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  // Sélection d'une suggestion
+  const handleSuggestionClick = (suggestion: any) => {
+    setLocation(suggestion.display_name);
+    setSuggestions([]);
+    setShowSuggestions(false);
+    // Lancer la recherche immédiatement
+    handleSearchFromSuggestion(suggestion);
+  };
+
+  // Recherche directe depuis une suggestion (évite double géocodage)
+  const handleSearchFromSuggestion = (suggestion: any) => {
     if (user) {
-      navigate(`/booking?location=${encodeURIComponent(location)}`);
+      navigate('/booking', { state: { userLocation: { lat: parseFloat(suggestion.lat), lng: parseFloat(suggestion.lon) }, address: suggestion.display_name } });
     } else {
       navigate('/login?redirect=/booking');
     }
   };
-  
+
+  // Fermer la liste si clic en dehors
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!location) return;
+    if (user) {
+      // Géocodage de l'adresse avec Nominatim
+      try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}`);
+        const data = await response.json();
+        if (data && data.length > 0) {
+          const { lat, lon } = data[0];
+          navigate('/booking', { state: { userLocation: { lat: parseFloat(lat), lng: parseFloat(lon) }, address: location } });
+        } else {
+          alert("Adresse introuvable. Veuillez vérifier l'adresse ou le code postal.");
+        }
+      } catch (err) {
+        alert("Erreur lors de la recherche de l'adresse. Veuillez réessayer.");
+      }
+    } else {
+      navigate('/login?redirect=/booking');
+    }
+  };
+
   const handleGetCurrentLocation = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          // In a real app, we'd convert coordinates to address with a Geocoding API
-          // For demo purposes, we'll just set a placeholder
-          setLocation("Current location");
+        async (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          const accuracy = position.coords.accuracy;
+          setGpsCoords({ lat, lng, accuracy });
+          // Reverse geocoding via Nominatim
+          try {
+            const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+            const data = await resp.json();
+            const address = data.display_name || 'Adresse inconnue';
+            setFoundAddress(address);
+            setFoundAddressDetails(data.address || null);
+            setShowAddressConfirm(true);
+            // Naviguer après confirmation
+          } catch {
+            setFoundAddress('Adresse inconnue');
+            setFoundAddressDetails(null);
+            setShowAddressConfirm(true);
+          }
         },
         (error) => {
           console.error("Error getting location:", error);
           alert("Unable to retrieve your location. Please enter it manually.");
-        }
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     } else {
       alert("Geolocation is not supported by your browser");
     }
   };
-  
+
+  // Confirmer l'adresse trouvée et naviguer
+  const handleConfirmAddress = () => {
+    setShowAddressConfirm(false);
+    if (user) {
+      navigate('/booking', { state: { userLocation: { lat: parseFloat(foundAddressLat!), lng: parseFloat(foundAddressLng!) }, address: foundAddress } });
+    } else {
+      navigate('/login?redirect=/booking');
+    }
+  };
+
+  // Ajout d'une fonction pour rafraîchir la position
+  const handleRefreshLocation = () => {
+    setLoadingRefresh(true);
+    setShowAddressConfirm(false);
+    setTimeout(() => {
+      handleGetCurrentLocation();
+      setLoadingRefresh(false);
+    }, 200); // Laisse le temps à la modale de se fermer
+  };
+
+  React.useEffect(() => {
+    if (foundAddress && showAddressConfirm) {
+      // On suppose que la dernière position GPS est toujours valide
+      navigator.geolocation.getCurrentPosition((position) => {
+        setFoundAddressLat(position.coords.latitude.toString());
+        setFoundAddressLng(position.coords.longitude.toString());
+      });
+    }
+  }, [foundAddress, showAddressConfirm]);
+
   return (
     <div className="relative min-h-[90vh] flex items-center">
       {/* Background Image */}
       <div className="absolute inset-0 z-0">
-        <img 
-          src="src\assets\image\depanneur6.jpg" 
-          alt="Professional repairman at work" 
+        <img
+          src="src\assets\image\depanneur6.jpg"
+          alt="Professional repairman at work"
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-blue-900/80 to-black/70"></div>
       </div>
-      
+
       <div className="container mx-auto px-4 z-10 py-16">
         <div className="max-w-3xl">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight mb-4">
@@ -55,7 +180,7 @@ const HeroSection: React.FC = () => {
           <p className="text-xl text-blue-100 mb-8">
             Disponibles 24/7 pour les urgences. Nos techniciens certifiés fournissent un service rapide et fiable pour tous vos besoins de réparation.
           </p>
-          
+
           <div className="bg-white p-4 rounded-lg shadow-lg mb-8">
             <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4">
               <div className="flex-grow relative">
@@ -65,17 +190,33 @@ const HeroSection: React.FC = () => {
                   placeholder="Entrez votre adresse ou code postal"
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                  onChange={handleLocationChange}
+                  onFocus={() => location.length >= 3 && suggestions.length > 0 && setShowSuggestions(true)}
                   required
                 />
+                {/* Suggestions d'adresse */}
+                {showSuggestions && suggestions.length > 0 && (
+                  <div ref={suggestionsRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-60 overflow-y-auto">
+                    {suggestions.map((s, idx) => (
+                      <div
+                        key={s.place_id}
+                        className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+                        onClick={() => handleSuggestionClick(s)}
+                      >
+                        {s.display_name}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="flex flex-col md:flex-row gap-2">
                 <button
                   type="button"
                   onClick={handleGetCurrentLocation}
                   className="text-blue-700 border border-blue-700 py-3 px-6 rounded-md hover:bg-blue-50 transition-colors"
+                  disabled={loadingLocation}
                 >
-                  Utiliser Ma Position
+                  {loadingLocation ? 'Localisation en cours...' : 'Utiliser Ma Position'}
                 </button>
                 <button
                   type="submit"
@@ -86,7 +227,7 @@ const HeroSection: React.FC = () => {
               </div>
             </form>
           </div>
-          
+
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-white">
             <div className="flex items-center">
               <div className="h-4 w-4 bg-green-500 rounded-full mr-2"></div>
@@ -105,6 +246,101 @@ const HeroSection: React.FC = () => {
               <span>Prix Transparents</span>
             </div>
           </div>
+
+          {/* Confirmation d'adresse trouvée */}
+          {showAddressConfirm && foundAddress && (
+            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50 transition-opacity duration-300 animate-fade-in">
+              <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full border-t-8 border-blue-600 animate-popup-in">
+                <div className="flex flex-col items-center">
+                  <div className="bg-blue-100 rounded-full p-3 mb-3 animate-bounce-soft">
+                    <svg xmlns='http://www.w3.org/2000/svg' className='h-8 w-8 text-blue-600' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 11c1.104 0 2-.896 2-2s-.896-2-2-2-2 .896-2 2 .896 2 2 2zm0 0v6m0 0c-4.418 0-8-1.79-8-4V7a2 2 0 012-2h12a2 2 0 012 2v6c0 2.21-3.582 4-8 4z' /></svg>
+                  </div>
+                  <h2 className="text-xl font-bold mb-2 text-blue-800">Nous avons trouvé votre position !</h2>
+                  {/* Infos GPS */}
+                  {gpsCoords && (
+                    <div className="w-full mb-2 text-center">
+                      <div className="flex flex-wrap justify-center gap-2 text-blue-900 text-sm mb-1">
+                        <span>📍 <span className="font-medium">Latitude :</span> {gpsCoords.lat.toFixed(6)}</span>
+                        <span>📍 <span className="font-medium">Longitude :</span> {gpsCoords.lng.toFixed(6)}</span>
+                        <span>🎯 <span className="font-medium">Précision :</span> {Math.round(gpsCoords.accuracy)} m</span>
+                      </div>
+                      <a
+                        href={`https://www.openstreetmap.org/?mlat=${gpsCoords.lat}&mlon=${gpsCoords.lng}#map=19/${gpsCoords.lat}/${gpsCoords.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block text-blue-600 underline text-xs hover:text-blue-800 mb-1"
+                      >
+                        Voir sur la carte OpenStreetMap
+                      </a>
+                      {gpsCoords.accuracy > 30 && (
+                        <div className="text-orange-600 text-xs mt-1">⚠️ Précision GPS faible&nbsp;: essayez de vous rapprocher d'une fenêtre ou d'activer le GPS pour plus de précision.</div>
+                      )}
+                    </div>
+                  )}
+                  {/* Adresse structurée */}
+                  <p className="mb-2 text-gray-600 text-center">Voici l'adresse détectée à partir de votre position&nbsp;:</p>
+                  <div className="w-full mb-4">
+                    <div className="flex items-center gap-2 mb-1 text-blue-900">
+                      <span className="text-lg">🏠</span>
+                      <span className="font-medium">Maison :</span>
+                      <span>{foundAddressDetails?.house_number || 'Non trouvé'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mb-1 text-blue-900">
+                      <span className="text-lg">🛣️</span>
+                      <span className="font-medium">Rue :</span>
+                      <span>{foundAddressDetails?.road || foundAddressDetails?.residential || foundAddressDetails?.street || 'Non trouvé'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mb-1 text-blue-900">
+                      <span className="text-lg">🏘️</span>
+                      <span className="font-medium">Quartier :</span>
+                      <span>{foundAddressDetails?.suburb || foundAddressDetails?.neighbourhood || foundAddressDetails?.quarter || 'Non trouvé'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mb-1 text-blue-900">
+                      <span className="text-lg">🏙️</span>
+                      <span className="font-medium">Ville :</span>
+                      <span>{foundAddressDetails?.city || foundAddressDetails?.town || foundAddressDetails?.village || 'Non trouvé'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mb-1 text-blue-900">
+                      <span className="text-lg">🏢</span>
+                      <span className="font-medium">Commune :</span>
+                      <span>{foundAddressDetails?.municipality || foundAddressDetails?.county || foundAddressDetails?.state_district || 'Non trouvé'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mb-1 text-blue-900">
+                      <span className="text-lg">📮</span>
+                      <span className="font-medium">Code postal :</span>
+                      <span>{foundAddressDetails?.postcode || 'Non trouvé'}</span>
+                    </div>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-4 text-blue-900 text-center font-medium shadow-inner">
+                    {foundAddress}
+                  </div>
+                  <p className="mb-6 text-gray-500 text-sm text-center">Si cette adresse vous convient, cliquez sur "Confirmer et réserver ici".<br />Sinon, vous pouvez annuler et saisir une autre adresse.</p>
+                  <div className="flex justify-center gap-2 w-full">
+                    <button
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold shadow transition-colors w-full"
+                      onClick={handleConfirmAddress}
+                    >
+                      Confirmer et réserver ici
+                    </button>
+                    <button
+                      className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-semibold transition-colors w-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={handleRefreshLocation}
+                      disabled={loadingRefresh || loadingLocation}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582M20 20v-5h-.581M5.582 9A7.974 7.974 0 0112 4c2.042 0 3.899.767 5.318 2.018M18.418 15A7.974 7.974 0 0112 20a7.978 7.978 0 01-5.318-2.018" /></svg>
+                      {loadingRefresh || loadingLocation ? 'Rafraîchissement...' : 'Rafraîchir la position'}
+                    </button>
+                    <button
+                      className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-semibold transition-colors w-full"
+                      onClick={() => setShowAddressConfirm(false)}
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

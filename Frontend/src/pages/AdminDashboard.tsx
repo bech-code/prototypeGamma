@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Wrench, Clock, CheckCircle, AlertCircle, TrendingUp, MapPin, Phone, Star, MessageSquare } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { fetchWithAuth } from '../contexts/fetchWithAuth';
+import AdminRequestsMap from '../components/AdminRequestsMap';
 
 interface RepairRequest {
   id: number;
@@ -37,6 +39,8 @@ interface RepairRequest {
     id: number;
     unread_count: number;
   };
+  latitude?: number;
+  longitude?: number;
 }
 
 interface Technician {
@@ -75,6 +79,88 @@ interface Notification {
   created_at: string;
 }
 
+// Listes pour auto-complétion (mêmes que BookingForm)
+const bamakoCities = [
+  "Bamako", "Commune I", "Commune II", "Commune III", "Commune IV", "Commune V", "Commune VI",
+  "Kalabancoro", "Kati", "Samaya", "Moribabougou", "Baguineda", "Siby",
+  "Sotuba", "Magnambougou", "Yirimadio", "Sabalibougou", "Lafiabougou", "Badalabougou", "Hamdallaye", "Missira", "Niamakoro", "Banankabougou", "Daoudabougou", "Djicoroni", "Sogoniko", "Faladié", "Niaréla", "Quinzambougou", "Medina Coura", "Bacodjicoroni", "Torokorobougou", "Sebenicoro", "N'Tomikorobougou", "Kalaban Coura", "Kalabanbougou", "Boulkassoumbougou", "Dialakorodji", "Niamana", "Sirakoro Meguetana", "Sangarebougou", "Zerny", "N'Tabacoro", "Niamakoro Koko", "Sikoroni", "Sabalibougou", "Sogonafing", "Djélibougou", "Banconi", "Lassa", "Sébenikoro", "N'Tomikorobougou", "Niaréla", "Bolibana", "Korofina", "Hippodrome", "Point G", "Badialan", "Bamako Coura", "Bagadadji", "Fadjiguila", "Doumanzana", "Missabougou", "N'Tomikorobougou", "Sokorodji", "Koulouba", "Kouloubléni", "Koulouba Plateau", "Koulouba Marché", "Koulouba Gare", "Koulouba Cité", "Koulouba Extension"
+];
+
+// Mapping quartiers -> communes (doit être le même que dans AdminRequestsMap)
+const quartierToCommune: Record<string, string> = {
+  'Sotuba': 'Commune I',
+  'Magnambougou': 'Commune VI',
+  'Yirimadio': 'Commune VI',
+  'Sabalibougou': 'Commune V',
+  'Lafiabougou': 'Commune IV',
+  'Badalabougou': 'Commune V',
+  'Hamdallaye': 'Commune IV',
+  'Missira': 'Commune II',
+  'Niamakoro': 'Commune VI',
+  'Banankabougou': 'Commune VI',
+  'Daoudabougou': 'Commune V',
+  'Djicoroni': 'Commune IV',
+  'Sogoniko': 'Commune VI',
+  'Faladié': 'Commune V',
+  'Niaréla': 'Commune II',
+  'Quinzambougou': 'Commune II',
+  'Medina Coura': 'Commune II',
+  'Bacodjicoroni': 'Commune V',
+  'Torokorobougou': 'Commune V',
+  'Sebenicoro': 'Commune IV',
+  'Kalaban Coura': 'Commune V',
+  'Kalabanbougou': 'Commune V',
+  // ... compléter selon besoin
+};
+
+function isCoherent(quartier?: string, city?: string) {
+  if (!quartier || !city) return true;
+  const commune = quartierToCommune[quartier];
+  if (!commune) return true;
+  return city.toLowerCase().includes(commune.toLowerCase());
+}
+
+// Fonction d'export CSV
+function exportRequestsToCSV(requests: any[]) {
+  const headers = [
+    'ID', 'Service', 'Client', 'Adresse', 'Quartier', 'Ville', 'Statut', 'Urgence', 'Latitude', 'Longitude'
+  ];
+  const rows = requests.map(req => [
+    req.id,
+    req.service,
+    req.client,
+    req.address,
+    req.quartier || '',
+    req.city || '',
+    req.status,
+    req.is_urgent ? 'Oui' : 'Non',
+    req.latitude,
+    req.longitude
+  ]);
+  const csvContent = [headers, ...rows].map(e => e.map(x => `"${(x ?? '').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', 'demandes_reparation.csv');
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// Helpers pour extraire quartier et commune depuis l'adresse (ex: 'Sotuba, Commune I, Bamako')
+function extractQuartier(address: string) {
+  if (!address) return '';
+  const parts = address.split(',');
+  return parts[0]?.trim() || '';
+}
+function extractCommune(address: string) {
+  if (!address) return '';
+  const parts = address.split(',');
+  // On suppose que la commune est en 2e position
+  return parts[1]?.trim() || '';
+}
+
 const AdminDashboard: React.FC = () => {
   const { user, token } = useAuth();
   const [repairRequests, setRepairRequests] = useState<RepairRequest[]>([]);
@@ -86,6 +172,21 @@ const AdminDashboard: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedRequest, setSelectedRequest] = useState<RepairRequest | null>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [cityFilter, setCityFilter] = useState('');
+  const [quartierFilter, setQuartierFilter] = useState('');
+  const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
+  const [showCitySuggestions, setShowCitySuggestions] = useState(false);
+  const [quartierSuggestions, setQuartierSuggestions] = useState<string[]>([]);
+  const [showQuartierSuggestions, setShowQuartierSuggestions] = useState(false);
+  const citySuggestionsRef = React.useRef<HTMLDivElement>(null);
+  const quartierSuggestionsRef = React.useRef<HTMLDivElement>(null);
+  const [editingRequestId, setEditingRequestId] = useState<number | null>(null);
+  const [editQuartier, setEditQuartier] = useState('');
+  const [editCommune, setEditCommune] = useState('');
+  const [editSuggestions, setEditSuggestions] = useState<string[]>([]);
+  const [showEditSuggestions, setShowEditSuggestions] = useState(false);
+  const editSuggestionsRef = React.useRef<HTMLDivElement>(null);
+  const [showOnlyIncoherent, setShowOnlyIncoherent] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -96,9 +197,8 @@ const AdminDashboard: React.FC = () => {
       setLoading(true);
 
       // Récupérer les demandes de réparation
-      const requestsResponse = await fetch('http://127.0.0.1:8000/depannage/api/repair-requests/', {
+      const requestsResponse = await fetchWithAuth('http://127.0.0.1:8000/depannage/api/repair-requests/', {
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -109,9 +209,8 @@ const AdminDashboard: React.FC = () => {
       }
 
       // Récupérer les statistiques
-      const statsResponse = await fetch('http://127.0.0.1:8000/depannage/api/repair-requests/dashboard_stats/', {
+      const statsResponse = await fetchWithAuth('http://127.0.0.1:8000/depannage/api/repair-requests/dashboard_stats/', {
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -122,9 +221,8 @@ const AdminDashboard: React.FC = () => {
       }
 
       // Récupérer les notifications
-      const notificationsResponse = await fetch('http://127.0.0.1:8000/depannage/api/notifications/', {
+      const notificationsResponse = await fetchWithAuth('http://127.0.0.1:8000/depannage/api/notifications/', {
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -143,9 +241,8 @@ const AdminDashboard: React.FC = () => {
 
   const fetchAvailableTechnicians = async (specialty: string) => {
     try {
-      const response = await fetch(`http://127.0.0.1:8000/depannage/api/repair-requests/available_technicians/?specialty=${specialty}`, {
+      const response = await fetchWithAuth(`http://127.0.0.1:8000/depannage/api/repair-requests/available_technicians/?specialty=${specialty}`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -161,10 +258,9 @@ const AdminDashboard: React.FC = () => {
 
   const assignTechnician = async (requestId: number, technicianId: number) => {
     try {
-      const response = await fetch(`http://127.0.0.1:8000/depannage/api/repair-requests/${requestId}/assign_technician/`, {
+      const response = await fetchWithAuth(`http://127.0.0.1:8000/depannage/api/repair-requests/${requestId}/assign_technician/`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ technician_id: technicianId }),
@@ -234,6 +330,113 @@ const AdminDashboard: React.FC = () => {
     if (filterStatus === 'all') return true;
     return request.status === filterStatus;
   });
+
+  // Suggestions auto-complétion ville
+  const handleCityFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setCityFilter(value);
+    if (value.length < 1) {
+      setCitySuggestions([]);
+      setShowCitySuggestions(false);
+      return;
+    }
+    const filtered = bamakoCities.filter(city => city.toLowerCase().includes(value.toLowerCase()));
+    setCitySuggestions(filtered);
+    setShowCitySuggestions(filtered.length > 0);
+  };
+  const handleCitySuggestionClick = (city: string) => {
+    setCityFilter(city);
+    setCitySuggestions([]);
+    setShowCitySuggestions(false);
+  };
+  // Suggestions auto-complétion quartier (à partir des quartiers de la liste)
+  const allQuartiers = bamakoCities.filter(q => !q.toLowerCase().includes('commune') && q !== 'Bamako');
+  const handleQuartierFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setQuartierFilter(value);
+    if (value.length < 1) {
+      setQuartierSuggestions([]);
+      setShowQuartierSuggestions(false);
+      return;
+    }
+    const filtered = allQuartiers.filter(q => q.toLowerCase().includes(value.toLowerCase()));
+    setQuartierSuggestions(filtered);
+    setShowQuartierSuggestions(filtered.length > 0);
+  };
+  const handleQuartierSuggestionClick = (quartier: string) => {
+    setQuartierFilter(quartier);
+    setQuartierSuggestions([]);
+    setShowQuartierSuggestions(false);
+  };
+  // Fermer suggestions si clic en dehors
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (citySuggestionsRef.current && !citySuggestionsRef.current.contains(event.target as Node)) {
+        setShowCitySuggestions(false);
+      }
+      if (quartierSuggestionsRef.current && !quartierSuggestionsRef.current.contains(event.target as Node)) {
+        setShowQuartierSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+  // Filtrage des demandes pour la carte
+  const filteredRequestsForMap = repairRequests.filter(req => {
+    const cityMatch = cityFilter ? (req.client.address?.toLowerCase().includes(cityFilter.toLowerCase()) || req.client.address?.toLowerCase().includes(cityFilter.toLowerCase())) : true;
+    const quartierMatch = quartierFilter ? req.client.address?.toLowerCase().includes(quartierFilter.toLowerCase()) : true;
+    return cityMatch && quartierMatch && req.latitude && req.longitude;
+  });
+
+  // Suggestions auto-complétion pour correction
+  const handleEditQuartierChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setEditQuartier(value);
+    if (value.length < 1) {
+      setEditSuggestions([]);
+      setShowEditSuggestions(false);
+      return;
+    }
+    const filtered = allQuartiers.filter(q => q.toLowerCase().includes(value.toLowerCase()));
+    setEditSuggestions(filtered);
+    setShowEditSuggestions(filtered.length > 0);
+  };
+  const handleEditSuggestionClick = (quartier: string) => {
+    setEditQuartier(quartier);
+    setEditSuggestions([]);
+    setShowEditSuggestions(false);
+    setEditCommune(quartierToCommune[quartier] || '');
+  };
+  // Fermer suggestions si clic en dehors
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (editSuggestionsRef.current && !editSuggestionsRef.current.contains(event.target as Node)) {
+        setShowEditSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+  // Correction API
+  const handleCorrection = async (requestId: number) => {
+    try {
+      await fetchWithAuth(`http://127.0.0.1:8000/depannage/api/repair-requests/${requestId}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quartier: editQuartier, commune: editCommune })
+      });
+      setEditingRequestId(null);
+      setEditQuartier('');
+      setEditCommune('');
+      fetchDashboardData();
+    } catch (e) {
+      alert('Erreur lors de la correction');
+    }
+  };
 
   if (loading) {
     return (
@@ -375,6 +578,105 @@ const AdminDashboard: React.FC = () => {
           <div className="p-6">
             {activeTab === 'requests' && (
               <div>
+                <div className="mb-8">
+                  {/* Bouton Export CSV */}
+                  <div className="mb-4">
+                    <button
+                      className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded shadow"
+                      onClick={() => exportRequestsToCSV(filteredRequestsForMap.map(req => ({
+                        id: req.id,
+                        service: req.title,
+                        client: req.client.user.email,
+                        address: req.client.address,
+                        quartier: quartierFilter || '',
+                        city: cityFilter || '',
+                        status: req.status,
+                        is_urgent: req.priority === 'urgent',
+                        latitude: req.latitude,
+                        longitude: req.longitude
+                      })))}
+                    >
+                      Exporter CSV
+                    </button>
+                  </div>
+                  {/* Filtres auto-complétés */}
+                  <div className="flex flex-wrap gap-4 mb-4">
+                    <div className="relative w-64">
+                      <input
+                        type="text"
+                        placeholder="Filtrer par ville/commune"
+                        className="w-full p-2 border border-gray-300 rounded-md"
+                        value={cityFilter}
+                        onChange={handleCityFilterChange}
+                        onFocus={() => citySuggestions.length > 0 && setShowCitySuggestions(true)}
+                      />
+                      {showCitySuggestions && citySuggestions.length > 0 && (
+                        <div ref={citySuggestionsRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-60 overflow-y-auto">
+                          {citySuggestions.map((city, idx) => (
+                            <div
+                              key={city + '-' + idx}
+                              className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+                              onClick={() => handleCitySuggestionClick(city)}
+                            >
+                              {city}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="relative w-64">
+                      <input
+                        type="text"
+                        placeholder="Filtrer par quartier"
+                        className="w-full p-2 border border-gray-300 rounded-md"
+                        value={quartierFilter}
+                        onChange={handleQuartierFilterChange}
+                        onFocus={() => quartierSuggestions.length > 0 && setShowQuartierSuggestions(true)}
+                      />
+                      {showQuartierSuggestions && quartierSuggestions.length > 0 && (
+                        <div ref={quartierSuggestionsRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-60 overflow-y-auto">
+                          {quartierSuggestions.map((quartier, idx) => (
+                            <div
+                              key={quartier + '-' + idx}
+                              className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+                              onClick={() => handleQuartierSuggestionClick(quartier)}
+                            >
+                              {quartier}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {/* Carte interactive des demandes */}
+                  <div className="flex items-center mb-2">
+                    <input
+                      type="checkbox"
+                      id="showOnlyIncoherent"
+                      checked={showOnlyIncoherent}
+                      onChange={e => setShowOnlyIncoherent(e.target.checked)}
+                      className="mr-2"
+                    />
+                    <label htmlFor="showOnlyIncoherent" className="text-sm">Afficher uniquement les incohérences</label>
+                  </div>
+                  <AdminRequestsMap
+                    requests={filteredRequestsForMap
+                      .filter(req => typeof req.latitude === 'number' && typeof req.longitude === 'number' && !isNaN(req.latitude) && !isNaN(req.longitude))
+                      .map(req => ({
+                        id: req.id,
+                        latitude: req.latitude,
+                        longitude: req.longitude,
+                        address: req.client.address,
+                        city: cityFilter || '',
+                        quartier: quartierFilter || '',
+                        client: req.client.user.email,
+                        service: req.title,
+                        status: req.status,
+                        is_urgent: req.priority === 'urgent',
+                      }))}
+                  />
+                </div>
+
                 {/* Filtres */}
                 <div className="mb-6">
                   <div className="flex flex-wrap gap-2">
@@ -475,7 +777,66 @@ const AdminDashboard: React.FC = () => {
                               <div className="flex items-center space-x-4">
                                 <div className="flex items-center space-x-2">
                                   <MapPin className="h-4 w-4 text-gray-400" />
-                                  <span className="text-sm text-gray-600">{request.client.address}</span>
+                                  <span className="text-sm text-gray-600">
+                                    {request.client.address}
+                                    {/* Badge incohérence */}
+                                    {!isCoherent(extractQuartier(request.client.address), extractCommune(request.client.address)) && (
+                                      <>
+                                        <span className="inline-block bg-red-600 text-white text-xs font-bold px-2 py-1 rounded ml-2">Incohérence quartier/commune</span>
+                                        <button
+                                          className="ml-2 text-xs text-blue-700 underline hover:text-blue-900"
+                                          onClick={() => {
+                                            setEditingRequestId(request.id);
+                                            setEditQuartier('');
+                                            setEditCommune('');
+                                          }}
+                                        >Corriger</button>
+                                        {editingRequestId === request.id && (
+                                          <div className="mt-2 flex flex-col gap-2 bg-blue-50 p-2 rounded shadow max-w-xs">
+                                            <label className="text-xs font-semibold">Quartier</label>
+                                            <div className="relative">
+                                              <input
+                                                type="text"
+                                                className="w-full p-1 border border-gray-300 rounded"
+                                                value={editQuartier}
+                                                onChange={handleEditQuartierChange}
+                                                placeholder="Quartier correct"
+                                              />
+                                              {showEditSuggestions && editSuggestions.length > 0 && (
+                                                <div ref={editSuggestionsRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-40 overflow-y-auto">
+                                                  {editSuggestions.map((quartier, idx) => (
+                                                    <div
+                                                      key={quartier + '-' + idx}
+                                                      className="px-2 py-1 hover:bg-blue-50 cursor-pointer text-xs"
+                                                      onClick={() => handleEditSuggestionClick(quartier)}
+                                                    >
+                                                      {quartier}
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              )}
+                                            </div>
+                                            <label className="text-xs font-semibold">Commune</label>
+                                            <input
+                                              type="text"
+                                              className="w-full p-1 border border-gray-300 rounded"
+                                              value={editCommune}
+                                              onChange={e => setEditCommune(e.target.value)}
+                                              placeholder="Commune correcte"
+                                            />
+                                            <button
+                                              className="mt-2 bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3 py-1 rounded"
+                                              onClick={() => handleCorrection(request.id)}
+                                            >Valider</button>
+                                            <button
+                                              className="mt-1 text-xs text-gray-500 underline"
+                                              onClick={() => setEditingRequestId(null)}
+                                            >Annuler</button>
+                                          </div>
+                                        )}
+                                      </>
+                                    )}
+                                  </span>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                   <Phone className="h-4 w-4 text-gray-400" />
@@ -493,7 +854,12 @@ const AdminDashboard: React.FC = () => {
                                 <h4 className="font-medium text-gray-900 mb-2">Technicien assigné</h4>
                                 <div className="flex items-center space-x-4">
                                   <div className="flex items-center space-x-2">
-                                    <span className="text-sm text-gray-600">{request.technician.user.username}</span>
+                                    <span className="text-sm text-gray-600">
+                                      {request.technician.user?.username
+                                        || ((request.technician.first_name || request.technician.last_name) ? `${request.technician.first_name || ''} ${request.technician.last_name || ''}`.trim() : '')
+                                        || request.technician.email
+                                        || 'Utilisateur inconnu'}
+                                    </span>
                                   </div>
                                   <div className="flex items-center space-x-2">
                                     <Phone className="h-4 w-4 text-gray-400" />
@@ -635,7 +1001,12 @@ const AdminDashboard: React.FC = () => {
                     >
                       <div className="flex justify-between items-center">
                         <div>
-                          <p className="font-medium text-gray-900">{technician.user.username}</p>
+                          <p className="font-medium text-gray-900">
+                            {technician.name
+                              || ((technician.first_name || technician.last_name) ? `${technician.first_name || ''} ${technician.last_name || ''}`.trim() : '')
+                              || technician.email
+                              || 'Utilisateur inconnu'}
+                          </p>
                           <p className="text-sm text-gray-500">{technician.specialty}</p>
                         </div>
                         <div className="text-right">

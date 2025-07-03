@@ -14,10 +14,38 @@ import NotFound from './pages/NotFound';
 import MainLayout from './layouts/MainLayout';
 import { AuthProvider } from './contexts/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
+import ErrorBoundary from './components/ErrorBoundary';
+import DiagnosticPanel from './components/DiagnosticPanel';
 import PaymentPage from './pages/PaymentPage';
+import PaymentSuccess from './pages/PaymentSuccess';
+
+// Composant pour vérifier l'environnement de développement
+const EnvironmentCheck: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  React.useEffect(() => {
+    // Vérifier si l'app est accédée via file:// protocol
+    if (window.location.protocol === 'file:') {
+      console.warn(
+        '⚠️ ATTENTION: Cette application doit être accédée via http://localhost:5173 ' +
+        'et non via un fichier local. React Router nécessite un serveur HTTP.'
+      );
+    }
+
+    // Vérifier si on est sur localhost
+    if (!window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+      console.warn(
+        '⚠️ ATTENTION: Cette application est conçue pour fonctionner sur localhost. ' +
+        'Certaines fonctionnalités peuvent ne pas fonctionner correctement.'
+      );
+    }
+  }, []);
+
+  return <>{children}</>;
+};
 
 function App() {
   return (
+    <ErrorBoundary>
+      <EnvironmentCheck>
     <AuthProvider>
       <Router>
         <Routes>
@@ -27,7 +55,8 @@ function App() {
             <Route path="booking" element={<BookingForm />} />
             <Route path="login" element={<Login />} />
             <Route path="register" element={<Register />} />
-            <Route path="payment" element={<PrivateRoute><PaymentPage /></PrivateRoute>} />
+                <Route path="payment/:transactionId?" element={<PrivateRoute><PaymentPage /></PrivateRoute>} />
+                <Route path="payment/success" element={<PaymentSuccess />} />
             
             {/* Routes protégées */}
             <Route path="dashboard" element={
@@ -82,7 +111,12 @@ function App() {
           </Route>
         </Routes>
       </Router>
+
+          {/* Panneau de diagnostic (visible en mode développement) */}
+          {process.env.NODE_ENV === 'development' && <DiagnosticPanel />}
     </AuthProvider>
+      </EnvironmentCheck>
+    </ErrorBoundary>
   );
 }
 

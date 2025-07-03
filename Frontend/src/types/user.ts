@@ -1,3 +1,11 @@
+export interface Technician {
+  id: number;
+  specialty: string;
+  phone: string;
+  is_verified: boolean;
+  years_experience: number;
+}
+
 export interface User {
   id: number;
   username: string;
@@ -9,6 +17,7 @@ export interface User {
   is_superuser: boolean;
   created_at: string;
   updated_at: string;
+  technician?: Technician;
 }
 
 export interface Profile {

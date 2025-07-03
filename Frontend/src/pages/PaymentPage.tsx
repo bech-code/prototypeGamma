@@ -1,26 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { fetchWithAuth } from '../contexts/fetchWithAuth';
 
 interface PaymentData {
-    request_id: string;
-    amount: number;
-    description: string;
-    customer_name: string;
-    customer_surname: string;
-    customer_email: string;
-    customer_phone_number: string;
-    customer_address: string;
-    customer_city: string;
-    customer_zip_code: string;
-    customer_country: string;
-    customer_state: string;
-    service_name: string;
-    date: string;
-    time: string;
-    is_urgent: boolean;
+  request_id: string;
+  amount: number;
+  description: string;
+  customer_name: string;
+  customer_surname: string;
+  customer_email: string;
+  customer_phone_number: string;
+  customer_address: string;
+  customer_city: string;
+  customer_zip_code: string;
+  customer_country: string;
+  customer_state: string;
+  service_name: string;
+  date: string;
+  time: string;
+  is_urgent: boolean;
+  phone: string;
 }
-
-
 
 const PaymentPage: React.FC = () => {
   const { transactionId } = useParams<{ transactionId: string }>();
@@ -32,53 +32,56 @@ const PaymentPage: React.FC = () => {
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (transactionId) {
+    // Initialiser le paiement même sans transactionId
       initializePayment();
-    }
-  }, [transactionId]);
+  }, []);
 
   const initializePayment = async () => {
     try {
       setLoading(true);
       setError(null);
-  
+
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error('Token d\'authentification manquant');
       }
-  
+
       // Récupérer les données de paiement depuis l'état de navigation
       const paymentData = location.state?.paymentData;
       if (!paymentData) {
         throw new Error('Données de paiement manquantes');
       }
-  
-      const response = await fetch(`http://127.0.0.1:8000/depannage/api/cinetpay/`, {
+
+      console.log('Données de paiement reçues:', paymentData);
+
+      const paymentBody = {
+        request_id: paymentData.request_id,
+        amount: paymentData.amount,
+        description: paymentData.description,
+        phone: paymentData.phone,
+      };
+
+      const response = await fetchWithAuth(`http://127.0.0.1:8000/depannage/api/cinetpay/initiate_payment/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          request_id: paymentData.request_id,
-          amount: paymentData.amount,
-          description: paymentData.description,
-        }),
+        body: JSON.stringify(paymentBody),
       });
-  
+
       const data = await response.json();
-  
+
       if (!response.ok) {
         throw new Error(data.detail || data.message || 'Erreur lors de l\'initialisation du paiement');
       }
-  
+
       if (!data.payment_url) {
         throw new Error('URL de paiement non reçue');
       }
-  
+
       setPaymentData(paymentData);
       setPaymentUrl(data.payment_url);
-  
+
     } catch (error: unknown) {
       console.error('Erreur lors de l\'initialisation:', error);
       setError(error instanceof Error ? error.message : 'Erreur lors de l\'initialisation du paiement');
@@ -160,7 +163,7 @@ const PaymentPage: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
-          
+
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Paiement sécurisé</h2>
           <p className="text-gray-600 mb-6">Vous allez être redirigé vers CinetPay pour finaliser votre paiement</p>
 

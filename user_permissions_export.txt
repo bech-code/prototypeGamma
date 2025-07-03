@@ -1,0 +1,532 @@
+--- Permissions effectives de tous les utilisateurs ---
+
+Utilisateur: admin
+Groupes : []
+Permissions effectives :
+  auth.change_permission
+  depannage.delete_notificationpreference
+  depannage.add_cinetpaypayment
+  depannage.view_technician
+  depannage.add_reward
+  auth.delete_permission
+  depannage.change_requestdocument
+  depannage.change_conversation
+  admin.change_logentry
+  depannage.delete_requestdocument
+  auth.add_permission
+  depannage.view_technicianlocation
+  depannage.delete_cinetpaypayment
+  depannage.change_message
+  auth.view_group
+  depannage.view_cinetpaypayment
+  depannage.view_notificationpreference
+  auth.delete_group
+  depannage.add_client
+  auth.add_group
+  depannage.add_systemconfiguration
+  depannage.view_notification
+  users.change_user
+  depannage.change_repairrequest
+  depannage.view_reward
+  depannage.change_technician
+  depannage.view_systemconfiguration
+  depannage.change_review
+  depannage.view_requestdocument
+  depannage.change_client
+  depannage.view_loyaltyprogram
+  sessions.view_session
+  contenttypes.change_contenttype
+  depannage.view_conversation
+  admin.delete_logentry
+  depannage.add_loyaltyprogram
+  depannage.delete_reward
+  depannage.view_rewardclaim
+  admin.add_logentry
+  contenttypes.add_contenttype
+  depannage.add_review
+  users.add_user
+  depannage.delete_client
+  depannage.add_payment
+  depannage.delete_payment
+  auth.change_user
+  depannage.view_payment
+  depannage.delete_messageattachment
+  depannage.change_messageattachment
+  depannage.delete_loyaltyprogram
+  depannage.change_reward
+  depannage.delete_rewardclaim
+  depannage.add_rewardclaim
+  auth.add_user
+  users.view_user
+  sessions.change_session
+  depannage.add_technician
+  depannage.add_technicianlocation
+  admin.view_logentry
+  depannage.change_notification
+  depannage.change_notificationpreference
+  depannage.add_messageattachment
+  contenttypes.delete_contenttype
+  depannage.delete_technician
+  depannage.view_review
+  depannage.add_notificationpreference
+  depannage.delete_repairrequest
+  depannage.change_technicianlocation
+  depannage.delete_message
+  depannage.delete_technicianlocation
+  depannage.change_payment
+  depannage.view_message
+  depannage.view_client
+  depannage.add_conversation
+  depannage.delete_review
+  depannage.view_repairrequest
+  auth.view_permission
+  sessions.delete_session
+  depannage.add_repairrequest
+  depannage.view_messageattachment
+  sessions.add_session
+  depannage.change_rewardclaim
+  depannage.add_notification
+  depannage.change_cinetpaypayment
+  users.delete_user
+  contenttypes.view_contenttype
+  depannage.change_loyaltyprogram
+  depannage.delete_systemconfiguration
+  depannage.change_systemconfiguration
+  auth.view_user
+  depannage.delete_notification
+  depannage.delete_conversation
+  depannage.add_message
+  depannage.add_requestdocument
+  auth.change_group
+  auth.delete_user
+
+Utilisateur: client1
+Groupes : []
+Permissions effectives :
+
+Utilisateur: client2
+Groupes : []
+Permissions effectives :
+
+Utilisateur: client3
+Groupes : []
+Permissions effectives :
+
+Utilisateur: bech_tech
+Groupes : []
+Permissions effectives :
+  depannage.view_message
+  depannage.view_client
+  depannage.view_requestdocument
+  depannage.add_conversation
+  depannage.add_technicianlocation
+  depannage.view_conversation
+  depannage.change_requestdocument
+  depannage.change_conversation
+  depannage.change_notification
+  depannage.add_notification
+  depannage.view_technicianlocation
+  depannage.view_review
+  depannage.view_payment
+  depannage.delete_notification
+  depannage.change_technicianlocation
+  depannage.delete_conversation
+  depannage.add_requestdocument
+  depannage.view_notification
+  depannage.view_reward
+
+Utilisateur: tech_electricien
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_serrurier
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_informatique
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_climatisation
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_electromenager
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_mecanicien
+Groupes : []
+Permissions effectives :
+
+Utilisateur: amadou
+Groupes : []
+Permissions effectives :
+  auth.change_permission
+  depannage.delete_notificationpreference
+  depannage.add_cinetpaypayment
+  depannage.view_technician
+  depannage.add_reward
+  auth.delete_permission
+  depannage.change_requestdocument
+  depannage.change_conversation
+  admin.change_logentry
+  depannage.delete_requestdocument
+  auth.add_permission
+  depannage.view_technicianlocation
+  depannage.delete_cinetpaypayment
+  depannage.change_message
+  auth.view_group
+  depannage.view_cinetpaypayment
+  depannage.view_notificationpreference
+  auth.delete_group
+  depannage.add_client
+  auth.add_group
+  depannage.add_systemconfiguration
+  depannage.view_notification
+  users.change_user
+  depannage.change_repairrequest
+  depannage.view_reward
+  depannage.change_technician
+  depannage.view_systemconfiguration
+  depannage.change_review
+  depannage.view_requestdocument
+  depannage.change_client
+  depannage.view_loyaltyprogram
+  sessions.view_session
+  contenttypes.change_contenttype
+  depannage.view_conversation
+  admin.delete_logentry
+  depannage.add_loyaltyprogram
+  depannage.delete_reward
+  depannage.view_rewardclaim
+  admin.add_logentry
+  contenttypes.add_contenttype
+  depannage.add_review
+  users.add_user
+  depannage.delete_client
+  depannage.add_payment
+  depannage.delete_payment
+  auth.change_user
+  depannage.view_payment
+  depannage.delete_messageattachment
+  depannage.change_messageattachment
+  depannage.delete_loyaltyprogram
+  depannage.change_reward
+  depannage.delete_rewardclaim
+  depannage.add_rewardclaim
+  auth.add_user
+  users.view_user
+  sessions.change_session
+  depannage.add_technician
+  depannage.add_technicianlocation
+  admin.view_logentry
+  depannage.change_notification
+  depannage.change_notificationpreference
+  depannage.add_messageattachment
+  contenttypes.delete_contenttype
+  depannage.delete_technician
+  depannage.view_review
+  depannage.add_notificationpreference
+  depannage.delete_repairrequest
+  depannage.change_technicianlocation
+  depannage.delete_message
+  depannage.delete_technicianlocation
+  depannage.change_payment
+  depannage.view_message
+  depannage.view_client
+  depannage.add_conversation
+  depannage.delete_review
+  depannage.view_repairrequest
+  auth.view_permission
+  sessions.delete_session
+  depannage.add_repairrequest
+  depannage.view_messageattachment
+  sessions.add_session
+  depannage.change_rewardclaim
+  depannage.add_notification
+  depannage.change_cinetpaypayment
+  users.delete_user
+  contenttypes.view_contenttype
+  depannage.change_loyaltyprogram
+  depannage.delete_systemconfiguration
+  depannage.change_systemconfiguration
+  auth.view_user
+  depannage.delete_notification
+  depannage.delete_conversation
+  depannage.add_message
+  depannage.add_requestdocument
+  auth.change_group
+  auth.delete_user
+
+Utilisateur: BechirTech
+Groupes : []
+Permissions effectives :
+
+Utilisateur: farotaclient
+Groupes : []
+Permissions effectives :
+
+Utilisateur: depan_use
+Groupes : []
+Permissions effectives :
+  auth.change_permission
+  depannage.delete_notificationpreference
+  depannage.add_cinetpaypayment
+  depannage.view_technician
+  depannage.add_reward
+  auth.delete_permission
+  depannage.change_requestdocument
+  depannage.change_conversation
+  admin.change_logentry
+  depannage.delete_requestdocument
+  auth.add_permission
+  depannage.view_technicianlocation
+  depannage.delete_cinetpaypayment
+  depannage.change_message
+  auth.view_group
+  depannage.view_cinetpaypayment
+  depannage.view_notificationpreference
+  auth.delete_group
+  depannage.add_client
+  auth.add_group
+  depannage.add_systemconfiguration
+  depannage.view_notification
+  users.change_user
+  depannage.change_repairrequest
+  depannage.view_reward
+  depannage.change_technician
+  depannage.view_systemconfiguration
+  depannage.change_review
+  depannage.view_requestdocument
+  depannage.change_client
+  depannage.view_loyaltyprogram
+  sessions.view_session
+  contenttypes.change_contenttype
+  depannage.view_conversation
+  admin.delete_logentry
+  depannage.add_loyaltyprogram
+  depannage.delete_reward
+  depannage.view_rewardclaim
+  admin.add_logentry
+  contenttypes.add_contenttype
+  depannage.add_review
+  users.add_user
+  depannage.delete_client
+  depannage.add_payment
+  depannage.delete_payment
+  auth.change_user
+  depannage.view_payment
+  depannage.delete_messageattachment
+  depannage.change_messageattachment
+  depannage.delete_loyaltyprogram
+  depannage.change_reward
+  depannage.delete_rewardclaim
+  depannage.add_rewardclaim
+  auth.add_user
+  users.view_user
+  sessions.change_session
+  depannage.add_technician
+  depannage.add_technicianlocation
+  admin.view_logentry
+  depannage.change_notification
+  depannage.change_notificationpreference
+  depannage.add_messageattachment
+  contenttypes.delete_contenttype
+  depannage.delete_technician
+  depannage.view_review
+  depannage.add_notificationpreference
+  depannage.delete_repairrequest
+  depannage.change_technicianlocation
+  depannage.delete_message
+  depannage.delete_technicianlocation
+  depannage.change_payment
+  depannage.view_message
+  depannage.view_client
+  depannage.add_conversation
+  depannage.delete_review
+  depannage.view_repairrequest
+  auth.view_permission
+  sessions.delete_session
+  depannage.add_repairrequest
+  depannage.view_messageattachment
+  sessions.add_session
+  depannage.change_rewardclaim
+  depannage.add_notification
+  depannage.change_cinetpaypayment
+  users.delete_user
+  contenttypes.view_contenttype
+  depannage.change_loyaltyprogram
+  depannage.delete_systemconfiguration
+  depannage.change_systemconfiguration
+  auth.view_user
+  depannage.delete_notification
+  depannage.delete_conversation
+  depannage.add_message
+  depannage.add_requestdocument
+  auth.change_group
+  auth.delete_user
+
+Utilisateur: testuser
+Groupes : []
+Permissions effectives :
+
+Utilisateur: Bechir
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_electrician_1
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_electrician_2
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_electrician_3
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_plumber_1
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_plumber_2
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_plumber_3
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_mechanic_1
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_mechanic_2
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_mechanic_3
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_it_1
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_it_2
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_it_3
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_air_conditioning_1
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_air_conditioning_2
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_air_conditioning_3
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_appliance_repair_1
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_appliance_repair_2
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_appliance_repair_3
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_locksmith_1
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_locksmith_2
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_locksmith_3
+Groupes : ['Technicien']
+Permissions effectives :
+  depannage.view_message
+  depannage.add_conversation
+  depannage.view_technician
+  depannage.view_loyaltyprogram
+  depannage.add_technicianlocation
+  depannage.view_conversation
+  depannage.view_repairrequest
+  depannage.view_messageattachment
+  depannage.add_messageattachment
+  depannage.add_notification
+  depannage.add_rewardclaim
+  depannage.view_technicianlocation
+  depannage.view_payment
+  depannage.change_technicianlocation
+  depannage.add_message
+  depannage.view_notification
+  depannage.change_repairrequest
+  depannage.view_reward
+  users.change_user
+  depannage.change_technician
+
+Utilisateur: tech_other_1
+Groupes : []
+Permissions effectives :
+
+Utilisateur: tech_other_2
+Groupes : ['Technicien']
+Permissions effectives :
+  depannage.view_message
+  depannage.add_conversation
+  depannage.view_technician
+  depannage.view_loyaltyprogram
+  depannage.add_technicianlocation
+  depannage.view_conversation
+  depannage.view_repairrequest
+  depannage.view_messageattachment
+  depannage.add_messageattachment
+  depannage.add_notification
+  depannage.add_rewardclaim
+  depannage.view_technicianlocation
+  depannage.view_payment
+  depannage.change_technicianlocation
+  depannage.add_message
+  depannage.view_notification
+  depannage.change_repairrequest
+  depannage.view_reward
+  users.change_user
+  depannage.change_technician
+
+Utilisateur: tech_other_3
+Groupes : ['Technicien']
+Permissions effectives :
+  depannage.view_message
+  depannage.add_conversation
+  depannage.view_technician
+  depannage.view_loyaltyprogram
+  depannage.add_technicianlocation
+  depannage.view_conversation
+  depannage.view_repairrequest
+  depannage.view_messageattachment
+  depannage.add_messageattachment
+  depannage.add_notification
+  depannage.add_rewardclaim
+  depannage.view_technicianlocation
+  depannage.view_payment
+  depannage.change_technicianlocation
+  depannage.add_message
+  depannage.view_notification
+  depannage.change_repairrequest
+  depannage.view_reward
+  users.change_user
+  depannage.change_technician

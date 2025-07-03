@@ -1,8 +1,10 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { Wrench, Zap, Key, Monitor, Thermometer, Fan } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Wrench, Zap, Key, Monitor, Thermometer, Fan, MapPin, Loader2 } from 'lucide-react';
 import HeroSection from '../components/HeroSection';
 import ServiceCard from '../components/ServiceCard';
+import TechnicianMapHome from '../components/TechnicianMapHome';
+import { useAuth } from '../contexts/AuthContext';
 import { Service } from '../types/service';
 
 // Import des images locales
@@ -13,7 +15,33 @@ import solarPanelImage from '../assets/image/solar-panel.jpg';
 import nettoyeurImage from '../assets/image/nettoyeur.jpg';
 import climatisationImage from '../assets/image/Climatisation.webp';
 
+interface Technician {
+  id: number;
+  user: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    email: string;
+    username: string;
+  };
+  specialty: string;
+  years_experience: number;
+  hourly_rate: number;
+  is_available: boolean;
+  is_verified: boolean;
+  distance: number;
+  average_rating: number;
+  city: string;
+}
+
 const Home: React.FC = () => {
+  const { user, token } = useAuth();
+  const navigate = useNavigate();
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [showMap, setShowMap] = useState(false);
+  const [loadingLocation, setLoadingLocation] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
   // Mock service data
   const services: Service[] = [
     {
@@ -72,10 +100,127 @@ const Home: React.FC = () => {
     },
   ];
 
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError('La géolocalisation n\'est pas supportée par votre navigateur');
+      setLoadingLocation(false);
+      return;
+    }
+    setLoadingLocation(true);
+    setLocationError(null);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+        setShowMap(true);
+        setLoadingLocation(false);
+      },
+      (error) => {
+        setLocationError('Erreur lors de la récupération de votre position');
+        setLoadingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+    );
+  };
+
+  const handleBookingClick = () => {
+    if (!userLocation) {
+      setLocationError('Veuillez d\'abord utiliser votre position');
+      return;
+    }
+    navigate('/booking', { state: { userLocation } });
+  };
+
+  const handleTechnicianSelect = (technician: Technician) => {
+    if (!user) {
+      navigate('/login?redirect=/booking');
+      return;
+    }
+
+    // Rediriger vers le formulaire de réservation avec les infos du technicien
+    navigate('/booking', {
+      state: {
+        selectedTechnician: technician,
+        userLocation: userLocation
+      }
+    });
+  };
+
+  useEffect(() => {
+    if (location.state && location.state.userLocation) {
+      setUserLocation(location.state.userLocation);
+      setShowMap(true);
+    }
+  }, [location.state]);
+
   return (
     <>
-      <HeroSection />
-      
+      <HeroSection onGetLocation={handleGetLocation} loadingLocation={loadingLocation} />
+
+      {/* Section Carte des Techniciens */}
+      <section className="py-16 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <span className="text-orange-500 font-medium">Service Rapide</span>
+            <h2 className="text-3xl font-bold text-gray-900 mt-2 mb-4">Trouvez un Technicien à Proximité</h2>
+            <p className="max-w-2xl mx-auto text-gray-600 mb-8">
+              Besoin d'une intervention urgente ? Localisez rapidement un technicien qualifié dans votre zone et obtenez une assistance immédiate.
+            </p>
+
+            {/* Bouton de géolocalisation */}
+            <div className="flex justify-center mb-8">
+              <button
+                onClick={handleGetLocation}
+                disabled={loadingLocation}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-8 rounded-md transition-colors inline-flex items-center space-x-2 disabled:opacity-50"
+              >
+                {loadingLocation ? (
+                  <>
+                    <Loader2 className="animate-spin h-5 w-5" />
+                    <span>Localisation en cours...</span>
+                  </>
+                ) : (
+                  <>
+                    <MapPin className="h-5 w-5" />
+                    <span>Utiliser Ma Position</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Message d'erreur */}
+            {locationError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-6 max-w-2xl mx-auto">
+                <div className="flex items-center">
+                  <div className="text-red-600 mr-2">⚠️</div>
+                  <span>{locationError}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Carte conditionnelle */}
+            {showMap && userLocation && (
+              <div className="mt-8">
+                <TechnicianMapHome
+                  userLat={userLocation.lat}
+                  userLng={userLocation.lng}
+                  onTechnicianSelect={handleTechnicianSelect}
+                />
+              </div>
+            )}
+
+            {/* Message si pas connecté */}
+            {!user && (
+              <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-md mt-6 max-w-2xl mx-auto">
+                <div className="flex items-center justify-center">
+                  <div className="text-blue-600 mr-2">ℹ️</div>
+                  <span>Connectez-vous pour utiliser la géolocalisation et voir les techniciens proches</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
       {/* Qui Sommes-Nous Section */}
       <section className="py-16 bg-white">
         <div className="container mx-auto px-4">
@@ -99,9 +244,9 @@ const Home: React.FC = () => {
               </div>
             </div>
             <div className="relative h-[500px] rounded-2xl overflow-hidden shadow-xl">
-              <img 
+              <img
                 src={depanneurImage}
-                alt="Équipe DepanneTeliman" 
+                alt="Équipe DepanneTeliman"
                 className="w-full h-full object-contain bg-gray-100"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
@@ -113,7 +258,7 @@ const Home: React.FC = () => {
           </div>
         </div>
       </section>
-      
+
       {/* Services Section */}
       <section className="py-16 bg-gray-50">
         <div className="container mx-auto px-4">
@@ -124,14 +269,14 @@ const Home: React.FC = () => {
               Nos techniciens certifiés fournissent des réparations et une maintenance fiables pour les maisons et les entreprises dans toutes les catégories de services.
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {services.map(service => (
               <div key={service.id} className="relative">
                 <ServiceCard service={service} />
                 <div className="mt-4 text-center">
-                  <Link 
-                    to={`/service/${service.id}`} 
+                  <Link
+                    to={`/service/${service.id}`}
                     className="text-blue-700 hover:underline font-medium"
                   >
                     Voir les détails
@@ -140,10 +285,10 @@ const Home: React.FC = () => {
               </div>
             ))}
           </div>
-          
+
           <div className="text-center mt-12">
-            <Link 
-              to="/booking" 
+            <Link
+              to="/booking"
               className="bg-blue-700 hover:bg-blue-800 text-white font-medium py-3 px-8 rounded-md transition-colors inline-block"
             >
               Réserver un Service
@@ -151,7 +296,7 @@ const Home: React.FC = () => {
           </div>
         </div>
       </section>
-      
+
       {/* How It Works Section */}
       <section className="py-16 bg-white">
         <div className="container mx-auto px-4">
@@ -162,7 +307,7 @@ const Home: React.FC = () => {
               Obtenir de l'aide experte est facile avec notre processus de réservation simple.
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center">
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -173,7 +318,7 @@ const Home: React.FC = () => {
                 Entrez votre localisation et sélectionnez le service dont vous avez besoin. Choisissez un créneau horaire qui vous convient.
               </p>
             </div>
-            
+
             <div className="text-center">
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-blue-700 text-2xl font-bold">2</span>
@@ -183,7 +328,7 @@ const Home: React.FC = () => {
                 Nous vous assignerons un technicien certifié spécialisé dans vos besoins spécifiques.
               </p>
             </div>
-            
+
             <div className="text-center">
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-blue-700 text-2xl font-bold">3</span>
@@ -196,7 +341,7 @@ const Home: React.FC = () => {
           </div>
         </div>
       </section>
-      
+
       {/* Testimonials Section */}
       <section className="py-16 bg-blue-900 text-white">
         <div className="container mx-auto px-4">
@@ -207,14 +352,14 @@ const Home: React.FC = () => {
               Ne nous croyez pas sur parole. Voici ce que nos clients disent de nos services.
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="bg-white rounded-lg p-6 text-gray-800 shadow-lg">
               <div className="flex items-center mb-4">
                 <div className="mr-3">
-                  <img 
-                    src="" 
-                    alt="Client" 
+                  <img
+                    src=""
+                    alt="Client"
                     className="w-12 h-12 rounded-full object-cover"
                   />
                 </div>
@@ -233,13 +378,13 @@ const Home: React.FC = () => {
                 "Le plombier est arrivé rapidement et a réparé notre robinet qui fuyait en un rien de temps. Très professionnel et à prix raisonnable. Je recommande vivement !"
               </p>
             </div>
-            
+
             <div className="bg-white rounded-lg p-6 text-gray-800 shadow-lg">
               <div className="flex items-center mb-4">
                 <div className="mr-3">
-                  <img 
-                    src="" 
-                    alt="Client" 
+                  <img
+                    src=""
+                    alt="Client"
                     className="w-12 h-12 rounded-full object-cover"
                   />
                 </div>
@@ -258,13 +403,13 @@ const Home: React.FC = () => {
                 "J'ai eu un problème électrique pendant le week-end. Le technicien est venu en moins d'une heure et a tout remis en état. Excellent service d'urgence !"
               </p>
             </div>
-            
+
             <div className="bg-white rounded-lg p-6 text-gray-800 shadow-lg">
               <div className="flex items-center mb-4">
                 <div className="mr-3">
-                  <img 
-                    src="" 
-                    alt="Client" 
+                  <img
+                    src=""
+                    alt="Client"
                     className="w-12 h-12 rounded-full object-cover"
                   />
                 </div>
@@ -287,10 +432,10 @@ const Home: React.FC = () => {
               </p>
             </div>
           </div>
-          
+
           <div className="text-center mt-12">
-            <Link 
-              to="/reviews" 
+            <Link
+              to="/reviews"
               className="text-white border border-white py-3 px-8 rounded-md hover:bg-white hover:text-blue-900 transition-colors inline-block"
             >
               Lire Plus de Témoignages
@@ -298,15 +443,15 @@ const Home: React.FC = () => {
           </div>
         </div>
       </section>
-      
+
       {/* Maçons Qualifiés Section */}
       <section className="py-16 bg-white">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div className="relative h-[500px] rounded-2xl overflow-hidden shadow-xl">
-              <img 
-                src="https://images.pexels.com/photos/159358/construction-site-build-construction-work-159358.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" 
-                alt="Maçons au travail" 
+              <img
+                src="https://images.pexels.com/photos/159358/construction-site-build-construction-work-159358.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
+                alt="Maçons au travail"
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
@@ -398,9 +543,9 @@ const Home: React.FC = () => {
               </div>
             </div>
             <div className="relative h-[500px] rounded-2xl overflow-hidden shadow-xl order-1 lg:order-2">
-              <img 
+              <img
                 src={solarPanelImage}
-                alt="Installation de panneaux solaires" 
+                alt="Installation de panneaux solaires"
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
@@ -414,9 +559,9 @@ const Home: React.FC = () => {
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div className="relative h-[500px] rounded-2xl overflow-hidden shadow-xl">
-              <img 
+              <img
                 src={nettoyeurImage}
-                alt="Équipe de nettoyage" 
+                alt="Équipe de nettoyage"
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
@@ -463,7 +608,7 @@ const Home: React.FC = () => {
           </div>
         </div>
       </section>
-      
+
       {/* CTA Section */}
       <section className="py-16 bg-gradient-to-r from-orange-500 to-orange-600 text-white">
         <div className="container mx-auto px-4 text-center">
@@ -472,14 +617,14 @@ const Home: React.FC = () => {
             Nos professionnels sont disponibles 24/7 pour vous aider avec toute réparation d'urgence ou maintenance planifiée.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link 
-              to="/booking" 
+            <Link
+              to="/booking"
               className="bg-white text-orange-600 font-bold py-3 px-8 rounded-md hover:bg-blue-900 hover:text-white transition-colors inline-block"
             >
               Réserver Maintenant
             </Link>
-            <a 
-              href="tel:+33123456789" 
+            <a
+              href="tel:+33123456789"
               className="border-2 border-white text-white font-bold py-3 px-8 rounded-md hover:bg-white hover:text-orange-600 transition-colors inline-block"
             >
               Appelez-Nous
