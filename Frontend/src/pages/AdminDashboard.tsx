@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Wrench, Clock, CheckCircle, AlertCircle, TrendingUp, MapPin, Phone, Star, MessageSquare } from 'lucide-react';
+import { Users, Wrench, Clock, CheckCircle, AlertCircle, TrendingUp, MapPin, Phone, Star, MessageSquare, BarChart2, Shield, Globe, AlertTriangle, UserCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchWithAuth } from '../contexts/fetchWithAuth';
 import AdminRequestsMap from '../components/AdminRequestsMap';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Bar, BarChart } from 'recharts';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 
 interface RepairRequest {
   id: number;
@@ -134,8 +137,8 @@ function exportRequestsToCSV(requests: any[]) {
     req.city || '',
     req.status,
     req.is_urgent ? 'Oui' : 'Non',
-    req.latitude,
-    req.longitude
+    req.latitude ?? 0,
+    req.longitude ?? 0
   ]);
   const csvContent = [headers, ...rows].map(e => e.map(x => `"${(x ?? '').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -168,7 +171,7 @@ const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'requests' | 'technicians' | 'notifications'>('requests');
+  const [activeTab, setActiveTab] = useState<'requests' | 'technicians' | 'notifications' | 'security'>('requests');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedRequest, setSelectedRequest] = useState<RepairRequest | null>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -187,6 +190,17 @@ const AdminDashboard: React.FC = () => {
   const [showEditSuggestions, setShowEditSuggestions] = useState(false);
   const editSuggestionsRef = React.useRef<HTMLDivElement>(null);
   const [showOnlyIncoherent, setShowOnlyIncoherent] = useState(false);
+  const [securityStats, setSecurityStats] = useState<any>(null);
+  const [securityLoading, setSecurityLoading] = useState(false);
+  const [securityError, setSecurityError] = useState<string | null>(null);
+  const [securityPeriod, setSecurityPeriod] = useState<'day' | 'week' | 'month'>('week');
+  const [securityTrends, setSecurityTrends] = useState<any[]>([]);
+  const [recentAlerts, setRecentAlerts] = useState<any[]>([]);
+  const [alertsLoading, setAlertsLoading] = useState(false);
+  const [alertsError, setAlertsError] = useState<string | null>(null);
+  const [loginLocations, setLoginLocations] = useState<any[]>([]);
+  const [locationsLoading, setLocationsLoading] = useState(false);
+  const [locationsError, setLocationsError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -271,7 +285,13 @@ const AdminDashboard: React.FC = () => {
         setSelectedRequest(null);
         fetchDashboardData();
       } else {
-        console.error('Erreur lors de l\'assignation');
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          errorData = null;
+        }
+        console.error('Erreur lors de l\'assignation', errorData);
       }
     } catch (error) {
       console.error('Erreur lors de l\'assignation:', error);
@@ -438,6 +458,86 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  // Fetch stats sécurité quand l'onglet ou la période change
+  useEffect(() => {
+    if (activeTab === 'security') {
+      fetchSecurityStats();
+      fetchSecurityTrends();
+      fetchRecentAlerts();
+      fetchLoginLocations();
+    }
+    // eslint-disable-next-line
+  }, [activeTab, securityPeriod]);
+
+  const fetchSecurityStats = async () => {
+    setSecurityLoading(true);
+    setSecurityError(null);
+    try {
+      const resp = await fetchWithAuth('http://127.0.0.1:8000/users/admin/security-dashboard/', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!resp.ok) throw new Error('Erreur lors de la récupération des stats sécurité');
+      const data = await resp.json();
+      setSecurityStats(data);
+    } catch (e: any) {
+      setSecurityError(e.message || 'Erreur inconnue');
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
+
+  const fetchSecurityTrends = async () => {
+    try {
+      const resp = await fetchWithAuth(`http://127.0.0.1:8000/users/admin/security-dashboard/?period=${securityPeriod}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!resp.ok) throw new Error('Erreur lors de la récupération des tendances sécurité');
+      const data = await resp.json();
+      setSecurityTrends(data.trends || []);
+    } catch (e: any) {
+      setSecurityTrends([]);
+    }
+  };
+
+  const fetchRecentAlerts = async () => {
+    setAlertsLoading(true);
+    setAlertsError(null);
+    try {
+      const resp = await fetchWithAuth('http://127.0.0.1:8000/users/admin/security-notifications/?limit=10', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!resp.ok) throw new Error('Erreur lors de la récupération des alertes');
+      const data = await resp.json();
+      setRecentAlerts(data.results || []);
+    } catch (e: any) {
+      setAlertsError(e.message || 'Erreur inconnue');
+      setRecentAlerts([]);
+    } finally {
+      setAlertsLoading(false);
+    }
+  };
+
+  const fetchLoginLocations = async () => {
+    try {
+      setLocationsLoading(true);
+      setLocationsError(null);
+      const response = await fetchWithAuth('/users/admin/login-locations/?limit=100');
+      if (response.ok) {
+        const data = await response.json();
+        setLoginLocations(data);
+      } else {
+        setLocationsError('Erreur lors du chargement des localisations');
+      }
+    } catch (error) {
+      setLocationsError('Erreur de connexion');
+    } finally {
+      setLocationsLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -472,7 +572,7 @@ const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-8">
         {/* Statistiques */}
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -542,438 +642,575 @@ const AdminDashboard: React.FC = () => {
         )}
 
         {/* Onglets */}
-        <div className="bg-white rounded-lg shadow mb-6">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8 px-6">
-              <button
-                onClick={() => setActiveTab('requests')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'requests'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-              >
-                Demandes ({repairRequests.length})
-              </button>
-              <button
-                onClick={() => setActiveTab('technicians')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'technicians'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-              >
-                Techniciens
-              </button>
-              <button
-                onClick={() => setActiveTab('notifications')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'notifications'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-              >
-                Notifications ({notifications.filter(n => !n.is_read).length})
-              </button>
-            </nav>
-          </div>
+        <div className="flex gap-4 border-b mb-6">
+          <button onClick={() => setActiveTab('requests')} className={`py-2 px-4 border-b-2 ${activeTab === 'requests' ? 'border-blue-700 text-blue-700 font-bold' : 'border-transparent text-gray-600'}`}>Demandes</button>
+          <button onClick={() => setActiveTab('technicians')} className={`py-2 px-4 border-b-2 ${activeTab === 'technicians' ? 'border-blue-700 text-blue-700 font-bold' : 'border-transparent text-gray-600'}`}>Techniciens</button>
+          <button onClick={() => setActiveTab('notifications')} className={`py-2 px-4 border-b-2 ${activeTab === 'notifications' ? 'border-blue-700 text-blue-700 font-bold' : 'border-transparent text-gray-600'}`}>Notifications</button>
+          <button onClick={() => setActiveTab('security')} className={`py-2 px-4 border-b-2 ${activeTab === 'security' ? 'border-orange-600 text-orange-600 font-bold' : 'border-transparent text-gray-600'}`}><Shield className="inline w-5 h-5 mr-1" />Sécurité</button>
+        </div>
 
-          <div className="p-6">
-            {activeTab === 'requests' && (
-              <div>
-                <div className="mb-8">
-                  {/* Bouton Export CSV */}
-                  <div className="mb-4">
-                    <button
-                      className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded shadow"
-                      onClick={() => exportRequestsToCSV(filteredRequestsForMap.map(req => ({
-                        id: req.id,
-                        service: req.title,
-                        client: req.client.user.email,
-                        address: req.client.address,
-                        quartier: quartierFilter || '',
-                        city: cityFilter || '',
-                        status: req.status,
-                        is_urgent: req.priority === 'urgent',
-                        latitude: req.latitude,
-                        longitude: req.longitude
-                      })))}
-                    >
-                      Exporter CSV
-                    </button>
-                  </div>
-                  {/* Filtres auto-complétés */}
-                  <div className="flex flex-wrap gap-4 mb-4">
-                    <div className="relative w-64">
-                      <input
-                        type="text"
-                        placeholder="Filtrer par ville/commune"
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                        value={cityFilter}
-                        onChange={handleCityFilterChange}
-                        onFocus={() => citySuggestions.length > 0 && setShowCitySuggestions(true)}
-                      />
-                      {showCitySuggestions && citySuggestions.length > 0 && (
-                        <div ref={citySuggestionsRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-60 overflow-y-auto">
-                          {citySuggestions.map((city, idx) => (
-                            <div
-                              key={city + '-' + idx}
-                              className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm"
-                              onClick={() => handleCitySuggestionClick(city)}
-                            >
-                              {city}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="relative w-64">
-                      <input
-                        type="text"
-                        placeholder="Filtrer par quartier"
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                        value={quartierFilter}
-                        onChange={handleQuartierFilterChange}
-                        onFocus={() => quartierSuggestions.length > 0 && setShowQuartierSuggestions(true)}
-                      />
-                      {showQuartierSuggestions && quartierSuggestions.length > 0 && (
-                        <div ref={quartierSuggestionsRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-60 overflow-y-auto">
-                          {quartierSuggestions.map((quartier, idx) => (
-                            <div
-                              key={quartier + '-' + idx}
-                              className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm"
-                              onClick={() => handleQuartierSuggestionClick(quartier)}
-                            >
-                              {quartier}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  {/* Carte interactive des demandes */}
-                  <div className="flex items-center mb-2">
+        <div className="p-6">
+          {activeTab === 'requests' && (
+            <div>
+              <div className="mb-8">
+                {/* Bouton Export CSV */}
+                <div className="mb-4">
+                  <button
+                    className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded shadow"
+                    onClick={() => exportRequestsToCSV(filteredRequestsForMap.map(req => ({
+                      id: req.id,
+                      service: req.title,
+                      client: req.client.user.email,
+                      address: req.client.address,
+                      quartier: quartierFilter || '',
+                      city: cityFilter || '',
+                      status: req.status,
+                      is_urgent: req.priority === 'urgent',
+                      latitude: req.latitude ?? 0,
+                      longitude: req.longitude ?? 0
+                    })))}
+                  >
+                    Exporter CSV
+                  </button>
+                </div>
+                {/* Filtres auto-complétés */}
+                <div className="flex flex-wrap gap-4 mb-4">
+                  <div className="relative w-64">
                     <input
-                      type="checkbox"
-                      id="showOnlyIncoherent"
-                      checked={showOnlyIncoherent}
-                      onChange={e => setShowOnlyIncoherent(e.target.checked)}
-                      className="mr-2"
+                      type="text"
+                      placeholder="Filtrer par ville/commune"
+                      className="w-full p-2 border border-gray-300 rounded-md"
+                      value={cityFilter}
+                      onChange={handleCityFilterChange}
+                      onFocus={() => citySuggestions.length > 0 && setShowCitySuggestions(true)}
                     />
-                    <label htmlFor="showOnlyIncoherent" className="text-sm">Afficher uniquement les incohérences</label>
+                    {showCitySuggestions && citySuggestions.length > 0 && (
+                      <div ref={citySuggestionsRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-60 overflow-y-auto">
+                        {citySuggestions.map((city, idx) => (
+                          <div
+                            key={city + '-' + idx}
+                            className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+                            onClick={() => handleCitySuggestionClick(city)}
+                          >
+                            {city}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <AdminRequestsMap
-                    requests={filteredRequestsForMap
-                      .filter(req => typeof req.latitude === 'number' && typeof req.longitude === 'number' && !isNaN(req.latitude) && !isNaN(req.longitude))
-                      .map(req => ({
-                        id: req.id,
-                        latitude: req.latitude,
-                        longitude: req.longitude,
-                        address: req.client.address,
-                        city: cityFilter || '',
-                        quartier: quartierFilter || '',
-                        client: req.client.user.email,
-                        service: req.title,
-                        status: req.status,
-                        is_urgent: req.priority === 'urgent',
-                      }))}
+                  <div className="relative w-64">
+                    <input
+                      type="text"
+                      placeholder="Filtrer par quartier"
+                      className="w-full p-2 border border-gray-300 rounded-md"
+                      value={quartierFilter}
+                      onChange={handleQuartierFilterChange}
+                      onFocus={() => quartierSuggestions.length > 0 && setShowQuartierSuggestions(true)}
+                    />
+                    {showQuartierSuggestions && quartierSuggestions.length > 0 && (
+                      <div ref={quartierSuggestionsRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-60 overflow-y-auto">
+                        {quartierSuggestions.map((quartier, idx) => (
+                          <div
+                            key={quartier + '-' + idx}
+                            className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+                            onClick={() => handleQuartierSuggestionClick(quartier)}
+                          >
+                            {quartier}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {/* Carte interactive des demandes */}
+                <div className="flex items-center mb-2">
+                  <input
+                    type="checkbox"
+                    id="showOnlyIncoherent"
+                    checked={showOnlyIncoherent}
+                    onChange={e => setShowOnlyIncoherent(e.target.checked)}
+                    className="mr-2"
                   />
+                  <label htmlFor="showOnlyIncoherent" className="text-sm">Afficher uniquement les incohérences</label>
                 </div>
+                <AdminRequestsMap
+                  requests={filteredRequestsForMap
+                    .filter(req => typeof req.latitude === 'number' && typeof req.longitude === 'number' && !isNaN(req.latitude) && !isNaN(req.longitude))
+                    .map(req => ({
+                      id: req.id,
+                      latitude: req.latitude ?? 0,
+                      longitude: req.longitude ?? 0,
+                      address: req.client.address,
+                      city: cityFilter || '',
+                      quartier: quartierFilter || '',
+                      client: req.client.user.email,
+                      service: req.title,
+                      status: req.status,
+                      is_urgent: req.priority === 'urgent',
+                    }))}
+                />
+              </div>
 
-                {/* Filtres */}
-                <div className="mb-6">
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => setFilterStatus('all')}
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'all'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                    >
-                      Toutes
-                    </button>
-                    <button
-                      onClick={() => setFilterStatus('pending')}
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'pending'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                    >
-                      En attente
-                    </button>
-                    <button
-                      onClick={() => setFilterStatus('assigned')}
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'assigned'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                    >
-                      Assignées
-                    </button>
-                    <button
-                      onClick={() => setFilterStatus('in_progress')}
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'in_progress'
-                        ? 'bg-orange-100 text-orange-800'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                    >
-                      En cours
-                    </button>
-                    <button
-                      onClick={() => setFilterStatus('completed')}
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'completed'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                    >
-                      Terminées
-                    </button>
-                  </div>
+              {/* Filtres */}
+              <div className="mb-6">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setFilterStatus('all')}
+                    className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'all'
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                  >
+                    Toutes
+                  </button>
+                  <button
+                    onClick={() => setFilterStatus('pending')}
+                    className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'pending'
+                      ? 'bg-yellow-100 text-yellow-800'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                  >
+                    En attente
+                  </button>
+                  <button
+                    onClick={() => setFilterStatus('assigned')}
+                    className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'assigned'
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                  >
+                    Assignées
+                  </button>
+                  <button
+                    onClick={() => setFilterStatus('in_progress')}
+                    className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'in_progress'
+                      ? 'bg-orange-100 text-orange-800'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                  >
+                    En cours
+                  </button>
+                  <button
+                    onClick={() => setFilterStatus('completed')}
+                    className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'completed'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                  >
+                    Terminées
+                  </button>
                 </div>
+              </div>
 
-                {/* Liste des demandes */}
-                {filteredRequests.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Wrench className="mx-auto h-12 w-12 text-gray-400" />
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">Aucune demande</h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                      {filterStatus === 'all'
-                        ? 'Aucune demande de réparation.'
-                        : 'Aucune demande avec ce statut.'
-                      }
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {filteredRequests.map((request) => (
-                      <div key={request.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-3 mb-2">
-                              <h3 className="text-lg font-medium text-gray-900">{request.title}</h3>
-                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(request.status)}`}>
-                                {getStatusText(request.status)}
-                              </span>
-                              <div className={`w-3 h-3 rounded-full ${getPriorityColor(request.priority)}`}></div>
+              {/* Liste des demandes */}
+              {filteredRequests.length === 0 ? (
+                <div className="text-center py-12">
+                  <Wrench className="mx-auto h-12 w-12 text-gray-400" />
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">Aucune demande</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {filterStatus === 'all'
+                      ? 'Aucune demande de réparation.'
+                      : 'Aucune demande avec ce statut.'
+                    }
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredRequests.map((request) => (
+                    <div key={request.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3 mb-2">
+                            <h3 className="text-lg font-medium text-gray-900">{request.title}</h3>
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(request.status)}`}>
+                              {getStatusText(request.status)}
+                            </span>
+                            <div className={`w-3 h-3 rounded-full ${getPriorityColor(request.priority)}`}></div>
+                          </div>
+
+                          <p className="text-gray-600 mb-3">{request.description}</p>
+
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-500 mb-4">
+                            <div>
+                              <span className="font-medium">Spécialité:</span> {request.specialty_needed}
                             </div>
-
-                            <p className="text-gray-600 mb-3">{request.description}</p>
-
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-500 mb-4">
-                              <div>
-                                <span className="font-medium">Spécialité:</span> {request.specialty_needed}
-                              </div>
-                              <div>
-                                <span className="font-medium">Coût estimé:</span> {request.estimated_cost !== undefined && request.estimated_cost !== null ? request.estimated_cost.toLocaleString() : "N/A"} FCFA
-                              </div>
-                              <div>
-                                <span className="font-medium">Créée le:</span> {formatDate(request.created_at)}
-                              </div>
-                              <div>
-                                <span className="font-medium">Client:</span> {request.client.user.username}
-                              </div>
+                            <div>
+                              <span className="font-medium">Coût estimé:</span> {request.estimated_cost !== undefined && request.estimated_cost !== null ? request.estimated_cost.toLocaleString() : "N/A"} FCFA
                             </div>
+                            <div>
+                              <span className="font-medium">Créée le:</span> {formatDate(request.created_at)}
+                            </div>
+                            <div>
+                              <span className="font-medium">Client:</span> {request.client.user.username}
+                            </div>
+                          </div>
 
-                            {/* Informations du client */}
-                            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                              <h4 className="font-medium text-gray-900 mb-2">Informations client</h4>
-                              <div className="flex items-center space-x-4">
-                                <div className="flex items-center space-x-2">
-                                  <MapPin className="h-4 w-4 text-gray-400" />
-                                  <span className="text-sm text-gray-600">
-                                    {request.client.address}
-                                    {/* Badge incohérence */}
-                                    {!isCoherent(extractQuartier(request.client.address), extractCommune(request.client.address)) && (
-                                      <>
-                                        <span className="inline-block bg-red-600 text-white text-xs font-bold px-2 py-1 rounded ml-2">Incohérence quartier/commune</span>
-                                        <button
-                                          className="ml-2 text-xs text-blue-700 underline hover:text-blue-900"
-                                          onClick={() => {
-                                            setEditingRequestId(request.id);
-                                            setEditQuartier('');
-                                            setEditCommune('');
-                                          }}
-                                        >Corriger</button>
-                                        {editingRequestId === request.id && (
-                                          <div className="mt-2 flex flex-col gap-2 bg-blue-50 p-2 rounded shadow max-w-xs">
-                                            <label className="text-xs font-semibold">Quartier</label>
-                                            <div className="relative">
-                                              <input
-                                                type="text"
-                                                className="w-full p-1 border border-gray-300 rounded"
-                                                value={editQuartier}
-                                                onChange={handleEditQuartierChange}
-                                                placeholder="Quartier correct"
-                                              />
-                                              {showEditSuggestions && editSuggestions.length > 0 && (
-                                                <div ref={editSuggestionsRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-40 overflow-y-auto">
-                                                  {editSuggestions.map((quartier, idx) => (
-                                                    <div
-                                                      key={quartier + '-' + idx}
-                                                      className="px-2 py-1 hover:bg-blue-50 cursor-pointer text-xs"
-                                                      onClick={() => handleEditSuggestionClick(quartier)}
-                                                    >
-                                                      {quartier}
-                                                    </div>
-                                                  ))}
-                                                </div>
-                                              )}
-                                            </div>
-                                            <label className="text-xs font-semibold">Commune</label>
+                          {/* Informations du client */}
+                          <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                            <h4 className="font-medium text-gray-900 mb-2">Informations client</h4>
+                            <div className="flex items-center space-x-4">
+                              <div className="flex items-center space-x-2">
+                                <MapPin className="h-4 w-4 text-gray-400" />
+                                <span className="text-sm text-gray-600">
+                                  {request.client.address}
+                                  {/* Badge incohérence */}
+                                  {!isCoherent(extractQuartier(request.client.address), extractCommune(request.client.address)) && (
+                                    <>
+                                      <span className="inline-block bg-red-600 text-white text-xs font-bold px-2 py-1 rounded ml-2">Incohérence quartier/commune</span>
+                                      <button
+                                        className="ml-2 text-xs text-blue-700 underline hover:text-blue-900"
+                                        onClick={() => {
+                                          setEditingRequestId(request.id);
+                                          setEditQuartier('');
+                                          setEditCommune('');
+                                        }}
+                                      >Corriger</button>
+                                      {editingRequestId === request.id && (
+                                        <div className="mt-2 flex flex-col gap-2 bg-blue-50 p-2 rounded shadow max-w-xs">
+                                          <label className="text-xs font-semibold">Quartier</label>
+                                          <div className="relative">
                                             <input
                                               type="text"
                                               className="w-full p-1 border border-gray-300 rounded"
-                                              value={editCommune}
-                                              onChange={e => setEditCommune(e.target.value)}
-                                              placeholder="Commune correcte"
+                                              value={editQuartier}
+                                              onChange={handleEditQuartierChange}
+                                              placeholder="Quartier correct"
                                             />
-                                            <button
-                                              className="mt-2 bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3 py-1 rounded"
-                                              onClick={() => handleCorrection(request.id)}
-                                            >Valider</button>
-                                            <button
-                                              className="mt-1 text-xs text-gray-500 underline"
-                                              onClick={() => setEditingRequestId(null)}
-                                            >Annuler</button>
+                                            {showEditSuggestions && editSuggestions.length > 0 && (
+                                              <div ref={editSuggestionsRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-40 overflow-y-auto">
+                                                {editSuggestions.map((quartier, idx) => (
+                                                  <div
+                                                    key={quartier + '-' + idx}
+                                                    className="px-2 py-1 hover:bg-blue-50 cursor-pointer text-xs"
+                                                    onClick={() => handleEditSuggestionClick(quartier)}
+                                                  >
+                                                    {quartier}
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
                                           </div>
-                                        )}
-                                      </>
-                                    )}
+                                          <label className="text-xs font-semibold">Commune</label>
+                                          <input
+                                            type="text"
+                                            className="w-full p-1 border border-gray-300 rounded"
+                                            value={editCommune}
+                                            onChange={e => setEditCommune(e.target.value)}
+                                            placeholder="Commune correcte"
+                                          />
+                                          <button
+                                            className="mt-2 bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3 py-1 rounded"
+                                            onClick={() => handleCorrection(request.id)}
+                                          >Valider</button>
+                                          <button
+                                            className="mt-1 text-xs text-gray-500 underline"
+                                            onClick={() => setEditingRequestId(null)}
+                                          >Annuler</button>
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Phone className="h-4 w-4 text-gray-400" />
+                                <span className="text-sm text-gray-600">{request.client.phone}</span>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-sm text-gray-600">{request.client.user.email}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Informations du technicien assigné */}
+                          {request.technician && (
+                            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                              <h4 className="font-medium text-gray-900 mb-2">Technicien assigné</h4>
+                              <div className="flex items-center space-x-4">
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-sm text-gray-600">
+                                    {request.technician.user?.username || request.technician.user?.email || 'Utilisateur inconnu'}
                                   </span>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                   <Phone className="h-4 w-4 text-gray-400" />
-                                  <span className="text-sm text-gray-600">{request.client.phone}</span>
+                                  <span className="text-sm text-gray-600">{request.technician.phone}</span>
                                 </div>
                                 <div className="flex items-center space-x-2">
-                                  <span className="text-sm text-gray-600">{request.client.user.email}</span>
+                                  <Star className="h-4 w-4 text-yellow-400" />
+                                  <span className="text-sm text-gray-600">{request.technician.average_rating}/5</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-sm text-gray-600">{request.technician.hourly_rate} FCFA/h</span>
                                 </div>
                               </div>
                             </div>
+                          )}
 
-                            {/* Informations du technicien assigné */}
-                            {request.technician && (
-                              <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                                <h4 className="font-medium text-gray-900 mb-2">Technicien assigné</h4>
-                                <div className="flex items-center space-x-4">
-                                  <div className="flex items-center space-x-2">
-                                    <span className="text-sm text-gray-600">
-                                      {request.technician.user?.username
-                                        || ((request.technician.first_name || request.technician.last_name) ? `${request.technician.first_name || ''} ${request.technician.last_name || ''}`.trim() : '')
-                                        || request.technician.email
-                                        || 'Utilisateur inconnu'}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center space-x-2">
-                                    <Phone className="h-4 w-4 text-gray-400" />
-                                    <span className="text-sm text-gray-600">{request.technician.phone}</span>
-                                  </div>
-                                  <div className="flex items-center space-x-2">
-                                    <Star className="h-4 w-4 text-yellow-400" />
-                                    <span className="text-sm text-gray-600">{request.technician.average_rating}/5</span>
-                                  </div>
-                                  <div className="flex items-center space-x-2">
-                                    <span className="text-sm text-gray-600">{request.technician.hourly_rate} FCFA/h</span>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-
-                            {request.conversation && (
-                              <button
-                                onClick={() => window.location.href = `/chat/${request.conversation.id}`}
-                                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                              >
-                                <MessageSquare className="h-4 w-4 mr-2" />
-                                Messages
-                                {request.conversation.unread_count > 0 && (
-                                  <span className="ml-2 bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
-                                    {request.conversation.unread_count}
-                                  </span>
-                                )}
-                              </button>
-                            )}
-                          </div>
-
-                          <div className="flex flex-col space-y-2 ml-4">
-                            {request.status === 'pending' && (
-                              <button
-                                onClick={() => openAssignModal(request)}
-                                className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-                              >
-                                Assigner un technicien
-                              </button>
-                            )}
-
-                            {request.status === 'assigned' && (
-                              <button
-                                onClick={() => openAssignModal(request)}
-                                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                              >
-                                Réassigner
-                              </button>
-                            )}
-                          </div>
+                          {request.conversation && (
+                            <button
+                              onClick={() => window.location.href = `/chat/${request.conversation?.id}`}
+                              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                            >
+                              <MessageSquare className="h-4 w-4 mr-2" />
+                              Chat
+                              {request.conversation?.unread_count > 0 && (
+                                <span className="ml-2 bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
+                                  {request.conversation?.unread_count}
+                                </span>
+                              )}
+                            </button>
+                          )}
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
 
-            {activeTab === 'technicians' && (
-              <div>
-                <div className="text-center py-12">
-                  <Users className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">Gestion des techniciens</h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Interface de gestion des techniciens à venir.
-                  </p>
-                </div>
-              </div>
-            )}
+                        <div className="flex flex-col space-y-2 ml-4">
+                          {request.status === 'pending' && (
+                            <button
+                              onClick={() => openAssignModal(request)}
+                              className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                            >
+                              Assigner un technicien
+                            </button>
+                          )}
 
-            {activeTab === 'notifications' && (
-              <div>
-                {notifications.length === 0 ? (
-                  <div className="text-center py-12">
-                    <AlertCircle className="mx-auto h-12 w-12 text-gray-400" />
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">Aucune notification</h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                      Vous n'avez pas encore de notifications.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {notifications.map((notification) => (
-                      <div
-                        key={notification.id}
-                        className={`p-4 rounded-lg border ${notification.is_read ? 'bg-gray-50 border-gray-200' : 'bg-blue-50 border-blue-200'
-                          }`}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h4 className={`font-medium ${notification.is_read ? 'text-gray-900' : 'text-blue-900'}`}>
-                              {notification.title}
-                            </h4>
-                            <p className={`mt-1 text-sm ${notification.is_read ? 'text-gray-600' : 'text-blue-700'}`}>
-                              {notification.message}
-                            </p>
-                            <p className="mt-2 text-xs text-gray-500">
-                              {formatDate(notification.created_at)}
-                            </p>
-                          </div>
-                          {!notification.is_read && (
-                            <div className="ml-4">
-                              <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                            </div>
+                          {request.status === 'assigned' && (
+                            <button
+                              onClick={() => openAssignModal(request)}
+                              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                            >
+                              Réassigner
+                            </button>
                           )}
                         </div>
                       </div>
-                    ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'technicians' && (
+            <div>
+              <div className="text-center py-12">
+                <Users className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-2 text-sm font-medium text-gray-900">Gestion des techniciens</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Interface de gestion des techniciens à venir.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'notifications' && (
+            <div>
+              {notifications.length === 0 ? (
+                <div className="text-center py-12">
+                  <AlertCircle className="mx-auto h-12 w-12 text-gray-400" />
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">Aucune notification</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Vous n'avez pas encore de notifications.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {notifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className={`p-4 rounded-lg border ${notification.is_read ? 'bg-gray-50 border-gray-200' : 'bg-blue-50 border-blue-200'
+                        }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className={`font-medium ${notification.is_read ? 'text-gray-900' : 'text-blue-900'}`}>
+                            {notification.title}
+                          </h4>
+                          <p className={`mt-1 text-sm ${notification.is_read ? 'text-gray-600' : 'text-blue-700'}`}>
+                            {notification.message}
+                          </p>
+                          <p className="mt-2 text-xs text-gray-500">
+                            {formatDate(notification.created_at)}
+                          </p>
+                        </div>
+                        {!notification.is_read && (
+                          <div className="ml-4">
+                            <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'security' && (
+            <div className="py-8">
+              <h2 className="text-2xl font-bold mb-6 flex items-center"><Shield className="w-7 h-7 mr-2 text-orange-600" />Dashboard Sécurité</h2>
+              {/* Sélecteur de période */}
+              <div className="mb-6 flex gap-4 items-center">
+                <span className="font-semibold">Période :</span>
+                <select value={securityPeriod} onChange={e => setSecurityPeriod(e.target.value as any)} className="border rounded px-3 py-1">
+                  <option value="day">Jour</option>
+                  <option value="week">Semaine</option>
+                  <option value="month">Mois</option>
+                </select>
+              </div>
+              {/* Graphiques évolution connexions/alertes */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h3 className="font-semibold mb-4 flex items-center"><BarChart2 className="w-5 h-5 mr-2 text-blue-700" />Évolution des connexions</h3>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <LineChart data={securityTrends} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="label" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Line type="monotone" dataKey="logins" stroke="#2563eb" name="Connexions" />
+                      <Line type="monotone" dataKey="failed" stroke="#ef4444" name="Échecs" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h3 className="font-semibold mb-4 flex items-center"><AlertTriangle className="w-5 h-5 mr-2 text-orange-600" />Évolution des alertes</h3>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <BarChart data={securityTrends} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="label" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="alerts" fill="#f59e42" name="Alertes" />
+                      <Bar dataKey="otp" fill="#22c55e" name="OTP" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              {securityLoading && <div>Chargement des statistiques...</div>}
+              {securityError && <div className="text-red-600">{securityError}</div>}
+              {securityStats && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                  <div className="bg-white rounded-lg shadow p-6 flex items-center gap-4">
+                    <BarChart2 className="w-8 h-8 text-blue-700" />
+                    <div>
+                      <div className="text-2xl font-bold">{securityStats.total_logins}</div>
+                      <div className="text-gray-600">Connexions réussies</div>
+                    </div>
                   </div>
+                  <div className="bg-white rounded-lg shadow p-6 flex items-center gap-4">
+                    <AlertTriangle className="w-8 h-8 text-red-600" />
+                    <div>
+                      <div className="text-2xl font-bold">{securityStats.failed_logins}</div>
+                      <div className="text-gray-600">Connexions échouées</div>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-lg shadow p-6 flex items-center gap-4">
+                    <UserCheck className="w-8 h-8 text-green-600" />
+                    <div>
+                      <div className="text-2xl font-bold">{securityStats.otp_sent}</div>
+                      <div className="text-gray-600">OTP envoyés</div>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-lg shadow p-6 flex items-center gap-4">
+                    <Shield className="w-8 h-8 text-orange-600" />
+                    <div>
+                      <div className="text-2xl font-bold">{securityStats.high_risk_logins}</div>
+                      <div className="text-gray-600">Connexions à risque</div>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-lg shadow p-6 flex items-center gap-4">
+                    <AlertTriangle className="w-8 h-8 text-orange-600" />
+                    <div>
+                      <div className="text-2xl font-bold">{securityStats.alerts}</div>
+                      <div className="text-gray-600">Alertes sécurité</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* Emplacement pour graphiques, carte, top pays, top utilisateurs à risque, alertes récentes */}
+              {securityStats && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <h3 className="font-semibold mb-4 flex items-center"><Globe className="w-5 h-5 mr-2 text-blue-700" />Top pays connexions</h3>
+                    <ul className="space-y-2">
+                      {securityStats.top_countries.map((c: any, idx: number) => (
+                        <li key={idx} className="flex justify-between">
+                          <span>{c.geo_country || 'Inconnu'}</span>
+                          <span className="font-bold">{c.count}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <h3 className="font-semibold mb-4 flex items-center"><UserCheck className="w-5 h-5 mr-2 text-orange-600" />Top utilisateurs à risque</h3>
+                    <ul className="space-y-2">
+                      {securityStats.top_risk_users.map((u: any, idx: number) => (
+                        <li key={idx} className="flex justify-between">
+                          <span>{u['user__email'] || 'Inconnu'}</span>
+                          <span className="font-bold">{u.count}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+              {/* Après les graphiques, afficher la liste des alertes récentes */}
+              <div className="mt-10">
+                <h3 className="font-semibold mb-4 flex items-center text-lg"><AlertCircle className="w-5 h-5 mr-2 text-red-600" />Alertes récentes</h3>
+                {alertsLoading && <div>Chargement des alertes...</div>}
+                {alertsError && <div className="text-red-600">{alertsError}</div>}
+                <ul className="space-y-3">
+                  {recentAlerts.map((alert, idx) => (
+                    <li key={idx} className="bg-red-50 border-l-4 border-red-600 p-4 rounded shadow-sm">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-bold text-red-700">{alert.subject}</span>
+                        <span className="text-xs text-gray-500">{new Date(alert.sent_at).toLocaleString()}</span>
+                      </div>
+                      <div className="text-gray-800 text-sm">{alert.message}</div>
+                      {alert.event_type && <div className="text-xs text-gray-500 mt-1">Type: {alert.event_type}</div>}
+                    </li>
+                  ))}
+                  {recentAlerts.length === 0 && !alertsLoading && !alertsError && (
+                    <li className="text-gray-500">Aucune alerte récente.</li>
+                  )}
+                </ul>
+              </div>
+              {/* Carte interactive des connexions */}
+              <div className="mt-10">
+                <h3 className="font-semibold mb-4 flex items-center text-lg"><Globe className="w-5 h-5 mr-2 text-blue-700" />Carte des connexions récentes</h3>
+                {locationsLoading && <div>Chargement de la carte...</div>}
+                {locationsError && <div className="text-red-600">{locationsError}</div>}
+                <div className="w-full h-96 rounded-lg overflow-hidden shadow">
+                  <MapContainer center={[12.6392, -8.0029]} zoom={6} style={{ height: '100%', width: '100%' }}>
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution="&copy; OpenStreetMap contributors"
+                    />
+                    {loginLocations.map((loc, idx) =>
+                      loc.latitude && loc.longitude ? (
+                        <Marker key={idx} position={[loc.latitude, loc.longitude]}>
+                          <Popup>
+                            <div>
+                              <div className="font-bold">{loc.user_email || 'Utilisateur inconnu'}</div>
+                              <div className="text-xs">{loc.geo_country || 'Pays inconnu'}</div>
+                              <div className="text-xs">{new Date(loc.timestamp).toLocaleString()}</div>
+                              <div className="text-xs">IP: {loc.ip_address || 'N/A'}</div>
+                              <div className="text-xs">Score risque: {loc.risk_score}</div>
+                            </div>
+                          </Popup>
+                        </Marker>
+                      ) : null
+                    )}
+                  </MapContainer>
+                </div>
+                {loginLocations.length === 0 && !locationsLoading && !locationsError && (
+                  <div className="text-gray-500 mt-2">Aucune connexion géolocalisée récente.</div>
                 )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1002,10 +1239,7 @@ const AdminDashboard: React.FC = () => {
                       <div className="flex justify-between items-center">
                         <div>
                           <p className="font-medium text-gray-900">
-                            {technician.name
-                              || ((technician.first_name || technician.last_name) ? `${technician.first_name || ''} ${technician.last_name || ''}`.trim() : '')
-                              || technician.email
-                              || 'Utilisateur inconnu'}
+                            {technician.user?.username || technician.user?.email || 'Utilisateur inconnu'}
                           </p>
                           <p className="text-sm text-gray-500">{technician.specialty}</p>
                         </div>

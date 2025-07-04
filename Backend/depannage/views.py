@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from django.shortcuts import get_object_or_404
 from django.conf import settings
 from django.utils import timezone
@@ -22,22 +22,7 @@ try:
 except ImportError:
     TwilioClient = None
 import os
-
-from .models import (
-    Client,
-    Technician,
-    RepairRequest,
-    RequestDocument,
-    Review,
-    Payment,
-    Conversation,
-    Message,
-    MessageAttachment,
-    Notification,
-    TechnicianLocation,
-    SystemConfiguration,
-    CinetPayPayment,
-)
+from django.contrib.auth.models import Permission, Group
 from .serializers import (
     ClientSerializer,
     TechnicianSerializer,
@@ -56,6 +41,12 @@ from .serializers import (
     CinetPayNotificationSerializer,
     RepairRequestCreateSerializer,
     TechnicianNearbySerializer,
+    PermissionSerializer,
+    GroupSerializer,
+    PlatformConfigurationSerializer,
+)
+from .models import (
+    Client, Technician, RepairRequest, RequestDocument, Review, Payment, Conversation, Message, Notification, MessageAttachment, TechnicianLocation, SystemConfiguration, CinetPayPayment, PlatformConfiguration
 )
 
 logger = logging.getLogger(__name__)
@@ -1067,6 +1058,226 @@ class RepairRequestViewSet(viewsets.ModelViewSet):
             )
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
+    def project_statistics(self, request):
+        """Récupère les statistiques complètes du projet (Admin seulement)."""
+        user = request.user
+        
+        if user.user_type != "admin":
+            return Response(
+                {"error": "Accès non autorisé"}, status=status.HTTP_403_FORBIDDEN
+            )
+
+        from django.utils import timezone
+        from django.db.models import Count, Sum, Avg, Q
+        from datetime import timedelta
+        from users.models import User, AuditLog
+        from decimal import Decimal
+
+        now = timezone.now()
+        last_30_days = now - timedelta(days=30)
+        last_7_days = now - timedelta(days=7)
+        last_24_hours = now - timedelta(hours=24)
+
+        # Statistiques utilisateurs
+        total_users = User.objects.count()
+        total_clients = User.objects.filter(user_type='client').count()
+        total_technicians = User.objects.filter(user_type='technician').count()
+        total_admins = User.objects.filter(user_type='admin').count()
+        
+        # Utilisateurs actifs (avec activité récente) - version robuste
+        active_client_ids = Client.objects.filter(
+            repair_requests__created_at__gte=last_30_days
+        ).values_list('user_id', flat=True)
+        active_technician_ids = Technician.objects.filter(
+            repair_requests__created_at__gte=last_30_days
+        ).values_list('user_id', flat=True)
+        active_users_30d = User.objects.filter(
+            Q(id__in=active_client_ids) | Q(id__in=active_technician_ids)
+        ).distinct().count()
+
+        # Statistiques demandes
+        total_requests = RepairRequest.objects.count()
+        pending_requests = RepairRequest.objects.filter(status="pending").count()
+        in_progress_requests = RepairRequest.objects.filter(status="in_progress").count()
+        completed_requests = RepairRequest.objects.filter(status="completed").count()
+        cancelled_requests = RepairRequest.objects.filter(status="cancelled").count()
+        
+        # Demandes récentes
+        requests_24h = RepairRequest.objects.filter(created_at__gte=last_24_hours).count()
+        requests_7d = RepairRequest.objects.filter(created_at__gte=last_7_days).count()
+        requests_30d = RepairRequest.objects.filter(created_at__gte=last_30_days).count()
+
+        # Statistiques financières
+        total_revenue = Payment.objects.filter(
+            status='completed', 
+            payment_type='client_payment'
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        
+        total_payouts = Payment.objects.filter(
+            status='completed', 
+            payment_type='technician_payout'
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        
+        platform_fees = total_revenue - total_payouts
+
+        # Statistiques par spécialité
+        specialty_stats = (
+            RepairRequest.objects.values("specialty_needed")
+            .annotate(
+                count=Count("id"),
+                completed=Count("id", filter=Q(status="completed")),
+                avg_price=Avg("final_price")
+            )
+            .order_by("-count")
+        )
+
+        # Statistiques techniciens
+        total_verified_technicians = Technician.objects.filter(is_verified=True).count()
+        total_available_technicians = Technician.objects.filter(is_available=True, is_verified=True).count()
+        
+        # Top techniciens par performance
+        top_technicians = (
+            Technician.objects.filter(is_verified=True)
+            .annotate(
+                total_jobs=Count("repair_requests", filter=Q(repair_requests__status="completed")),
+                avg_rating=Avg("repair_requests__review__rating", filter=Q(repair_requests__status="completed")),
+                total_earnings=Sum("repair_requests__payments__amount", filter=Q(repair_requests__payments__status="completed"))
+            )
+            .filter(total_jobs__gt=0)
+            .order_by("-total_jobs")[:10]
+        )
+
+        # Statistiques de satisfaction
+        total_reviews = Review.objects.count()
+        avg_rating = Review.objects.aggregate(avg=Avg('rating'))['avg'] or 0
+        satisfaction_rate = (
+            Review.objects.filter(rating__gte=4).count() / total_reviews * 100
+        ) if total_reviews > 0 else 0
+
+        # Statistiques de sécurité
+        total_logins = AuditLog.objects.filter(event_type='login', status='success').count()
+        failed_logins = AuditLog.objects.filter(event_type='login', status='failure').count()
+        security_alerts = AuditLog.objects.filter(risk_score__gte=80).count()
+        
+        # Statistiques temporelles (évolution)
+        daily_requests = []
+        for i in range(7):
+            date = now - timedelta(days=i)
+            count = RepairRequest.objects.filter(
+                created_at__date=date.date()
+            ).count()
+            daily_requests.append({
+                'date': date.strftime('%Y-%m-%d'),
+                'count': count
+            })
+        daily_requests.reverse()
+
+        # Statistiques géographiques
+        city_stats = (
+            RepairRequest.objects.values("city")
+            .annotate(count=Count("id"))
+            .filter(city__isnull=False)
+            .exclude(city="")
+            .order_by("-count")[:10]
+        )
+
+        # Statistiques de paiement
+        payment_methods = (
+            Payment.objects.values("method")
+            .annotate(count=Count("id"), total=Sum("amount"))
+            .filter(status="completed")
+            .order_by("-total")
+        )
+
+        # Préparer les données de réponse
+        response_data = {
+            # Vue d'ensemble
+            'overview': {
+                'total_users': total_users,
+                'total_clients': total_clients,
+                'total_technicians': total_technicians,
+                'total_admins': total_admins,
+                'active_users_30d': active_users_30d,
+                'total_requests': total_requests,
+                'completed_requests': completed_requests,
+                'total_revenue': float(total_revenue),
+                'platform_fees': float(platform_fees),
+                'avg_rating': round(avg_rating, 1),
+                'satisfaction_rate': round(satisfaction_rate, 1)
+            },
+            
+            # Demandes
+            'requests': {
+                'total': total_requests,
+                'pending': pending_requests,
+                'in_progress': in_progress_requests,
+                'completed': completed_requests,
+                'cancelled': cancelled_requests,
+                'recent_24h': requests_24h,
+                'recent_7d': requests_7d,
+                'recent_30d': requests_30d,
+                'daily_evolution': daily_requests
+            },
+            
+            # Financier
+            'financial': {
+                'total_revenue': float(total_revenue),
+                'total_payouts': float(total_payouts),
+                'platform_fees': float(platform_fees),
+                'payment_methods': list(payment_methods)
+            },
+            
+            # Spécialités
+            'specialties': {
+                'stats': list(specialty_stats),
+                'top_technicians': [
+                    {
+                        'id': tech.id,
+                        'name': tech.user.get_full_name() or tech.user.username,
+                        'specialty': tech.get_specialty_display(),
+                        'total_jobs': tech.total_jobs,
+                        'avg_rating': round(tech.avg_rating or 0, 1),
+                        'total_earnings': float(tech.total_earnings or 0)
+                    }
+                    for tech in top_technicians
+                ]
+            },
+            
+            # Techniciens
+            'technicians': {
+                'total': total_technicians,
+                'verified': total_verified_technicians,
+                'available': total_available_technicians,
+                'availability_rate': round((total_available_technicians / total_verified_technicians * 100) if total_verified_technicians > 0 else 0, 1)
+            },
+            
+            # Satisfaction
+            'satisfaction': {
+                'total_reviews': total_reviews,
+                'avg_rating': round(avg_rating, 1),
+                'satisfaction_rate': round(satisfaction_rate, 1)
+            },
+            
+            # Sécurité
+            'security': {
+                'total_logins': total_logins,
+                'failed_logins': failed_logins,
+                'security_alerts': security_alerts,
+                'success_rate': round((total_logins / (total_logins + failed_logins) * 100) if (total_logins + failed_logins) > 0 else 0, 1)
+            },
+            
+            # Géographie
+            'geography': {
+                'top_cities': list(city_stats)
+            }
+        }
+
+        # DEBUG : Affiche la réponse dans la console
+        print("=== project_statistics response ===")
+        import pprint; pprint.pprint(response_data)
+        return Response(response_data)
+
+    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def available_technicians(self, request):
         """Récupère les techniciens disponibles pour une spécialité (Admin seulement)."""
         user = request.user
@@ -1524,3 +1735,77 @@ class TechnicianNearbyViewSet(viewsets.GenericViewSet):
         distance = R * c
         
         return distance
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def list_permissions(request):
+    perms = Permission.objects.all()
+    data = PermissionSerializer(perms, many=True).data
+    return Response(data)
+
+from rest_framework.views import APIView
+
+class GroupListCreateView(APIView):
+    permission_classes = [IsAdminUser]
+    def get(self, request):
+        groups = Group.objects.all()
+        serializer = GroupSerializer(groups, many=True)
+        return Response(serializer.data)
+    def post(self, request):
+        serializer = GroupSerializer(data=request.data)
+        if serializer.is_valid():
+            group = Group.objects.create(name=serializer.validated_data['name'])
+            # Ajout des permissions si fournies
+            perms = request.data.get('permissions', [])
+            if perms:
+                group.permissions.set(perms)
+            group.save()
+            return Response(GroupSerializer(group).data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class GroupDetailView(APIView):
+    permission_classes = [IsAdminUser]
+    def get_object(self, pk):
+        return Group.objects.get(pk=pk)
+    def get(self, request, pk):
+        group = self.get_object(pk)
+        serializer = GroupSerializer(group)
+        return Response(serializer.data)
+    def patch(self, request, pk):
+        group = self.get_object(pk)
+        name = request.data.get('name')
+        if name:
+            group.name = name
+        perms = request.data.get('permissions')
+        if perms is not None:
+            group.permissions.set(perms)
+        group.save()
+        return Response(GroupSerializer(group).data)
+    def delete(self, request, pk):
+        group = self.get_object(pk)
+        group.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+class IsAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user and request.user.is_staff
+
+class PlatformConfigurationViewSet(viewsets.ModelViewSet):
+    queryset = PlatformConfiguration.objects.all()
+    serializer_class = PlatformConfigurationSerializer
+    permission_classes = [IsAdmin]
+
+    def get_object(self):
+        obj, created = PlatformConfiguration.objects.get_or_create(pk=1)
+        return obj
+
+    def list(self, request, *args, **kwargs):
+        obj = self.get_object()
+        serializer = self.get_serializer(obj)
+        return Response(serializer.data)
+
+    def create(self, request, *args, **kwargs):
+        return Response({'detail': 'Création non autorisée.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def destroy(self, request, *args, **kwargs):
+        return Response({'detail': 'Suppression non autorisée.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)

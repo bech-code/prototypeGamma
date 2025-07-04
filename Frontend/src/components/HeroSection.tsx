@@ -134,7 +134,13 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onGetLocation, loadingLocatio
   const handleConfirmAddress = () => {
     setShowAddressConfirm(false);
     if (user) {
-      navigate('/booking', { state: { userLocation: { lat: parseFloat(foundAddressLat!), lng: parseFloat(foundAddressLng!) }, address: foundAddress } });
+      navigate('/booking', {
+        state: {
+          userLocation: { lat: parseFloat(foundAddressLat!), lng: parseFloat(foundAddressLng!) },
+          address: foundAddress,
+          addressDetails: foundAddressDetails
+        }
+      });
     } else {
       navigate('/login?redirect=/booking');
     }
@@ -216,7 +222,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onGetLocation, loadingLocatio
                   className="text-blue-700 border border-blue-700 py-3 px-6 rounded-md hover:bg-blue-50 transition-colors"
                   disabled={loadingLocation}
                 >
-                  {loadingLocation ? 'Localisation en cours...' : 'Utiliser Ma Position'}
+                  {loadingLocation ? 'Localisation en cours...' : 'Obtenir ma position'}
                 </button>
                 <button
                   type="submit"

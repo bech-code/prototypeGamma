@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.utils.html import format_html
-from .models import User
+from .models import User, AuditLog, OTPChallenge
 
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
@@ -37,3 +37,17 @@ class CustomUserAdmin(UserAdmin):
             return format_html('<em>{}</em>', obj.username)
     full_name.short_description = "Nom complet"
     full_name.admin_order_field = 'first_name'
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    list_display = ('timestamp', 'user', 'event_type', 'status', 'ip_address', 'geo_country', 'risk_score')
+    search_fields = ('user__username', 'ip_address', 'event_type', 'geo_country')
+    list_filter = ('event_type', 'status', 'geo_country')
+    readonly_fields = ('timestamp',)
+
+@admin.register(OTPChallenge)
+class OTPChallengeAdmin(admin.ModelAdmin):
+    list_display = ('user', 'code', 'created_at', 'is_used', 'session_uuid', 'expires_at')
+    search_fields = ('user__username', 'code', 'session_uuid')
+    list_filter = ('is_used',)
+    readonly_fields = ('created_at',)

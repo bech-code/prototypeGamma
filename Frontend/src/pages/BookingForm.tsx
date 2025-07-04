@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { MapPin, Upload, Calendar, Clock, Info } from 'lucide-react';
 import { Service } from '../types/service';
 import { fetchWithAuth } from '../contexts/fetchWithAuth';
+import { useAuth } from '../contexts/AuthContext';
 
 interface RepairRequest {
   id: number;
@@ -109,6 +110,8 @@ const BookingForm: React.FC = () => {
     phone: '',
     photos: [] as File[],
     photosPreviews: [] as string[],
+    quartier: '',
+    commune: '',
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -134,6 +137,8 @@ const BookingForm: React.FC = () => {
 
   // Ajout d'un état pour le modal de géolocalisation
   const [showGeoModal, setShowGeoModal] = useState(false);
+
+  const { user, profile } = useAuth();
 
   // Obtenir la localisation depuis les paramètres URL si disponible
   useEffect(() => {
@@ -178,6 +183,23 @@ const BookingForm: React.FC = () => {
   useEffect(() => {
     if (location.state && location.state.userLocation) {
       setUserLocation(location.state.userLocation);
+    }
+    // Pré-remplissage à partir des infos structurées transmises
+    if (location.state && location.state.addressDetails) {
+      const details = location.state.addressDetails;
+      setFormData(prev => ({
+        ...prev,
+        address: [details.road, details.house_number].filter(Boolean).join(' '),
+        city: details.city || details.town || details.village || '',
+        postalCode: details.postcode || '',
+        quartier: details.suburb || details.neighbourhood || details.quarter || '',
+        commune: details.municipality || details.county || details.state_district || '',
+      }));
+    } else if (location.state && location.state.address) {
+      setFormData(prev => ({
+        ...prev,
+        address: location.state.address
+      }));
     }
   }, [location.state]);
 
@@ -445,6 +467,13 @@ const BookingForm: React.FC = () => {
     }
   };
 
+  // Synchronisation du numéro de téléphone du profil utilisateur (client)
+  useEffect(() => {
+    if (profile && profile.type === 'client' && profile.phone) {
+      setFormData(prev => ({ ...prev, phone: profile.phone ?? '' }));
+    }
+  }, [profile]);
+
   const getStepContent = () => {
     switch (step) {
       case 1:
@@ -574,6 +603,54 @@ const BookingForm: React.FC = () => {
                 </div>
               </div>
 
+              {/* Ajout Quartier et Commune */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="quartier" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                    Quartier
+                    {formData.quartier && (
+                      <span
+                        className="ml-2 inline-block bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full font-semibold cursor-help"
+                        title={"Ce champ a été automatiquement rempli grâce à la géolocalisation ou à l'auto-complétion.\n- Si vous avez utilisé 'Obtenir ma position', la valeur provient de votre position GPS et des données cartographiques.\n- Si vous avez choisi une suggestion d'adresse, la valeur provient de la base de données d'adresses.\n\nVérifiez que l'information est correcte : vous pouvez la modifier si besoin avant de valider votre demande."}
+                      >
+                        Pré-rempli
+                      </span>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    id="quartier"
+                    name="quartier"
+                    value={formData.quartier}
+                    onChange={handleInputChange}
+                    className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Quartier"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="commune" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                    Commune
+                    {formData.commune && (
+                      <span
+                        className="ml-2 inline-block bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full font-semibold cursor-help"
+                        title={"Ce champ a été automatiquement rempli grâce à la géolocalisation ou à l'auto-complétion.\n- Si vous avez utilisé 'Obtenir ma position', la valeur provient de votre position GPS et des données cartographiques.\n- Si vous avez choisi une suggestion d'adresse, la valeur provient de la base de données d'adresses.\n\nVérifiez que l'information est correcte : vous pouvez la modifier si besoin avant de valider votre demande."}
+                      >
+                        Pré-rempli
+                      </span>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    id="commune"
+                    name="commune"
+                    value={formData.commune}
+                    onChange={handleInputChange}
+                    className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Commune"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label htmlFor="phone-input" className="block text-sm font-medium text-gray-700">
                   Numéro de téléphone (format Mali)
@@ -589,7 +666,14 @@ const BookingForm: React.FC = () => {
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
                   value={formData.phone}
                   onChange={handleInputChange}
+                  readOnly={!!(profile && profile.type === 'client')}
                 />
+                {profile && profile.type === 'client' && (
+                  <p className="text-blue-600 text-xs mt-1">
+                    Ce numéro est celui de votre profil et sera utilisé pour la demande et le paiement.<br />
+                    Pour le modifier, rendez-vous sur <a href="/profile" className="underline text-blue-700">votre profil</a>.
+                  </p>
+                )}
                 {phoneError && <p className="text-red-600 text-xs mt-1">{phoneError}</p>}
               </div>
 

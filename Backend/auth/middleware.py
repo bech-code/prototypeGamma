@@ -4,6 +4,7 @@ from django.http import JsonResponse
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import AccessToken
 import jwt
+from django.contrib.gis.geoip2 import GeoIP2
 
 logger = logging.getLogger(__name__)
 
@@ -113,4 +114,20 @@ class RateLimitMiddleware:
             return False
         
         self.request_counts[client_ip]['count'] += 1
-        return self.request_counts[client_ip]['count'] > 100 
+        return self.request_counts[client_ip]['count'] > 100
+
+class GeoIP2Middleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+        self.geoip = GeoIP2()
+
+    def __call__(self, request):
+        ip = request.META.get('REMOTE_ADDR')
+        try:
+            geo = self.geoip.city(ip)
+            request.geoip_country = geo.get('country_name', '')
+            request.geoip_city = geo.get('city', '')
+        except Exception:
+            request.geoip_country = ''
+            request.geoip_city = ''
+        return self.get_response(request) 

@@ -5,10 +5,10 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 dayjs.extend(relativeTime);
 
-interface AuthContextType {
+export type AuthContextType = {
   user: User | null;
-  profile: Profile | null;
   token: string | null;
+  profile: Profile | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (userData: RegisterData) => Promise<void>;
@@ -17,7 +17,13 @@ interface AuthContextType {
   error: string | null;
   clearError: () => void;
   refreshToken: () => Promise<boolean>;
-}
+  updateUserProfile: (data: { first_name?: string; last_name?: string; phone?: string }) => Promise<any>;
+  fetchUser: () => Promise<void>;
+  verifyOtp: (otp: string) => Promise<void>;
+  otpRequired: boolean;
+  otpToken: string | null;
+  pendingEmail: string | null;
+};
 
 interface RegisterData {
   username: string;
@@ -34,7 +40,7 @@ interface RegisterData {
   phone?: string;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
 
 // Configure axios defaults
 axios.defaults.baseURL = 'http://127.0.0.1:8000';
@@ -243,6 +249,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isInitialized = useRef(false);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [showReauthModal, setShowReauthModal] = useState(false);
+  const [otpRequired, setOtpRequired] = useState(false);
+  const [otpToken, setOtpToken] = useState<string | null>(null);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 
   // Initialize token from localStorage
   useEffect(() => {
@@ -411,54 +420,97 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const verifyOtp = async (otp: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.post('http://127.0.0.1:8000/users/verify_otp/', {
+        email: pendingEmail,
+        otp,
+        otp_token: otpToken,
+      });
+      const { access, refresh } = response.data;
+      if (!access) throw new Error('OTP: Réponse invalide du serveur');
+      localStorage.setItem('token', access);
+      localStorage.setItem('refreshToken', refresh);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${access}`;
+      const meResponse = await axios.get('http://127.0.0.1:8000/users/me/', {
+        headers: { Authorization: `Bearer ${access}` }
+      });
+      if (meResponse.data && meResponse.status === 200) {
+        const { user: userData, profile: profileData } = meResponse.data;
+        setToken(access);
+        setUser(userData);
+        setProfile(profileData);
+        isInitialized.current = true;
+        setOtpRequired(false);
+        setOtpToken(null);
+        setPendingEmail(null);
+        if (
+          (!userData.client || !userData.client.phone) &&
+          (!userData.technician || !userData.technician.phone)
+        ) {
+          window.location.href = '/profile';
+        }
+      } else {
+        throw new Error('Impossible de récupérer les données utilisateur après OTP');
+      }
+    } catch (error: unknown) {
+      setError('Code OTP invalide ou expiré');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const login = async (email: string, password: string) => {
     setLoading(true);
     setError(null);
-
+    setOtpRequired(false);
+    setOtpToken(null);
+    setPendingEmail(null);
     try {
       const response = await axios.post('http://127.0.0.1:8000/users/login/', {
         email,
         password
       });
-
       if (!response.data) {
         throw new Error('Empty response from server');
       }
-
+      if (response.data.otp_required) {
+        setOtpRequired(true);
+        setOtpToken(response.data.otp_token);
+        setPendingEmail(email);
+        return; // Arrêter ici, attendre la saisie OTP côté UI
+      }
       const { access, refresh } = response.data;
-
       if (!access) {
         throw new Error('Invalid login response format');
       }
-
-      // Stocker les tokens
       localStorage.setItem('token', access);
       localStorage.setItem('refreshToken', refresh);
-
-      // Configurer axios
       axios.defaults.headers.common['Authorization'] = `Bearer ${access}`;
-
-      // Récupérer les données utilisateur complètes via /users/me/
       const meResponse = await axios.get('http://127.0.0.1:8000/users/me/', {
         headers: { Authorization: `Bearer ${access}` }
       });
-
       if (meResponse.data && meResponse.status === 200) {
         const { user: userData, profile: profileData } = meResponse.data;
-
-        // Mettre à jour l'état avec les données complètes
         setToken(access);
         setUser(userData);
         setProfile(profileData);
         isInitialized.current = true;
-
+        if (
+          (!userData.client || !userData.client.phone) &&
+          (!userData.technician || !userData.technician.phone)
+        ) {
+          window.location.href = '/profile';
+        }
         console.log('Login réussi avec données utilisateur:', userData);
       } else {
         throw new Error('Impossible de récupérer les données utilisateur');
       }
     } catch (error: unknown) {
       console.error('Login error:', error);
-
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 401) {
           setError('Email ou mot de passe incorrect');
@@ -695,6 +747,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </div>
   ) : null;
 
+  // Mettre à jour le profil utilisateur
+  const updateUserProfile = async (data: { first_name?: string; last_name?: string; phone?: string }) => {
+    if (!token) throw new Error('Non authentifié');
+    const response = await axios.patch('/users/update_profile/', data, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (response.data && response.data.success) {
+      await fetchUser();
+      return response.data;
+    } else {
+      throw new Error('Erreur lors de la mise à jour du profil');
+    }
+  };
+
+  // Rafraîchir les infos utilisateur
+  const fetchUser = async () => {
+    if (!token) return;
+    const response = await axios.get('/users/me/', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (response.data && response.status === 200) {
+      let userData = response.data.user;
+      if (userData.user_type === 'technician' && response.data.user.technician) {
+        userData = { ...userData, technician: response.data.user.technician };
+      }
+      setUser(userData);
+      setProfile(response.data.profile);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -709,6 +791,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         error,
         clearError,
         refreshToken,
+        updateUserProfile,
+        fetchUser,
+        verifyOtp,
+        otpRequired,
+        otpToken,
+        pendingEmail,
       }}
     >
       <ReauthModal

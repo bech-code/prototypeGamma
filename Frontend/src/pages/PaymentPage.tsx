@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { fetchWithAuth } from '../contexts/fetchWithAuth';
+import { useAuth } from '../contexts/AuthContext';
 
 interface PaymentData {
   request_id: string;
@@ -30,10 +31,11 @@ const PaymentPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const { profile } = useAuth();
 
   useEffect(() => {
     // Initialiser le paiement même sans transactionId
-      initializePayment();
+    initializePayment();
   }, []);
 
   const initializePayment = async () => {
@@ -47,7 +49,11 @@ const PaymentPage: React.FC = () => {
       }
 
       // Récupérer les données de paiement depuis l'état de navigation
-      const paymentData = location.state?.paymentData;
+      let paymentData = location.state?.paymentData;
+      // Synchroniser le numéro avec le profil utilisateur si disponible
+      if (profile && profile.type === 'client' && profile.phone) {
+        paymentData = { ...paymentData, phone: profile.phone };
+      }
       if (!paymentData) {
         throw new Error('Données de paiement manquantes');
       }
@@ -69,10 +75,15 @@ const PaymentPage: React.FC = () => {
         body: JSON.stringify(paymentBody),
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        data = null;
+      }
 
       if (!response.ok) {
-        throw new Error(data.detail || data.message || 'Erreur lors de l\'initialisation du paiement');
+        throw new Error((data && (data.detail || data.message)) || 'Erreur lors de l\'initialisation du paiement');
       }
 
       if (!data.payment_url) {
@@ -155,63 +166,69 @@ const PaymentPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-          </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-8">
+        <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
 
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Paiement sécurisé</h2>
-          <p className="text-gray-600 mb-6">Vous allez être redirigé vers CinetPay pour finaliser votre paiement</p>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Paiement sécurisé</h2>
+            <p className="text-gray-600 mb-6">Vous allez être redirigé vers CinetPay pour finaliser votre paiement</p>
 
-          {paymentData && (
-            <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left">
-              <h3 className="font-semibold text-gray-800 mb-3">Détails de la transaction</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Référence:</span>
-                  <span className="font-medium">{paymentData.request_id}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Montant:</span>
-                  <span className="font-medium">{paymentData.amount.toLocaleString()} FCFA</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Service:</span>
-                  <span className="font-medium">{paymentData.description}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Client:</span>
-                  <span className="font-medium">{paymentData.customer_name} {paymentData.customer_surname}</span>
+            {paymentData && (
+              <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left">
+                <h3 className="font-semibold text-gray-800 mb-3">Détails de la transaction</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Référence:</span>
+                    <span className="font-medium">{paymentData.request_id}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Montant:</span>
+                    <span className="font-medium">{paymentData.amount.toLocaleString()} FCFA</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Service:</span>
+                    <span className="font-medium">{paymentData.description}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Client:</span>
+                    <span className="font-medium">{paymentData.customer_name} {paymentData.customer_surname}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Téléphone:</span>
+                    <span className="font-medium">{paymentData.phone}</span>
+                  </div>
                 </div>
               </div>
+            )}
+
+            <div className="space-y-3">
+              <button
+                onClick={handlePaymentRedirect}
+                className="w-full bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 transition-colors font-semibold"
+              >
+                Procéder au paiement
+              </button>
+              <button
+                onClick={handleBackToBooking}
+                className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Annuler
+              </button>
             </div>
-          )}
 
-          <div className="space-y-3">
-            <button
-              onClick={handlePaymentRedirect}
-              className="w-full bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 transition-colors font-semibold"
-            >
-              Procéder au paiement
-            </button>
-            <button
-              onClick={handleBackToBooking}
-              className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              Annuler
-            </button>
-          </div>
-
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-            <h4 className="font-semibold text-blue-800 mb-2">Méthodes de paiement acceptées</h4>
-            <div className="flex justify-center space-x-4 text-sm text-blue-700">
-              <span>💳 Carte bancaire</span>
-              <span>📱 Mobile Money</span>
-              <span>💼 Portefeuille</span>
+            <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+              <h4 className="font-semibold text-blue-800 mb-2">Méthodes de paiement acceptées</h4>
+              <div className="flex justify-center space-x-4 text-sm text-blue-700">
+                <span>💳 Carte bancaire</span>
+                <span>�� Mobile Money</span>
+                <span>💼 Portefeuille</span>
+              </div>
             </div>
           </div>
         </div>

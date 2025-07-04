@@ -6,6 +6,8 @@ from django.core.exceptions import ValidationError
 from django.db.models import Avg, Q
 from decimal import Decimal
 import uuid
+from django.contrib.postgres.fields import ArrayField
+from django.db.models import JSONField
 
 
 # ============================================================================
@@ -911,3 +913,34 @@ class CinetPayPayment(models.Model):
         if self.request.is_urgent:
             total += 25000  # Frais d'urgence
         return total
+
+
+class PlatformConfiguration(models.Model):
+    LANG_CHOICES = [
+        ('fr', 'Français'),
+        ('en', 'English'),
+    ]
+    platform_name = models.CharField(max_length=100)
+    support_email = models.EmailField()
+    default_language = models.CharField(max_length=2, choices=LANG_CHOICES, default='fr')
+    timezone = models.CharField(max_length=50, default='Africa/Abidjan')
+    payment_methods = JSONField(default=list, blank=True)
+    commission_rate = models.DecimalField(max_digits=5, decimal_places=2, default=10.0)
+    min_payout_amount = models.DecimalField(max_digits=10, decimal_places=2, default=1000.0)
+    max_interventions_per_day = models.IntegerField(default=10)
+    service_radius_km = models.FloatField(default=20.0)
+    cancelation_deadline_hours = models.IntegerField(default=2)
+    enable_geolocation_map = models.BooleanField(default=True)
+    default_map_provider = models.CharField(max_length=50, default='OpenStreetMap')
+    theme_color = models.CharField(max_length=20, default='#2563eb')
+    enable_2fa_admin = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        self.pk = 1  # Singleton pattern
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        pass  # Prevent deletion
+
+    def __str__(self):
+        return f"Configuration Plateforme ({self.platform_name})"

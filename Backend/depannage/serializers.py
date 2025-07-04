@@ -2,9 +2,10 @@ from rest_framework import serializers
 from .models import (
     Client, Technician, RepairRequest, RequestDocument, Review, 
     Payment, Conversation, Message, MessageAttachment, 
-    Notification, TechnicianLocation, SystemConfiguration, CinetPayPayment
+    Notification, TechnicianLocation, SystemConfiguration, CinetPayPayment, PlatformConfiguration
 )
 from django.conf import settings
+from django.contrib.auth.models import Permission, Group
 
 # Serializers pour les modèles de base
 class ClientUserSerializer(serializers.ModelSerializer):
@@ -376,3 +377,40 @@ class TechnicianNearbySerializer(serializers.ModelSerializer):
         # Pour l'instant, on retourne une ville par défaut
         # En production, on pourrait extraire la ville de l'adresse du technicien
         return "Abidjan"  # À adapter selon vos besoins
+
+class PermissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Permission
+        fields = ['id', 'name', 'codename', 'content_type']
+
+class GroupSerializer(serializers.ModelSerializer):
+    permissions = PermissionSerializer(many=True, read_only=True)
+    class Meta:
+        model = Group
+        fields = ['id', 'name', 'permissions']
+
+class PlatformConfigurationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PlatformConfiguration
+        fields = '__all__'
+
+    def validate_commission_rate(self, value):
+        if value < 0 or value > 100:
+            raise serializers.ValidationError('Le taux de commission doit être entre 0 et 100.')
+        return value
+    def validate_min_payout_amount(self, value):
+        if value < 0:
+            raise serializers.ValidationError('Le montant minimum doit être positif.')
+        return value
+    def validate_max_interventions_per_day(self, value):
+        if value < 1:
+            raise serializers.ValidationError('Au moins 1 intervention par jour.')
+        return value
+    def validate_service_radius_km(self, value):
+        if value < 0:
+            raise serializers.ValidationError('Le rayon doit être positif.')
+        return value
+    def validate_cancelation_deadline_hours(self, value):
+        if value < 0:
+            raise serializers.ValidationError('Le délai doit être positif.')
+        return value

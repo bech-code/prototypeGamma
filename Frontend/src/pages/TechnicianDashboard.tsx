@@ -321,7 +321,7 @@ const TechnicianDashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-8">
         {/* Statistiques */}
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -645,9 +645,14 @@ const TechnicianDashboard: React.FC = () => {
                                         console.log('Assignation réussie:', result);
                                         fetchDashboardData();
                                       } else {
-                                        const errorData = await response.json();
+                                        let errorData;
+                                        try {
+                                          errorData = await response.json();
+                                        } catch (e) {
+                                          errorData = null;
+                                        }
                                         console.error('Erreur lors de l\'acceptation:', errorData);
-                                        alert(`Erreur lors de l'acceptation de la demande: ${errorData.error || 'Erreur inconnue'}`);
+                                        alert(`Erreur lors de l'acceptation de la demande: ${errorData && errorData.error ? errorData.error : 'Erreur inconnue'}`);
                                       }
                                     } catch (e) {
                                       console.error('Erreur lors de l\'acceptation de la demande:', e);

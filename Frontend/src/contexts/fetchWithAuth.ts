@@ -3,16 +3,27 @@ export async function fetchWithAuth(input: RequestInfo, init: RequestInit = {}):
     let token = localStorage.getItem('token');
     let refreshToken = localStorage.getItem('refreshToken');
 
-    // Ajoute l'en-tête Authorization
-    const addAuthHeader = (headers: HeadersInit = {}) => ({
-        ...headers,
-        Authorization: `Bearer ${token}`,
-    });
+    // Fusionne proprement les headers
+    const mergeHeaders = (headers: HeadersInit = {}) => {
+        let base: Record<string, string> = {};
+        if (headers instanceof Headers) {
+            headers.forEach((v, k) => { base[k] = v; });
+        } else if (Array.isArray(headers)) {
+            headers.forEach(([k, v]) => { base[k] = v; });
+        } else {
+            base = { ...headers };
+        }
+        // Ajoute Authorization seulement si token existe et n'est pas vide
+        if (token && token !== 'null' && token.trim() !== '') {
+            base['Authorization'] = `Bearer ${token}`;
+        }
+        return base;
+    };
 
     // Première tentative
     let response = await fetch(input, {
         ...init,
-        headers: addAuthHeader(init.headers),
+        headers: mergeHeaders(init.headers),
     });
 
     // Si le token est expiré, tente de le rafraîchir
@@ -30,7 +41,7 @@ export async function fetchWithAuth(input: RequestInfo, init: RequestInit = {}):
                 // Rejoue la requête initiale avec le nouveau token
                 response = await fetch(input, {
                     ...init,
-                    headers: addAuthHeader(init.headers),
+                    headers: mergeHeaders(init.headers),
                 });
             } else {
                 // Refresh token invalide/expiré

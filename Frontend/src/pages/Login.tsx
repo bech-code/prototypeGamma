@@ -11,13 +11,17 @@ const Login: React.FC = () => {
   });
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const { login, user } = useAuth();
+  const { login, user, otpRequired, verifyOtp, otpToken, pendingEmail, error: authError, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   const params = new URLSearchParams(location.search);
   const redirectTo = params.get('redirect') || '/dashboard';
-  
+
+  const [otp, setOtp] = useState('');
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpLoading, setOtpLoading] = useState(false);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -33,6 +37,20 @@ const Login: React.FC = () => {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Identifiants invalides');
       setIsLoading(false);
+    }
+  };
+
+  const handleOtpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setOtpError(null);
+    setOtpLoading(true);
+    try {
+      await verifyOtp(otp);
+      setOtp('');
+    } catch (err) {
+      setOtpError('Code OTP invalide ou expiré');
+    } finally {
+      setOtpLoading(false);
     }
   };
 
@@ -54,7 +72,7 @@ const Login: React.FC = () => {
       }
     }
   }, [user, navigate, redirectTo]);
-  
+
   return (
     <div
       className="min-h-screen bg-cover bg-center flex items-center justify-center"
@@ -64,68 +82,105 @@ const Login: React.FC = () => {
         <div className="max-w-md mx-auto bg-white bg-opacity-90 rounded-lg shadow-md overflow-hidden backdrop-blur-md">
           <div className="p-6">
             <h2 className="text-2xl font-bold text-center text-gray-900 mb-6">Connexion</h2>
-            
+
             {error && (
               <div className="mb-4 bg-red-50 border-l-4 border-red-500 p-4">
                 <p className="text-red-700">{error}</p>
               </div>
             )}
-            
-            <form onSubmit={handleSubmit}>
-              <div className="mb-4">
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                  Adresse email
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="nom@exemple.com"
-                  required
-                />
-              </div>
-              
-              <div className="mb-6">
-                <div className="flex justify-between items-center mb-1">
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                    Mot de passe
-                  </label>
-                  <Link to="/forgot-password" className="text-sm text-blue-700 hover:text-blue-800">
-                    Mot de passe oublié ?
-                  </Link>
+
+            {otpRequired && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+                <div className="bg-white rounded-lg shadow-lg p-8 max-w-sm w-full relative">
+                  <h3 className="text-lg font-semibold mb-4 text-center">Vérification de sécurité</h3>
+                  <p className="mb-2 text-gray-700 text-center">Un code de sécurité a été envoyé à votre adresse email.<br />Veuillez le saisir pour continuer.</p>
+                  <form onSubmit={handleOtpSubmit} className="mt-4">
+                    <input
+                      type="text"
+                      value={otp}
+                      onChange={e => setOtp(e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
+                      placeholder="Code OTP"
+                      required
+                      autoFocus
+                    />
+                    {otpError && <div className="text-red-600 text-sm mb-2">{otpError}</div>}
+                    <button
+                      type="submit"
+                      disabled={otpLoading || !otp}
+                      className="w-full bg-blue-700 text-white py-2 rounded-md font-medium hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-blue-300 disabled:cursor-not-allowed"
+                    >
+                      {otpLoading ? 'Vérification...' : 'Valider'}
+                    </button>
+                  </form>
+                  <button
+                    className="absolute top-2 right-2 text-gray-400 hover:text-gray-700"
+                    onClick={() => window.location.reload()}
+                    title="Annuler la vérification"
+                  >
+                    ×
+                  </button>
                 </div>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="••••••••"
-                  required
-                />
               </div>
-              
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-blue-700 text-white py-3 rounded-md font-medium hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-blue-300 disabled:cursor-not-allowed"
-              >
-                {isLoading ? (
-                  <span className="flex items-center justify-center">
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Connexion...
-                  </span>
-                ) : 'Se connecter'}
-              </button>
-            </form>
-            
+            )}
+
+            {!otpRequired && (
+              <form onSubmit={handleSubmit}>
+                <div className="mb-4">
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                    Adresse email
+                  </label>
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="nom@exemple.com"
+                    required
+                  />
+                </div>
+
+                <div className="mb-6">
+                  <div className="flex justify-between items-center mb-1">
+                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                      Mot de passe
+                    </label>
+                    <Link to="/forgot-password" className="text-sm text-blue-700 hover:text-blue-800">
+                      Mot de passe oublié ?
+                    </Link>
+                  </div>
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="••••••••"
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full bg-blue-700 text-white py-3 rounded-md font-medium hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-blue-300 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Connexion...
+                    </span>
+                  ) : 'Se connecter'}
+                </button>
+              </form>
+            )}
+
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
                 Pas encore de compte ?{' '}

@@ -258,52 +258,54 @@ const ServiceDetails: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-16">
-      <div className="mb-12 text-center">
-        <div className="flex items-center justify-center mb-4">
-          <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mr-4">
-            {serviceData.icon}
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-8">
+        <div className="mb-12 text-center">
+          <div className="flex items-center justify-center mb-4">
+            <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mr-4">
+              {serviceData.icon}
+            </div>
+            <h1 className="text-4xl font-bold text-gray-900">
+              {serviceData.title}
+            </h1>
           </div>
-          <h1 className="text-4xl font-bold text-gray-900">
-            {serviceData.title}
-          </h1>
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            Découvrez nos prestations détaillées pour ce service
+          </p>
         </div>
-        <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-          Découvrez nos prestations détaillées pour ce service
-        </p>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {serviceData.examples.map((example, index) => (
-          <div
-            key={index}
-            className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow p-6"
-          >
-            <h3 className="text-xl font-semibold text-gray-800 mb-4">
-              {example.title}
-            </h3>
-            <p className="text-gray-600 mb-6">{example.description}</p>
-            <div className="space-y-2">
-              <div className="flex items-center text-blue-800">
-                <span className="font-semibold mr-2">Prix estimé:</span>
-                <span>{example.price}</span>
-              </div>
-              <div className="flex items-center text-gray-600">
-                <span className="font-semibold mr-2">Durée moyenne:</span>
-                <span>{example.duration}</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {serviceData.examples.map((example, index) => (
+            <div
+              key={index}
+              className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow p-6"
+            >
+              <h3 className="text-xl font-semibold text-gray-800 mb-4">
+                {example.title}
+              </h3>
+              <p className="text-gray-600 mb-6">{example.description}</p>
+              <div className="space-y-2">
+                <div className="flex items-center text-blue-800">
+                  <span className="font-semibold mr-2">Prix estimé:</span>
+                  <span>{example.price}</span>
+                </div>
+                <div className="flex items-center text-gray-600">
+                  <span className="font-semibold mr-2">Durée moyenne:</span>
+                  <span>{example.duration}</span>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      <div className="mt-12 text-center">
-        <button
-          onClick={() => window.history.back()}
-          className="bg-blue-700 hover:bg-blue-800 text-white font-medium py-3 px-8 rounded-md transition-colors inline-block"
-        >
-          Retour aux services
-        </button>
+        <div className="mt-12 text-center">
+          <button
+            onClick={() => window.history.back()}
+            className="bg-blue-700 hover:bg-blue-800 text-white font-medium py-3 px-8 rounded-md transition-colors inline-block"
+          >
+            Retour aux services
+          </button>
+        </div>
       </div>
     </div>
   );

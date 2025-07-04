@@ -31,15 +31,15 @@ const Register: React.FC = () => {
   });
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const { register } = useAuth();
   const navigate = useNavigate();
-  
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -77,7 +77,7 @@ const Register: React.FC = () => {
       setIsLoading(false);
     }
   };
-  
+
   return (
     <div
       className="min-h-screen bg-cover bg-center flex items-center justify-center"
@@ -87,13 +87,13 @@ const Register: React.FC = () => {
         <div className="max-w-md mx-auto bg-white bg-opacity-90 rounded-lg shadow-md overflow-hidden backdrop-blur-md">
           <div className="p-6">
             <h2 className="text-2xl font-bold text-center text-gray-900 mb-6">Créer un compte</h2>
-            
+
             {error && (
               <div className="mb-4 bg-red-50 border-l-4 border-red-500 p-4">
                 <p className="text-red-700">{error}</p>
               </div>
             )}
-            
+
             <form onSubmit={handleSubmit}>
               <div className="mb-4">
                 <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 mb-1">
@@ -110,7 +110,7 @@ const Register: React.FC = () => {
                   required
                 />
               </div>
-              
+
               <div className="mb-4">
                 <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 mb-1">
                   Nom
@@ -126,7 +126,7 @@ const Register: React.FC = () => {
                   required
                 />
               </div>
-              
+
               <div className="mb-4">
                 <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
                   Nom d'utilisateur
@@ -142,7 +142,7 @@ const Register: React.FC = () => {
                   required
                 />
               </div>
-              
+
               <div className="mb-4">
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                   Adresse email
@@ -158,7 +158,7 @@ const Register: React.FC = () => {
                   required
                 />
               </div>
-              
+
               <div className="mb-4">
                 <label htmlFor="user_type" className="block text-sm font-medium text-gray-700 mb-1">
                   Type de compte
@@ -175,7 +175,7 @@ const Register: React.FC = () => {
                   <option value="technician">Technicien</option>
                 </select>
               </div>
-              
+
               {/* Champs spécifiques pour technicien */}
               {formData.user_type === 'technician' && (
                 <>
@@ -222,13 +222,14 @@ const Register: React.FC = () => {
                       value={formData.phone}
                       onChange={handleChange}
                       className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="+223 74 00 00 00"
+                      placeholder="+223 XX XX XX XX"
+                      pattern="\+223 ?\d{2} ?\d{2} ?\d{2} ?\d{2}"
                       required
                     />
                   </div>
                 </>
               )}
-              
+
               <div className="mb-4">
                 <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
                   Adresse
@@ -244,7 +245,7 @@ const Register: React.FC = () => {
                   required
                 />
               </div>
-              
+
               <div className="mb-4">
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                   Mot de passe
@@ -260,7 +261,7 @@ const Register: React.FC = () => {
                   required
                 />
               </div>
-              
+
               <div className="mb-6">
                 <label htmlFor="password2" className="block text-sm font-medium text-gray-700 mb-1">
                   Confirmer le mot de passe
@@ -276,7 +277,7 @@ const Register: React.FC = () => {
                   required
                 />
               </div>
-              
+
               <button
                 type="submit"
                 disabled={isLoading}
@@ -293,7 +294,7 @@ const Register: React.FC = () => {
                 ) : 'Créer un compte'}
               </button>
             </form>
-            
+
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
                 Déjà un compte ?{' '}
