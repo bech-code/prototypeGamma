@@ -21,6 +21,7 @@ from .views import (
     GroupListCreateView,
     GroupDetailView,
     PlatformConfigurationViewSet,
+    ClientLocationViewSet,
 )
 from .export_statistics import export_statistics_excel
 from .export_statistics_pdf import export_statistics_pdf
@@ -41,6 +42,7 @@ router.register(r"configurations", SystemConfigurationViewSet)
 router.register(r"cinetpay", CinetPayViewSet, basename="cinetpay")
 router.register(r"techniciens-proches", TechnicianNearbyViewSet, basename="techniciens-proches")
 router.register(r"configuration", PlatformConfigurationViewSet, basename="configuration")
+router.register(r"client-locations", ClientLocationViewSet, basename="client-location")
 
 # Routes de test publiques
 router.register(r"test", PublicTestViewSet, basename="test")

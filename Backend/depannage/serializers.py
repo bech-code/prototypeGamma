@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import (
     Client, Technician, RepairRequest, RequestDocument, Review, 
     Payment, Conversation, Message, MessageAttachment, 
-    Notification, TechnicianLocation, SystemConfiguration, CinetPayPayment, PlatformConfiguration
+    Notification, TechnicianLocation, SystemConfiguration, CinetPayPayment, PlatformConfiguration, ClientLocation
 )
 from django.conf import settings
 from django.contrib.auth.models import Permission, Group
@@ -414,3 +414,9 @@ class PlatformConfigurationSerializer(serializers.ModelSerializer):
         if value < 0:
             raise serializers.ValidationError('Le délai doit être positif.')
         return value
+
+class ClientLocationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ClientLocation
+        fields = ['id', 'client', 'latitude', 'longitude', 'created_at']
+        read_only_fields = ['id', 'created_at']

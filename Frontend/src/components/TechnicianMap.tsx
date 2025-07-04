@@ -91,6 +91,7 @@ const TechnicianMap: React.FC<TechnicianMapProps> = ({ showOnlyIncoherent }) => 
   const [minRating, setMinRating] = useState<number>(0);
   const [urgentMode, setUrgentMode] = useState<boolean>(false);
   const [refreshWarning, setRefreshWarning] = useState<string | null>(null);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
 
   const findNearestTechnician = useCallback(() => {
     setLoading(true);
@@ -109,19 +110,22 @@ const TechnicianMap: React.FC<TechnicianMapProps> = ({ showOnlyIncoherent }) => 
 
         try {
           const token = localStorage.getItem('token');
-          const response = await axios.post(
-            '/api/find-technician/',
+          const response = await axios.get(
+            '/depannage/api/techniciens-proches/',
             {
-              latitude,
-              longitude,
-              min_experience_level: minExperience,
-              min_rating: minRating,
-              urgent_mode: urgentMode
-            },
-            token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+              params: {
+                lat: latitude,
+                lng: longitude,
+                min_experience_level: minExperience,
+                min_rating: minRating,
+                urgence: urgentMode ? 'urgent' : 'normal',
+              },
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+            }
           );
-
-          setTechnician(response.data);
+          // L'API retourne { technicians: [...], ... }
+          setTechnicians(response.data.technicians || []);
+          setTechnician(response.data.technicians?.[0] || null); // Pour compatibilité avec le reste du composant
         } catch (error) {
           console.error('Erreur lors de la recherche d\'un technicien:', error);
           setError('Erreur lors de la recherche d\'un technicien');
@@ -188,6 +192,7 @@ const TechnicianMap: React.FC<TechnicianMapProps> = ({ showOnlyIncoherent }) => 
           <label className="font-medium">Note minimale:</label>
           <input
             type="number"
+            name="minRating"
             min="0"
             max="5"
             step="0.5"

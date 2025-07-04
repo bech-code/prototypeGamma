@@ -810,6 +810,32 @@ class TechnicianLocation(BaseTimeStampModel):
 
 
 # ============================================================================
+# GESTION DE LA LOCALISATION DES CLIENTS
+# ============================================================================
+
+class ClientLocation(BaseTimeStampModel):
+    """Localisation en temps réel d'un client."""
+    client = models.OneToOneField(
+        Client, on_delete=models.CASCADE, related_name="location"
+    )
+    latitude = models.FloatField("Latitude")
+    longitude = models.FloatField("Longitude")
+    # Optionnel : précision et statut d'activité
+    # accuracy = models.FloatField("Précision", null=True, blank=True)
+    # is_active = models.BooleanField("Actif", default=True)
+
+    def __str__(self):
+        return f"Localisation de {self.client.user.get_full_name()}"
+
+    class Meta:
+        verbose_name = "Localisation de client"
+        verbose_name_plural = "Localisations des clients"
+        indexes = [
+            models.Index(fields=["client"]),
+        ]
+
+
+# ============================================================================
 # SYSTÈME DE CONFIGURATION
 # ============================================================================
 

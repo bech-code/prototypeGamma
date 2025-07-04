@@ -1,6 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+import { fetchWithAuth } from '../contexts/fetchWithAuth';
 
 const Profile: React.FC = () => {
     const { user, fetchUser, updateUserProfile, logout } = useAuth();
@@ -13,7 +20,18 @@ const Profile: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [geoStatus, setGeoStatus] = useState<string | null>(null);
+    const [geoLoading, setGeoLoading] = useState(false);
+    const [clientLocation, setClientLocation] = useState<{ latitude: number; longitude: number } | null>(null);
     const navigate = useNavigate();
+
+    // Icône par défaut pour Leaflet (fix bug d'affichage)
+    delete (L.Icon.Default.prototype as any)._getIconUrl;
+    L.Icon.Default.mergeOptions({
+        iconRetinaUrl: markerIcon2x,
+        iconUrl: markerIcon,
+        shadowUrl: markerShadow,
+    });
 
     useEffect(() => {
         if (user) {
@@ -37,6 +55,22 @@ const Profile: React.FC = () => {
             setError('Vous devez renseigner un numéro de téléphone pour continuer.');
         }
     }, [user]);
+
+    // Charger la localisation du client au chargement
+    useEffect(() => {
+        const fetchLocation = async () => {
+            const clientId = user?.client?.id;
+            if (!clientId) return;
+            const res = await fetchWithAuth(`/depannage/api/client-locations/?client=${clientId}`);
+            const data = await res.json();
+            if (Array.isArray(data) && data.length > 0) {
+                setClientLocation({ latitude: data[0].latitude, longitude: data[0].longitude });
+            } else {
+                setClientLocation(null);
+            }
+        };
+        if (user?.client?.id) fetchLocation();
+    }, [user, geoStatus]); // recharge si user ou géoloc change
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -64,6 +98,66 @@ const Profile: React.FC = () => {
             setError("Erreur lors de la mise à jour du profil.");
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    // Fonction pour envoyer la position à l'API
+    const sendLocationToAPI = async (latitude: number, longitude: number) => {
+        setGeoLoading(true);
+        setGeoStatus(null);
+        try {
+            const clientId = user?.client?.id;
+            if (!clientId) {
+                setGeoStatus("Impossible de trouver le profil client.");
+                setGeoLoading(false);
+                return;
+            }
+            // Vérifier si une localisation existe déjà (GET)
+            const resGet = await fetchWithAuth(`/depannage/api/client-locations/?client=${clientId}`);
+            const data = await resGet.json();
+            let method = 'POST';
+            let url = '/depannage/api/client-locations/';
+            if (Array.isArray(data) && data.length > 0) {
+                method = 'PATCH';
+                url = `/depannage/api/client-locations/${data[0].id}/`;
+            }
+            const res = await fetchWithAuth(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    client: clientId,
+                    latitude,
+                    longitude
+                })
+            });
+            if (res.ok) {
+                setGeoStatus('Localisation enregistrée avec succès !');
+            } else {
+                setGeoStatus("Erreur lors de l'enregistrement de la localisation.");
+            }
+        } catch (e) {
+            setGeoStatus("Erreur réseau ou permission refusée.");
+        } finally {
+            setGeoLoading(false);
+        }
+    };
+
+    // Fonction pour récupérer la position GPS
+    const handleShareLocation = () => {
+        setGeoStatus(null);
+        if ('geolocation' in navigator) {
+            setGeoLoading(true);
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    sendLocationToAPI(position.coords.latitude, position.coords.longitude);
+                },
+                (error) => {
+                    setGeoStatus("Impossible de récupérer la position : " + error.message);
+                    setGeoLoading(false);
+                }
+            );
+        } else {
+            setGeoStatus("La géolocalisation n'est pas supportée par ce navigateur.");
         }
     };
 
@@ -133,6 +227,29 @@ const Profile: React.FC = () => {
                         {isLoading ? 'Mise à jour...' : 'Enregistrer'}
                     </button>
                 </form>
+                {/* Bouton de géolocalisation */}
+                <button
+                    onClick={handleShareLocation}
+                    className="w-full mt-4 py-3 bg-green-600 text-white rounded-md font-semibold hover:bg-green-700 transition-colors"
+                    disabled={geoLoading}
+                >
+                    {geoLoading ? 'Récupération de la position...' : 'Partager ma position actuelle'}
+                </button>
+                {geoStatus && (
+                    <div className={`mt-4 p-3 rounded ${geoStatus.includes('succès') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{geoStatus}</div>
+                )}
+                {/* Affichage de la carte si position connue */}
+                <div className="mt-8">
+                    <h3 className="text-lg font-semibold mb-2">Ma position actuelle</h3>
+                    {clientLocation ? (
+                        <MapContainer center={[clientLocation.latitude, clientLocation.longitude]} zoom={15} style={{ height: 300, width: '100%' }}>
+                            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                            <Marker position={[clientLocation.latitude, clientLocation.longitude]} />
+                        </MapContainer>
+                    ) : (
+                        <div className="text-gray-500">Aucune position enregistrée.</div>
+                    )}
+                </div>
                 <button
                     onClick={logout}
                     className="w-full mt-6 py-2 bg-red-100 text-red-700 rounded-md font-semibold hover:bg-red-200 transition-colors"

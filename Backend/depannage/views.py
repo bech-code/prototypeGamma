@@ -44,9 +44,10 @@ from .serializers import (
     PermissionSerializer,
     GroupSerializer,
     PlatformConfigurationSerializer,
+    ClientLocationSerializer,
 )
 from .models import (
-    Client, Technician, RepairRequest, RequestDocument, Review, Payment, Conversation, Message, Notification, MessageAttachment, TechnicianLocation, SystemConfiguration, CinetPayPayment, PlatformConfiguration
+    Client, Technician, RepairRequest, RequestDocument, Review, Payment, Conversation, Message, Notification, MessageAttachment, TechnicianLocation, SystemConfiguration, CinetPayPayment, PlatformConfiguration, ClientLocation
 )
 
 logger = logging.getLogger(__name__)
@@ -1809,3 +1810,14 @@ class PlatformConfigurationViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         return Response({'detail': 'Suppression non autorisée.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+class ClientLocationViewSet(viewsets.ModelViewSet):
+    """ViewSet pour gérer les localisations des clients."""
+    queryset = ClientLocation.objects.all()
+    serializer_class = ClientLocationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if self.request.user.is_staff:
+            return ClientLocation.objects.all()
+        return ClientLocation.objects.filter(client__user=self.request.user)
