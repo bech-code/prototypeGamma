@@ -1,10 +1,19 @@
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
 import uuid
 from django.utils import timezone
 from django.conf import settings
+
+class CustomUserManager(UserManager):
+    def create_superuser(self, username, email=None, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('user_type', 'admin')
+        if extra_fields.get('user_type') != 'admin':
+            raise ValueError('Le superuser doit avoir user_type="admin".')
+        return super().create_superuser(username, email, password, **extra_fields)
 
 class User(AbstractUser):
     USER_TYPE_CHOICES = (
@@ -45,6 +54,8 @@ class User(AbstractUser):
     
     def __str__(self):
         return f"{self.username} ({self.get_user_type_display()})"
+
+    objects = CustomUserManager()
 
 class AuditLog(models.Model):
     EVENT_TYPES = [

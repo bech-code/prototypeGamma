@@ -23,6 +23,9 @@ export type AuthContextType = {
   otpRequired: boolean;
   otpToken: string | null;
   pendingEmail: string | null;
+  wsNotifications: NotificationWS[];
+  allNotifications: NotificationWS[];
+  consumeWsNotification: () => void;
 };
 
 interface RegisterData {
@@ -237,6 +240,15 @@ const ReauthModal: React.FC<{
   );
 };
 
+export type NotificationWS = {
+  id?: number;
+  title: string;
+  message: string;
+  type: string;
+  created_at: string;
+  is_read?: boolean;
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -252,6 +264,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [otpRequired, setOtpRequired] = useState(false);
   const [otpToken, setOtpToken] = useState<string | null>(null);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [wsNotifications, setWsNotifications] = useState<NotificationWS[]>([]);
+  const [allNotifications, setAllNotifications] = useState<NotificationWS[]>([]);
+  const wsRef = useRef<WebSocket | null>(null);
 
   // Initialize token from localStorage
   useEffect(() => {
@@ -777,6 +792,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Charger l'historique des notifications à l'authentification
+  useEffect(() => {
+    if (!user || !token) return;
+    const fetchNotifications = async () => {
+      try {
+        const response = await axios.get('/depannage/api/notifications/', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (response.data && response.status === 200) {
+          const notifs = response.data.results || response.data || [];
+          setAllNotifications(notifs.map((n: any) => ({
+            id: n.id,
+            title: n.title,
+            message: n.message,
+            type: n.type,
+            created_at: n.created_at,
+            is_read: n.is_read,
+          })));
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    fetchNotifications();
+  }, [user, token]);
+
+  useEffect(() => {
+    if (!user || !token) return;
+    let ws: WebSocket | null = null;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
+    const connect = () => {
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      const wsUrl = `${wsProtocol}://${window.location.hostname}:8000/ws/notifications/?token=${token}`;
+      ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+      ws.onopen = () => { };
+      ws.onmessage = (event) => {
+        try {
+          const notif = JSON.parse(event.data);
+          // Les notifications WebSocket n'ont pas d'ID car elles ne sont pas dans la DB
+          const wsNotif = {
+            title: notif.title,
+            message: notif.message,
+            type: notif.type,
+            created_at: notif.created_at,
+            is_read: false,
+          };
+          setWsNotifications(prev => [wsNotif, ...prev]);
+          setAllNotifications(prev => [wsNotif, ...prev]);
+        } catch { }
+      };
+      ws.onerror = (e) => { };
+      ws.onclose = () => {
+        reconnectTimeout = setTimeout(connect, 2000);
+      };
+    };
+    connect();
+    return () => {
+      if (ws) ws.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+    };
+  }, [user, token]);
+
+  // Méthode pour consommer une notification (ex: marquer comme lue)
+  const consumeWsNotification = () => {
+    setWsNotifications(prev => prev.slice(0, prev.length - 1));
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -797,6 +880,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         otpRequired,
         otpToken,
         pendingEmail,
+        wsNotifications,
+        allNotifications,
+        consumeWsNotification,
       }}
     >
       <ReauthModal

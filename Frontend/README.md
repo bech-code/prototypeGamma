@@ -129,4 +129,90 @@ npm update
 
 # Reconstruire l'application
 npm run build
+```
+
+# Frontend React (Vite + TypeScript)
+
+## Installation
+
+1. Installez Node.js (version recommandée : >=18)
+2. Installez les dépendances :
+   ```sh
+   npm install
+   ```
+3. Démarrez le serveur de développement :
+   ```sh
+   npm run dev
+   ```
+
+## Dépendances principales
+
+- **React & DOM** :
+  - react
+  - react-dom
+- **Routing** :
+  - react-router-dom
+- **Charts/Graphiques** :
+  - apexcharts
+  - react-apexcharts
+  - chart.js
+  - react-chartjs-2
+  - recharts
+  - @amcharts/amcharts5
+  - @amcharts/amcharts5-geodata
+- **Cartographie** :
+  - leaflet
+  - react-leaflet
+- **Notifications** :
+  - react-hot-toast
+- **HTTP** :
+  - axios
+- **Export/Manipulation de fichiers** :
+  - xlsx
+  - jspdf
+- **UI/Icons** :
+  - lucide-react
+- **Date utils** :
+  - date-fns
+- **Supabase** (optionnel) :
+  - @supabase/supabase-js
+
+## Dépendances de développement
+
+- **Vite** :
+  - vite
+  - @vitejs/plugin-react
+- **TypeScript** :
+  - typescript
+  - @types/react
+  - @types/react-dom
+  - @types/leaflet
+  - @types/xlsx
+- **ESLint** :
+  - eslint
+  - @eslint/js
+  - eslint-plugin-react-hooks
+  - eslint-plugin-react-refresh
+  - typescript-eslint
+- **Cypress** (tests end-to-end) :
+  - cypress
+- **Tailwind CSS** :
+  - tailwindcss
+  - postcss
+  - autoprefixer
+- **Globals** :
+  - globals
+
+## Commandes utiles
+
+- `npm run dev` : démarre le serveur de développement
+- `npm run build` : build de production
+- `npm run preview` : prévisualisation du build
+- `npm run lint` : vérification du code avec ESLint
+
+---
+
+**Pour toute nouvelle dépendance, utilisez** :
+```sh
+npm install <nom_du_paquet>
 ``` 

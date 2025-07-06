@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     'depannage',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
+    'channels',
 ]
 
 # Définition des middlewares utilisés par le projet
@@ -104,6 +105,7 @@ TEMPLATES = [
 
 # Point d'entrée WSGI pour le projet
 WSGI_APPLICATION = 'auth.wsgi.application'
+ASGI_APPLICATION = 'auth.asgi.application'
 
 
 # Configuration de la base de données (par défaut SQLite)
@@ -283,4 +285,11 @@ LOGGING = {
             'propagate': True,
         },
     },
+}
+
+# Channels layer config (dev only)
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
 }

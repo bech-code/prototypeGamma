@@ -91,6 +91,7 @@ const TechnicianMap: React.FC<TechnicianMapProps> = ({ showOnlyIncoherent }) => 
   const [minRating, setMinRating] = useState<number>(0);
   const [urgentMode, setUrgentMode] = useState<boolean>(false);
   const [refreshWarning, setRefreshWarning] = useState<string | null>(null);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
 
   const findNearestTechnician = useCallback(() => {
     setLoading(true);
@@ -109,19 +110,22 @@ const TechnicianMap: React.FC<TechnicianMapProps> = ({ showOnlyIncoherent }) => 
 
         try {
           const token = localStorage.getItem('token');
-          const response = await axios.post(
-            '/api/find-technician/',
+          const response = await axios.get(
+            '/depannage/api/techniciens-proches/',
             {
-              latitude,
-              longitude,
-              min_experience_level: minExperience,
-              min_rating: minRating,
-              urgent_mode: urgentMode
-            },
-            token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+              params: {
+                lat: latitude,
+                lng: longitude,
+                min_experience_level: minExperience,
+                min_rating: minRating,
+                urgence: urgentMode ? 'urgent' : 'normal',
+              },
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+            }
           );
-
-          setTechnician(response.data);
+          // L'API retourne { technicians: [...], ... }
+          setTechnicians(response.data.technicians || []);
+          setTechnician(response.data.technicians?.[0] || null); // Pour compatibilité avec le reste du composant
         } catch (error) {
           console.error('Erreur lors de la recherche d\'un technicien:', error);
           setError('Erreur lors de la recherche d\'un technicien');
@@ -188,6 +192,7 @@ const TechnicianMap: React.FC<TechnicianMapProps> = ({ showOnlyIncoherent }) => 
           <label className="font-medium">Note minimale:</label>
           <input
             type="number"
+            name="minRating"
             min="0"
             max="5"
             step="0.5"
@@ -247,57 +252,92 @@ const TechnicianMap: React.FC<TechnicianMapProps> = ({ showOnlyIncoherent }) => 
         <div className="text-red-500 text-center">{error}</div>
       )}
 
-      {(userLocation || technician) && (
-        <div className="w-full h-[400px] rounded-lg overflow-hidden">
-          <MapContainer
-            center={userLocation || [0, 0]}
-            zoom={13}
-            style={{ height: '100%', width: '100%' }}
-          >
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            />
+      {(userLocation || technicians.length > 0) && (
+        <>
+          <div className="w-full h-[400px] rounded-lg overflow-hidden mb-6">
+            <MapContainer
+              center={userLocation || [0, 0]}
+              zoom={13}
+              style={{ height: '100%', width: '100%' }}
+            >
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              />
 
-            {userLocation && (
-              <Marker position={userLocation}>
-                <Popup>Votre position</Popup>
-              </Marker>
-            )}
+              {userLocation && (
+                <Marker position={userLocation}>
+                  <Popup>Votre position</Popup>
+                </Marker>
+              )}
 
-            {technician && (
-              <Marker position={[technician.latitude, technician.longitude]} icon={!isCoherent(technician.quartier, technician.city) ? alertIcon : undefined}>
-                <Popup>
-                  <div>
-                    <h3 className="font-bold">{technician.name}</h3>
-                    <p>{technician.specialty}</p>
-                    <p>Distance: {Math.round(technician.distance * 10) / 10} km</p>
-                    <p>Expérience: {technician.experience_level}</p>
-                    <p>Note: {technician.average_rating.toFixed(1)}/5</p>
-                    <p>Temps de réponse: {technician.response_time_minutes} min</p>
-                    <p>Badge: Niveau {technician.badge_level}</p>
-                    {technician.is_available_urgent && (
-                      <p className="text-red-500 font-bold">Disponible en urgence</p>
-                    )}
-                    {/* Badge incohérence */}
-                    {!isCoherent(technician.quartier, technician.city) && (
-                      <div className="inline-block bg-red-600 text-white text-xs font-bold px-2 py-1 rounded mt-2">Incohérence quartier/commune</div>
-                    )}
+              {/* Afficher tous les techniciens proches */}
+              {technicians.map((tech) => (
+                <Marker
+                  key={tech.id}
+                  position={[tech.latitude, tech.longitude]}
+                  icon={!isCoherent(tech.quartier, tech.city) ? alertIcon : undefined}
+                >
+                  <Popup>
+                    <div>
+                      <h3 className="font-bold">{tech.name}</h3>
+                      <p>{tech.specialty}</p>
+                      <p>Distance: {Math.round(tech.distance * 10) / 10} km</p>
+                      <p>Expérience: {tech.experience_level}</p>
+                      <p>Note: {tech.average_rating.toFixed(1)}/5</p>
+                      <p>Temps de réponse: {tech.response_time_minutes} min</p>
+                      <p>Badge: Niveau {tech.badge_level}</p>
+                      {tech.is_available_urgent && (
+                        <p className="text-red-500 font-bold">Disponible en urgence</p>
+                      )}
+                      {/* Badge incohérence */}
+                      {!isCoherent(tech.quartier, tech.city) && (
+                        <div className="inline-block bg-red-600 text-white text-xs font-bold px-2 py-1 rounded mt-2">Incohérence quartier/commune</div>
+                      )}
+                      <button
+                        className="mt-2 bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-sm"
+                        onClick={() => {
+                          // Implémenter la logique d'envoi de demande
+                          console.log('Envoi demande au technicien:', tech.id);
+                        }}
+                      >
+                        Envoyer une demande
+                      </button>
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
+            </MapContainer>
+          </div>
+
+          {/* Liste des techniciens proches */}
+          {technicians.length > 0 && (
+            <div className="w-full max-w-2xl mx-auto bg-white rounded-lg shadow p-4 mb-6">
+              <h3 className="text-lg font-semibold mb-4 text-gray-800">Techniciens trouvés ({technicians.length})</h3>
+              <ul className="divide-y divide-gray-200">
+                {technicians.map((tech) => (
+                  <li key={tech.id} className="py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                    <div>
+                      <span className="font-medium text-gray-900">{tech.name}</span>
+                      <span className="ml-2 text-sm text-gray-500">({tech.specialty})</span>
+                      <span className="ml-2 text-xs text-gray-500">{Math.round(tech.distance * 10) / 10} km</span>
+                      <span className="ml-2 text-xs text-yellow-600">Note: {tech.average_rating}/5</span>
+                    </div>
                     <button
-                      className="mt-2 bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-sm"
+                      className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
                       onClick={() => {
                         // Implémenter la logique d'envoi de demande
-                        console.log('Envoi demande au technicien:', technician.id);
+                        console.log('Envoi demande au technicien:', tech.id);
                       }}
                     >
-                      Envoyer une demande
+                      Contacter
                     </button>
-                  </div>
-                </Popup>
-              </Marker>
-            )}
-          </MapContainer>
-        </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

@@ -47,8 +47,8 @@ const Register: React.FC = () => {
       setError('Les mots de passe ne correspondent pas');
       return;
     }
-    if (formData.password.length < 8) {
-      setError('Le mot de passe doit contenir au moins 8 caractères');
+    if (formData.password.length < 12) {
+      setError('Le mot de passe doit contenir au moins 12 caractères');
       return;
     }
     if (!formData.first_name.trim()) {

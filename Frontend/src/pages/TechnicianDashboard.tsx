@@ -3,6 +3,23 @@ import { Clock, MessageSquare, MapPin, Phone, AlertCircle, CheckCircle, Wrench, 
 import { useAuth } from '../contexts/AuthContext';
 import { fetchWithAuth } from '../contexts/fetchWithAuth';
 import TechnicianRequestsMap from '../components/TechnicianRequestsMap';
+import * as XLSX from 'xlsx';
+import { Bar, Pie, Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+  PointElement,
+  LineElement,
+  Filler
+} from 'chart.js';
+import jsPDF from 'jspdf';
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, PointElement, LineElement, Filler);
 
 interface RepairRequest {
   id: number;
@@ -47,6 +64,18 @@ interface Notification {
   type: string;
   is_read: boolean;
   created_at: string;
+}
+
+interface Review {
+  id: number;
+  rating: number;
+  comment?: string;
+  would_recommend?: boolean;
+  punctuality_rating?: number;
+  quality_rating?: number;
+  communication_rating?: number;
+  client_name?: string;
+  created_at?: string;
 }
 
 // Mapping quartiers -> communes (doit être le même que côté admin)
@@ -101,7 +130,7 @@ const TechnicianDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'requests' | 'notifications'>('requests');
+  const [activeTab, setActiveTab] = useState<'requests' | 'notifications' | 'reviews'>('requests');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [suggestingRequestId, setSuggestingRequestId] = useState<number | null>(null);
   const [suggestQuartier, setSuggestQuartier] = useState('');
@@ -111,6 +140,16 @@ const TechnicianDashboard: React.FC = () => {
   const suggestionsListRef = React.useRef<HTMLDivElement>(null);
   const [suggestionSent, setSuggestionSent] = useState(false);
   const [showOnlyIncoherent, setShowOnlyIncoherent] = useState(false);
+  const [receivedReviews, setReceivedReviews] = useState<Review[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [reviewSearch, setReviewSearch] = useState('');
+  const [reviewMinRating, setReviewMinRating] = useState(1);
+  const [reviewOnlyRecommended, setReviewOnlyRecommended] = useState(false);
+  const [reviewPage, setReviewPage] = useState(1);
+  const [reviewSort, setReviewSort] = useState<'date_desc' | 'date_asc' | 'note_desc' | 'note_asc'>('date_desc');
+  const [reviewPeriod, setReviewPeriod] = useState<'all' | '7d' | '30d'>('all');
+  const REVIEWS_PER_PAGE = 10;
+  const [globalAvg, setGlobalAvg] = useState<number | null>(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -287,6 +326,158 @@ const TechnicianDashboard: React.FC = () => {
     }
   };
 
+  // Charger les avis reçus au montage ou quand l'onglet est activé
+  useEffect(() => {
+    if (activeTab === 'reviews' && receivedReviews.length === 0 && !loadingReviews) {
+      setLoadingReviews(true);
+      fetchWithAuth('http://127.0.0.1:8000/depannage/api/reviews/received/', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+        .then(res => res.json())
+        .then(data => setReceivedReviews(data))
+        .catch(() => setReceivedReviews([]))
+        .finally(() => setLoadingReviews(false));
+    }
+  }, [activeTab, token]);
+
+  // Filtrage période + note (comme admin)
+  function filterByPeriod<T extends { created_at?: string }>(arr: T[], period: 'all' | '7d' | '30d') {
+    if (period === 'all') return arr;
+    const now = new Date();
+    const days = period === '7d' ? 7 : 30;
+    return arr.filter(item => {
+      const d = new Date(item.created_at || '');
+      return !isNaN(d.getTime()) && (now.getTime() - d.getTime()) <= days * 24 * 60 * 60 * 1000;
+    });
+  }
+  const filteredReviews = receivedReviews
+    .filter(r => (reviewSearch === '' || (r.client_name?.toLowerCase().includes(reviewSearch.toLowerCase()) || r.comment?.toLowerCase().includes(reviewSearch.toLowerCase())))
+      && (r.rating >= reviewMinRating)
+      && (!reviewOnlyRecommended || r.would_recommend))
+    ;
+  const filteredAndPeriodReviews = filterByPeriod(filteredReviews, reviewPeriod);
+  const totalPages = Math.ceil(filteredAndPeriodReviews.length / REVIEWS_PER_PAGE);
+  const sortedReviews = [...filteredAndPeriodReviews].sort((a, b) => {
+    if (reviewSort === 'date_desc') return (b.created_at || '').localeCompare(a.created_at || '');
+    if (reviewSort === 'date_asc') return (a.created_at || '').localeCompare(b.created_at || '');
+    if (reviewSort === 'note_desc') return b.rating - a.rating;
+    if (reviewSort === 'note_asc') return a.rating - b.rating;
+    return 0;
+  });
+  const paginatedReviews = sortedReviews.slice((reviewPage - 1) * REVIEWS_PER_PAGE, reviewPage * REVIEWS_PER_PAGE);
+
+  // Fonction d'export Excel
+  function exportReviewsToExcel() {
+    const headers = ['Client', 'Date', 'Note', 'Recommandé', 'Ponctualité', 'Qualité', 'Communication', 'Commentaire'];
+    const rows = filteredAndPeriodReviews.map(r => [
+      r.client_name || '',
+      r.created_at ? new Date(r.created_at).toLocaleString('fr-FR') : '',
+      r.rating,
+      r.would_recommend ? 'Oui' : 'Non',
+      r.punctuality_rating || '',
+      r.quality_rating || '',
+      r.communication_rating || '',
+      r.comment || ''
+    ]);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Avis reçus');
+    XLSX.writeFile(wb, 'avis-recus.xlsx');
+  }
+
+  // Fonction d'export PDF (comme admin)
+  function exportReviewsToPDF() {
+    const doc = new jsPDF();
+    doc.text('Avis reçus', 10, 10);
+    let y = 20;
+    filteredAndPeriodReviews.forEach((r, i) => {
+      doc.text(`${i + 1}. ${r.client_name || ''} - ${r.rating}/5 - ${r.created_at ? new Date(r.created_at).toLocaleString('fr-FR') : ''}`, 10, y);
+      y += 7;
+      if (r.comment) {
+        doc.text(r.comment, 12, y);
+        y += 7;
+      }
+      if (y > 270) { doc.addPage(); y = 20; }
+    });
+    doc.save('avis-recus.pdf');
+  }
+
+  // Export CSV
+  function exportReviewsToCSV() {
+    const headers = ['Client', 'Date', 'Note', 'Recommandé', 'Ponctualité', 'Qualité', 'Communication', 'Commentaire'];
+    const rows = filteredAndPeriodReviews.map(r => [
+      r.client_name || '',
+      r.created_at ? new Date(r.created_at).toLocaleString('fr-FR') : '',
+      r.rating,
+      r.would_recommend ? 'Oui' : 'Non',
+      r.punctuality_rating || '',
+      r.quality_rating || '',
+      r.communication_rating || '',
+      r.comment ? '"' + r.comment.replace(/"/g, '""') + '"' : ''
+    ]);
+    const csv = [headers, ...rows].map(row => row.join(';')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'avis-recus.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Export JSON
+  function exportReviewsToJSON() {
+    const blob = new Blob([JSON.stringify(filteredAndPeriodReviews, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'avis-recus.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Comparatif moyenne plateforme
+  useEffect(() => {
+    fetch('http://127.0.0.1:8000/depannage/api/repair-requests/project_statistics/')
+      .then(r => r.json())
+      .then(data => setGlobalAvg(data?.overview?.avg_rating || null));
+  }, []);
+
+  // Stats par critère
+  const avgPunctuality = filteredAndPeriodReviews.length ? (filteredAndPeriodReviews.reduce((sum, r) => sum + (r.punctuality_rating || 0), 0) / filteredAndPeriodReviews.length).toFixed(2) : '-';
+  const avgQuality = filteredAndPeriodReviews.length ? (filteredAndPeriodReviews.reduce((sum, r) => sum + (r.quality_rating || 0), 0) / filteredAndPeriodReviews.length).toFixed(2) : '-';
+  const avgCommunication = filteredAndPeriodReviews.length ? (filteredAndPeriodReviews.reduce((sum, r) => sum + (r.communication_rating || 0), 0) / filteredAndPeriodReviews.length).toFixed(2) : '-';
+
+  // Top clients
+  const topClients = (() => {
+    const map = new Map<string, number>();
+    filteredAndPeriodReviews.forEach(r => {
+      if (r.client_name) map.set(r.client_name, (map.get(r.client_name) || 0) + 1);
+    });
+    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  })();
+
+  // Statistiques sur les avis filtrés
+  const reviewStats = {
+    count: filteredAndPeriodReviews.length,
+    avg: filteredAndPeriodReviews.length ? (filteredAndPeriodReviews.reduce((sum, r) => sum + r.rating, 0) / filteredAndPeriodReviews.length).toFixed(2) : '-',
+    recommend: filteredAndPeriodReviews.length ? Math.round(filteredAndPeriodReviews.filter(r => r.would_recommend).length * 100 / filteredAndPeriodReviews.length) : 0,
+    byNote: [1, 2, 3, 4, 5].map(n => filteredAndPeriodReviews.filter(r => r.rating === n).length),
+    byDate: (() => {
+      const map = new Map();
+      filteredAndPeriodReviews.forEach(r => {
+        if (r.created_at) {
+          const d = new Date(r.created_at).toLocaleDateString('fr-FR');
+          map.set(d, (map.get(d) || 0) + 1);
+        }
+      });
+      return Array.from(map.entries()).sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime());
+    })()
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -359,6 +550,15 @@ const TechnicianDashboard: React.FC = () => {
                   }`}
               >
                 Notifications ({notifications.filter(n => !n.is_read).length})
+              </button>
+              <button
+                onClick={() => setActiveTab('reviews')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'reviews'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+              >
+                Avis reçus
               </button>
             </nav>
           </div>
@@ -726,6 +926,233 @@ const TechnicianDashboard: React.FC = () => {
                       </div>
                     ))}
                   </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'reviews' && (
+              <div>
+                <h2 className="text-xl font-semibold mb-4 text-gray-800">Avis reçus</h2>
+                {/* Filtres synchronisés admin/statistiques */}
+                <div className="flex flex-wrap gap-4 mb-4 items-end">
+                  <input
+                    type="text"
+                    placeholder="Recherche client ou commentaire..."
+                    value={reviewSearch}
+                    onChange={e => { setReviewSearch(e.target.value); setReviewPage(1); }}
+                    className="border rounded px-2 py-1 text-sm"
+                  />
+                  <label className="text-sm">Période
+                    <select
+                      value={reviewPeriod}
+                      onChange={e => { setReviewPeriod(e.target.value as any); setReviewPage(1); }}
+                      className="ml-2 border rounded px-2 py-1 text-sm"
+                    >
+                      <option value="all">Tout</option>
+                      <option value="7d">7 derniers jours</option>
+                      <option value="30d">30 derniers jours</option>
+                    </select>
+                  </label>
+                  <label className="text-sm">Note min.
+                    <select
+                      value={reviewMinRating}
+                      onChange={e => { setReviewMinRating(Number(e.target.value)); setReviewPage(1); }}
+                      className="ml-2 border rounded px-2 py-1 text-sm"
+                    >
+                      {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={reviewOnlyRecommended}
+                      onChange={e => { setReviewOnlyRecommended(e.target.checked); setReviewPage(1); }}
+                    />
+                    Recommandé uniquement
+                  </label>
+                  <label className="text-sm">Trier par
+                    <select
+                      value={reviewSort}
+                      onChange={e => { setReviewSort(e.target.value as any); setReviewPage(1); }}
+                      className="ml-2 border rounded px-2 py-1 text-sm"
+                    >
+                      <option value="date_desc">Date (plus récent)</option>
+                      <option value="date_asc">Date (plus ancien)</option>
+                      <option value="note_desc">Note (plus haute)</option>
+                      <option value="note_asc">Note (plus basse)</option>
+                    </select>
+                  </label>
+                  <button
+                    onClick={exportReviewsToExcel}
+                    className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                  >
+                    Exporter Excel
+                  </button>
+                  <button
+                    onClick={exportReviewsToPDF}
+                    className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                  >
+                    Exporter PDF
+                  </button>
+                  <button
+                    onClick={exportReviewsToCSV}
+                    className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
+                  >
+                    Exporter CSV
+                  </button>
+                  <button
+                    onClick={exportReviewsToJSON}
+                    className="bg-gray-700 text-white px-3 py-1 rounded text-sm hover:bg-gray-900"
+                  >
+                    Exporter JSON
+                  </button>
+                </div>
+                {/* Comparatif avec la moyenne plateforme */}
+                <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-white rounded shadow p-4">
+                    <h3 className="font-bold mb-2">Moyenne des notes</h3>
+                    <div className="text-3xl font-bold text-yellow-600">{reviewStats.avg} / 5</div>
+                    {globalAvg && (
+                      <div className="mt-2 text-sm text-gray-500">Plateforme : {globalAvg}/5 ({(Number(reviewStats.avg) - globalAvg >= 0 ? '+' : '') + (Number(reviewStats.avg) - globalAvg).toFixed(2)} vs plateforme)</div>
+                    )}
+                    <div className="mt-2 text-sm text-gray-500">{reviewStats.count} avis</div>
+                  </div>
+                  <div className="bg-white rounded shadow p-4">
+                    <h3 className="font-bold mb-2">Taux de recommandation</h3>
+                    <div className="text-3xl font-bold text-green-600">{reviewStats.recommend} %</div>
+                    <div className="mt-2 text-sm text-gray-500">{reviewStats.count} avis</div>
+                  </div>
+                  {/* Graphique radar par critère */}
+                  <div className="bg-white rounded shadow p-4 col-span-1 md:col-span-2">
+                    <h3 className="font-bold mb-2">Moyenne par critère</h3>
+                    <Bar
+                      data={{
+                        labels: ['Ponctualité', 'Qualité', 'Communication'],
+                        datasets: [{
+                          label: 'Moyenne',
+                          data: [Number(avgPunctuality), Number(avgQuality), Number(avgCommunication)],
+                          backgroundColor: ['#fbbf24', '#a3e635', '#22d3ee']
+                        }]
+                      }}
+                      options={{ responsive: true, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 5 } } }}
+                    />
+                    <div className="mt-2 text-sm text-gray-500">Ponctualité : {avgPunctuality} / Qualité : {avgQuality} / Communication : {avgCommunication}</div>
+                  </div>
+                  {/* Top clients */}
+                  <div className="bg-white rounded shadow p-4 col-span-1 md:col-span-2">
+                    <h3 className="font-bold mb-2">Top clients (par nombre d'avis)</h3>
+                    <ul className="list-disc ml-6">
+                      {topClients.length === 0 ? <li className="text-gray-500">Aucun client</li> : topClients.map(([name, count]) => <li key={name}>{name} ({count} avis)</li>)}
+                    </ul>
+                  </div>
+                  {/* Répartition des notes et évolution temporelle : inchangé */}
+                  <div className="bg-white rounded shadow p-4 col-span-1 md:col-span-2">
+                    <h3 className="font-bold mb-2">Répartition des notes</h3>
+                    <Bar
+                      data={{
+                        labels: ['1', '2', '3', '4', '5'],
+                        datasets: [{
+                          label: 'Nombre d\'avis',
+                          data: [1, 2, 3, 4, 5].map(n => filteredAndPeriodReviews.filter(r => r.rating === n).length),
+                          backgroundColor: ['#fbbf24', '#f59e42', '#facc15', '#a3e635', '#22d3ee']
+                        }]
+                      }}
+                      options={{ responsive: true, plugins: { legend: { display: false } } }}
+                    />
+                  </div>
+                  <div className="bg-white rounded shadow p-4 col-span-1 md:col-span-2">
+                    <h3 className="font-bold mb-2">Évolution des avis dans le temps</h3>
+                    <Line
+                      data={{
+                        labels: (() => {
+                          const map = new Map();
+                          filteredAndPeriodReviews.forEach(r => {
+                            if (r.created_at) {
+                              const d = new Date(r.created_at).toLocaleDateString('fr-FR');
+                              map.set(d, (map.get(d) || 0) + 1);
+                            }
+                          });
+                          return Array.from(map.keys());
+                        })(),
+                        datasets: [{
+                          label: 'Avis reçus',
+                          data: (() => {
+                            const map = new Map();
+                            filteredAndPeriodReviews.forEach(r => {
+                              if (r.created_at) {
+                                const d = new Date(r.created_at).toLocaleDateString('fr-FR');
+                                map.set(d, (map.get(d) || 0) + 1);
+                              }
+                            });
+                            return Array.from(map.values());
+                          })(),
+                          borderColor: '#2563eb',
+                          backgroundColor: '#93c5fd',
+                          fill: true
+                        }]
+                      }}
+                      options={{ responsive: true, plugins: { legend: { display: false } } }}
+                    />
+                  </div>
+                </div>
+                {/* Liste paginée des avis reçus (inchangée) */}
+                {loadingReviews ? (
+                  <div className="text-center py-8">Chargement des avis...</div>
+                ) : sortedReviews.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">Aucun avis trouvé avec ces critères.</div>
+                ) : (
+                  <>
+                    <ul className="divide-y divide-gray-200">
+                      {paginatedReviews.map((review) => (
+                        <li key={review.id} className="py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                          <div>
+                            <span className="font-medium text-gray-900">{review.client_name || 'Client inconnu'}</span>
+                            <span className="ml-2 text-xs text-gray-500">{review.created_at ? new Date(review.created_at).toLocaleString('fr-FR') : ''}</span>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-yellow-600 font-bold">{review.rating}/5</span>
+                              {review.would_recommend && <span className="text-green-600 text-xs ml-2">Recommandé</span>}
+                            </div>
+                            <div className="flex gap-4 text-xs mt-1">
+                              {review.punctuality_rating && <span>Ponctualité: {review.punctuality_rating}/5</span>}
+                              {review.quality_rating && <span>Qualité: {review.quality_rating}/5</span>}
+                              {review.communication_rating && <span>Communication: {review.communication_rating}/5</span>}
+                            </div>
+                            {review.comment && <div className="mt-2 text-gray-700 text-sm">"{review.comment}"</div>}
+                          </div>
+                          <div className="mt-2 md:mt-0">
+                            <a
+                              href={review.request ? `/admin/requests/${review.request}` : '#'}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 underline text-xs"
+                            >
+                              Voir la demande
+                            </a>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                      <div className="flex justify-center items-center gap-2 mt-4">
+                        <button
+                          onClick={() => setReviewPage(p => Math.max(1, p - 1))}
+                          disabled={reviewPage === 1}
+                          className="px-2 py-1 border rounded disabled:opacity-50"
+                        >
+                          Précédent
+                        </button>
+                        <span className="text-sm">Page {reviewPage} / {totalPages}</span>
+                        <button
+                          onClick={() => setReviewPage(p => Math.min(totalPages, p + 1))}
+                          disabled={reviewPage === totalPages}
+                          className="px-2 py-1 border rounded disabled:opacity-50"
+                        >
+                          Suivant
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}

@@ -10,7 +10,7 @@ from datetime import timedelta
 from .models import (
     Client, Technician, RepairRequest, RequestDocument, Review, 
     Payment, Conversation, Message, MessageAttachment, 
-    Notification, TechnicianLocation, SystemConfiguration, CinetPayPayment
+    Notification, TechnicianLocation, SystemConfiguration, CinetPayPayment, ClientLocation
 )
 
 
@@ -786,3 +786,10 @@ class CinetPayPaymentAdmin(admin.ModelAdmin):
             )
         return "N/A"
     payment_method_display.short_description = "Méthode de paiement"
+
+
+@admin.register(ClientLocation)
+class ClientLocationAdmin(admin.ModelAdmin):
+    list_display = ('client', 'latitude', 'longitude', 'created_at', 'updated_at')
+    search_fields = ('client__user__username', 'client__user__first_name', 'client__user__last_name')
+    readonly_fields = ('created_at', 'updated_at')

@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import (
     Client, Technician, RepairRequest, RequestDocument, Review, 
     Payment, Conversation, Message, MessageAttachment, 
-    Notification, TechnicianLocation, SystemConfiguration, CinetPayPayment, PlatformConfiguration
+    Notification, TechnicianLocation, SystemConfiguration, CinetPayPayment, PlatformConfiguration, ClientLocation
 )
 from django.conf import settings
 from django.contrib.auth.models import Permission, Group
@@ -46,10 +46,55 @@ class TechnicianSerializer(serializers.ModelSerializer):
             'username': obj.user.username,
         }
 
+class ReviewSerializer(serializers.ModelSerializer):
+    """Serializer pour les avis."""
+    client_name = serializers.CharField(source='client.user.get_full_name', read_only=True)
+    technician_name = serializers.CharField(source='technician.user.get_full_name', read_only=True)
+
+    class Meta:
+        model = Review
+        fields = [
+            'id', 'request', 'technician', 'rating',
+            'comment', 'would_recommend', 'punctuality_rating', 'quality_rating', 
+            'communication_rating', 'client_name', 'technician_name', 'created_at'
+        ]
+        read_only_fields = ['id', 'created_at']
+
+    def validate(self, data):
+        user = self.context['request'].user
+        repair_request = data['request']
+        # Vérifier que la demande appartient au client connecté
+        if not hasattr(user, 'client_profile') or repair_request.client.user != user:
+            raise serializers.ValidationError("Vous ne pouvez noter que vos propres demandes.")
+        if repair_request.status != 'completed':
+            raise serializers.ValidationError("Vous ne pouvez noter qu'une demande terminée.")
+        if hasattr(repair_request, 'review'):
+            raise serializers.ValidationError("Un avis existe déjà pour cette demande.")
+        return data
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        client = user.client_profile
+        review = Review.objects.create(
+            client=client,
+            **validated_data
+        )
+        # Créer la notification pour le technicien
+        from .models import Notification
+        Notification.objects.create(
+            recipient=review.technician.user,
+            type=Notification.Type.REVIEW_RECEIVED,
+            title="Nouvel avis reçu",
+            message=f"Vous avez reçu un nouvel avis ({review.rating}/5) de la part d'un client.",
+            request=review.request
+        )
+        return review
+
 class RepairRequestSerializer(serializers.ModelSerializer):
     client = ClientSerializer(read_only=True)
     technician = TechnicianSerializer(read_only=True)
     payment_status = serializers.SerializerMethodField()
+    review = ReviewSerializer(read_only=True, allow_null=True)
     
     class Meta:
         model = RepairRequest
@@ -59,7 +104,7 @@ class RepairRequestSerializer(serializers.ModelSerializer):
             'preferred_date', 'assigned_at', 'started_at', 'completed_at',
             'estimated_price', 'final_price', 'travel_cost',
             'is_urgent', 'city', 'postalCode', 'date', 'time', 'service_type',
-            'created_at', 'updated_at', 'payment_status'
+            'created_at', 'updated_at', 'payment_status', 'review'
         ]
         read_only_fields = ['id', 'uuid', 'created_at', 'updated_at', 'assigned_at', 'started_at', 'completed_at']
 
@@ -76,22 +121,6 @@ class RequestDocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = RequestDocument
         fields = ['id', 'request', 'document_type', 'file', 'description', 'uploaded_by', 'created_at']
-        read_only_fields = ['id', 'created_at']
-
-
-class ReviewSerializer(serializers.ModelSerializer):
-    """Serializer pour les avis."""
-    
-    client_name = serializers.CharField(source='client.user.get_full_name', read_only=True)
-    technician_name = serializers.CharField(source='technician.user.get_full_name', read_only=True)
-    
-    class Meta:
-        model = Review
-        fields = [
-            'id', 'request', 'client', 'technician', 'rating',
-            'comment', 'would_recommend', 'punctuality_rating', 'quality_rating', 
-            'communication_rating', 'client_name', 'technician_name', 'created_at'
-        ]
         read_only_fields = ['id', 'created_at']
 
 
@@ -414,3 +443,9 @@ class PlatformConfigurationSerializer(serializers.ModelSerializer):
         if value < 0:
             raise serializers.ValidationError('Le délai doit être positif.')
         return value
+
+class ClientLocationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ClientLocation
+        fields = ['id', 'client', 'latitude', 'longitude', 'created_at']
+        read_only_fields = ['id', 'created_at']

@@ -45,9 +45,10 @@ from .serializers import (
     PermissionSerializer,
     GroupSerializer,
     PlatformConfigurationSerializer,
+    ClientLocationSerializer,
 )
 from .models import (
-    Client, Technician, RepairRequest, RequestDocument, Review, Payment, Conversation, Message, Notification, MessageAttachment, TechnicianLocation, SystemConfiguration, CinetPayPayment, PlatformConfiguration
+    Client, Technician, RepairRequest, RequestDocument, Review, Payment, Conversation, Message, Notification, MessageAttachment, TechnicianLocation, SystemConfiguration, CinetPayPayment, PlatformConfiguration, ClientLocation
 )
 
 logger = logging.getLogger(__name__)
@@ -1528,6 +1529,17 @@ class ReviewViewSet(viewsets.ModelViewSet):
             return Review.objects.all()
         return Review.objects.filter(client__user=self.request.user)
 
+    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
+    def received(self, request):
+        """Retourne la liste des avis reçus par le technicien connecté."""
+        user = request.user
+        if not hasattr(user, "technician_profile"):
+            return Response({"error": "Vous n'êtes pas un technicien."}, status=403)
+        technician = user.technician_profile
+        reviews = Review.objects.filter(technician=technician).order_by("-created_at")
+        serializer = self.get_serializer(reviews, many=True)
+        return Response(serializer.data)
+
 
 class PaymentViewSet(viewsets.ModelViewSet):
     """ViewSet pour gérer les paiements."""
@@ -1810,3 +1822,14 @@ class PlatformConfigurationViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         return Response({'detail': 'Suppression non autorisée.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+class ClientLocationViewSet(viewsets.ModelViewSet):
+    """ViewSet pour gérer les localisations des clients."""
+    queryset = ClientLocation.objects.all()
+    serializer_class = ClientLocationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if self.request.user.is_staff:
+            return ClientLocation.objects.all()
+        return ClientLocation.objects.filter(client__user=self.request.user)
