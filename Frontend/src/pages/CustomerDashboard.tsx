@@ -7,6 +7,17 @@ import AnimatedBackground from '../components/AnimatedBackground';
 import customerVideo from '../assets/video/customer1-bg.mp4';
 import { fetchWithAuth } from '../contexts/fetchWithAuth';
 
+interface Review {
+  id?: number;
+  rating: number;
+  comment?: string;
+  would_recommend?: boolean;
+  punctuality_rating?: number;
+  quality_rating?: number;
+  communication_rating?: number;
+  created_at?: string;
+}
+
 interface RepairRequest {
   id: number;
   title: string;
@@ -39,6 +50,7 @@ interface RepairRequest {
   };
   payment_status: string;
   estimated_price: number;
+  review?: Review | null;
 }
 
 interface DashboardStats {
@@ -169,6 +181,65 @@ const CustomerDashboard = () => {
       setSuggestCommune('');
     } catch (e) {
       alert('Erreur lors de l\'envoi de la suggestion');
+    }
+  };
+
+  const [reviewForms, setReviewForms] = useState<Record<number, Partial<Review>>>({});
+  const [reviewSubmitting, setReviewSubmitting] = useState<Record<number, boolean>>({});
+  const [reviewSuccess, setReviewSuccess] = useState<Record<number, boolean>>({});
+  const [reviewError, setReviewError] = useState<Record<number, string>>({});
+
+  // Ajout d'un handler pour le formulaire d'avis
+  const handleReviewChange = (requestId: number, field: keyof Review, value: any) => {
+    setReviewForms(prev => ({
+      ...prev,
+      [requestId]: {
+        ...prev[requestId],
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleReviewSubmit = async (request: RepairRequest) => {
+    const form = reviewForms[request.id] || {};
+    if (!form.rating) {
+      setReviewError(prev => ({ ...prev, [request.id]: 'Veuillez donner une note.' }));
+      return;
+    }
+    setReviewSubmitting(prev => ({ ...prev, [request.id]: true }));
+    setReviewError(prev => ({ ...prev, [request.id]: '' }));
+    try {
+      const token = localStorage.getItem('token');
+      const payload = {
+        request: request.id,
+        technician: request.technician?.id,
+        rating: form.rating,
+        comment: form.comment,
+        would_recommend: form.would_recommend,
+        punctuality_rating: form.punctuality_rating,
+        quality_rating: form.quality_rating,
+        communication_rating: form.communication_rating,
+      };
+      const res = await fetchWithAuth('http://127.0.0.1:8000/depannage/api/reviews/', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        setReviewSuccess(prev => ({ ...prev, [request.id]: true }));
+        // Rafraîchir la liste des demandes pour afficher l'avis
+        fetchData();
+      } else {
+        const data = await res.json();
+        setReviewError(prev => ({ ...prev, [request.id]: data?.detail || 'Erreur lors de l\'envoi de l\'avis.' }));
+      }
+    } catch (e) {
+      setReviewError(prev => ({ ...prev, [request.id]: 'Erreur réseau.' }));
+    } finally {
+      setReviewSubmitting(prev => ({ ...prev, [request.id]: false }));
     }
   };
 
@@ -614,6 +685,99 @@ const CustomerDashboard = () => {
                               )}
                             </div>
                           </div>
+
+                          {/* Formulaire d'avis */}
+                          {request.status === 'completed' && !request.review && request.technician && (
+                            <div className="mt-4 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                              <h5 className="font-semibold mb-2 text-yellow-800">Laisser un avis sur le technicien</h5>
+                              {reviewSuccess[request.id] ? (
+                                <div className="text-green-700 font-medium">Merci pour votre avis !</div>
+                              ) : (
+                                <form
+                                  onSubmit={e => {
+                                    e.preventDefault();
+                                    handleReviewSubmit(request);
+                                  }}
+                                  className="space-y-2"
+                                >
+                                  <div>
+                                    <label className="block text-sm font-medium">Note globale *</label>
+                                    <select
+                                      value={reviewForms[request.id]?.rating || ''}
+                                      onChange={e => handleReviewChange(request.id, 'rating', Number(e.target.value))}
+                                      required
+                                      className="border rounded p-2 w-24"
+                                    >
+                                      <option value="">Choisir</option>
+                                      {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} / 5</option>)}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="block text-sm font-medium">Commentaire</label>
+                                    <textarea
+                                      value={reviewForms[request.id]?.comment || ''}
+                                      onChange={e => handleReviewChange(request.id, 'comment', e.target.value)}
+                                      className="border rounded p-2 w-full"
+                                      rows={2}
+                                      placeholder="Votre retour..."
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={!!reviewForms[request.id]?.would_recommend}
+                                      onChange={e => handleReviewChange(request.id, 'would_recommend', e.target.checked)}
+                                      id={`would_recommend_${request.id}`}
+                                    />
+                                    <label htmlFor={`would_recommend_${request.id}`}>Je recommande ce technicien</label>
+                                  </div>
+                                  <div className="flex gap-4">
+                                    <div>
+                                      <label className="block text-xs">Ponctualité</label>
+                                      <select
+                                        value={reviewForms[request.id]?.punctuality_rating || ''}
+                                        onChange={e => handleReviewChange(request.id, 'punctuality_rating', Number(e.target.value))}
+                                        className="border rounded p-1 w-16 text-xs"
+                                      >
+                                        <option value="">-</option>
+                                        {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
+                                      </select>
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs">Qualité</label>
+                                      <select
+                                        value={reviewForms[request.id]?.quality_rating || ''}
+                                        onChange={e => handleReviewChange(request.id, 'quality_rating', Number(e.target.value))}
+                                        className="border rounded p-1 w-16 text-xs"
+                                      >
+                                        <option value="">-</option>
+                                        {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
+                                      </select>
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs">Communication</label>
+                                      <select
+                                        value={reviewForms[request.id]?.communication_rating || ''}
+                                        onChange={e => handleReviewChange(request.id, 'communication_rating', Number(e.target.value))}
+                                        className="border rounded p-1 w-16 text-xs"
+                                      >
+                                        <option value="">-</option>
+                                        {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
+                                      </select>
+                                    </div>
+                                  </div>
+                                  {reviewError[request.id] && <div className="text-red-600 text-xs">{reviewError[request.id]}</div>}
+                                  <button
+                                    type="submit"
+                                    disabled={reviewSubmitting[request.id]}
+                                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-semibold"
+                                  >
+                                    {reviewSubmitting[request.id] ? 'Envoi...' : 'Envoyer mon avis'}
+                                  </button>
+                                </form>
+                              )}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>

@@ -86,8 +86,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
             raise serializers.ValidationError({"password": "Les mots de passe ne correspondent pas"})
-        if len(attrs['password']) < 8:
-            raise serializers.ValidationError({"password": "Le mot de passe doit contenir au moins 8 caractères"})
+        if len(attrs['password']) < 12:
+            raise serializers.ValidationError({"password": "Le mot de passe doit contenir au moins 12 caractères"})
         if attrs['user_type'] == 'technician' and not attrs.get('specialty'):
             raise serializers.ValidationError({"specialty": "La spécialité est requise pour un technicien."})
         return attrs

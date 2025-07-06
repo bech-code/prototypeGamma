@@ -1528,6 +1528,17 @@ class ReviewViewSet(viewsets.ModelViewSet):
             return Review.objects.all()
         return Review.objects.filter(client__user=self.request.user)
 
+    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
+    def received(self, request):
+        """Retourne la liste des avis reçus par le technicien connecté."""
+        user = request.user
+        if not hasattr(user, "technician_profile"):
+            return Response({"error": "Vous n'êtes pas un technicien."}, status=403)
+        technician = user.technician_profile
+        reviews = Review.objects.filter(technician=technician).order_by("-created_at")
+        serializer = self.get_serializer(reviews, many=True)
+        return Response(serializer.data)
+
 
 class PaymentViewSet(viewsets.ModelViewSet):
     """ViewSet pour gérer les paiements."""

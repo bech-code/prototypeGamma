@@ -32,6 +32,10 @@ describe('Recherche de techniciens proches', () => {
         cy.get('select').first().select('Senior');
         cy.wait(1000);
         cy.get('.leaflet-marker-icon', { timeout: 10000 }).should('exist');
+        cy.get('input[name="minRating"]').then($inputs => {
+            cy.log('Nombre d\'inputs minRating:', $inputs.length);
+            cy.screenshot('avant-type-minRating');
+        });
         cy.get('input[name="minRating"]').first().clear().type('4');
         cy.wait(1000);
         cy.get('.leaflet-marker-icon', { timeout: 10000 }).should('exist');

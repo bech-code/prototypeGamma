@@ -73,7 +73,6 @@ const AmChartsLine: React.FC<AmChartsLineProps> = ({ data, categoryField, valueF
             })
         );
         series.strokes.template.setAll({ stroke: am5.color(color), strokeWidth: 3 });
-        series.fills.template.setAll({ fill: am5.color(color), fillOpacity: 0.15 });
         series.data.setAll(data);
 
         // Bullets

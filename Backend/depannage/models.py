@@ -8,6 +8,10 @@ from decimal import Decimal
 import uuid
 from django.contrib.postgres.fields import ArrayField
 from django.db.models import JSONField
+from django.db.models.signals import post_delete, post_save
+from django.dispatch import receiver
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 
 
 # ============================================================================
@@ -970,3 +974,48 @@ class PlatformConfiguration(models.Model):
 
     def __str__(self):
         return f"Configuration Plateforme ({self.platform_name})"
+
+
+# Signaux pour notifier le technicien lors de la suppression ou modification d'un avis
+@receiver(post_delete, sender=Review)
+def notify_technician_on_review_delete(sender, instance, **kwargs):
+    from .models import Notification
+    Notification.objects.create(
+        recipient=instance.technician.user,
+        type=Notification.Type.REVIEW_RECEIVED,
+        title="Avis supprimé",
+        message=f"Un avis laissé par un client sur la demande #{instance.request.id} a été supprimé.",
+        request=instance.request
+    )
+
+@receiver(post_save, sender=Review)
+def notify_technician_on_review_update(sender, instance, created, **kwargs):
+    from .models import Notification
+    if not created:
+        Notification.objects.create(
+            recipient=instance.technician.user,
+            type=Notification.Type.REVIEW_RECEIVED,
+            title="Avis modifié",
+            message=f"Un avis laissé par un client sur la demande #{instance.request.id} a été modifié.",
+            request=instance.request
+        )
+
+def send_ws_notification(user_id, content):
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        f"user_{user_id}",
+        {"type": "send.notification", "content": content}
+    )
+
+@receiver(post_save, sender=Notification)
+def notify_ws_on_notification(sender, instance, created, **kwargs):
+    if created and instance.recipient_id:
+        send_ws_notification(
+            instance.recipient_id,
+            {
+                "title": instance.title,
+                "message": instance.message,
+                "type": instance.type,
+                "created_at": instance.created_at.isoformat() if instance.created_at else None,
+            }
+        )
