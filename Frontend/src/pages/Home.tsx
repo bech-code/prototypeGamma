@@ -14,6 +14,31 @@ import serrurierImage from '../assets/image/serrurier.jpg';
 import solarPanelImage from '../assets/image/solar-panel.jpg';
 import nettoyeurImage from '../assets/image/nettoyeur.jpg';
 import climatisationImage from '../assets/image/Climatisation.webp';
+import AideMenagereImage from '../assets/image/AideMenagere.jpg';
+import CoiffeurImage from '../assets/image/Coiffeur.jpg';
+import DecorationImage from '../assets/image/decoration.jpg';
+import DemenagementImage from '../assets/image/Déménagement.jpg';
+import DepannageVoitureImage from '../assets/image/depannageVoiture.jpg';
+import EsthetiquesetbeauteImage from '../assets/image/Esthétiquesetbeaute.jpg';
+import FroidImage from '../assets/image/Froid.jpg';
+import GroupeElectrogeneImage from '../assets/image/groupeElectrogene.jpg';
+import LavageImage from '../assets/image/Lavage.jpg';
+import LessiveImage from '../assets/image/lessive.jpg';
+import LivraisonImage from '../assets/image/Livraison.jpg';
+import LivraisonGazImage from '../assets/image/LivraisonGaz.jpg';
+import MaconnerieImage from '../assets/image/maçonnerie.jpg';
+import MecaniqueImage from '../assets/image/Mécanique.jpg';
+import MenuisierImage from '../assets/image/menuisier.jpg';
+import NettoyageImage from '../assets/image/Nettoyage.jpg';
+import PeintureImage from '../assets/image/Peinture.jpg';
+import PneumatiqueImage from '../assets/image/Pneumatique.jpg';
+import PressingImage from '../assets/image/pressing.jpg';
+import RemorquageAutoImage from '../assets/image/RemorquageAuto.jpg';
+import SoudureImage from '../assets/image/soudure.jpg';
+import TelephoneImage from '../assets/image/telephone.jpg';
+import VidangeImage from '../assets/image/Vidange.jpg';
+import AntenneImage from '../assets/image/Antenne.jpg';
+import TeleImage from '../assets/image/télé.jpg';
 
 interface Technician {
   id: number;
@@ -37,66 +62,305 @@ interface Technician {
 const Home: React.FC = () => {
   const { user, token } = useAuth();
   const navigate = useNavigate();
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [showMap, setShowMap] = useState(false);
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [showAllServices, setShowAllServices] = useState(false);
 
-  // Mock service data
+  // Nouvelle liste complète des services
   const services: Service[] = [
     {
-      id: 'plumbing',
+      id: 'plumber',
       name: 'Plomberie',
       icon: <Wrench className="text-blue-600" />,
-      shortDescription: 'Réparations de plomberie expertes pour les fuites, les bouchons et les installations.',
-      description: 'Nos plombiers professionnels s\'occupent de tout, des réparations d\'urgence aux nouvelles installations.',
-      startingPrice: 80000,
+      shortDescription: 'Réparations de plomberie expertes pour fuites, bouchons et installations.',
+      description: 'Nos plombiers professionnels gèrent tout, des réparations d\'urgence aux nouvelles installations.',
+      startingPrice: 50000,
       imageUrl: plombierImage,
     },
     {
-      id: 'electrical',
+      id: 'electrician',
       name: 'Électricité',
       icon: <Zap className="text-yellow-500" />,
       shortDescription: 'Électriciens certifiés pour tous vos besoins électriques.',
       description: 'Du câblage à l\'installation d\'appareils, nos électriciens agréés garantissent sécurité et qualité.',
-      startingPrice: 90000,
+      startingPrice: 60000,
       imageUrl: 'https://images.pexels.com/photos/8005368/pexels-photo-8005368.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
     },
     {
       id: 'locksmith',
-      name: 'Serrurier',
+      name: 'Serrurerie',
       icon: <Key className="text-gray-700" />,
-      shortDescription: 'Service rapide de dépannage et solutions de sécurité.',
-      description: 'Enfermé dehors ? Besoin de nouvelles serrures ? Nos serruriers fournissent un service rapide et fiable 24/7.',
-      startingPrice: 70000,
+      shortDescription: 'Service de dépannage rapide et solutions de sécurité.',
+      description: 'Enfermé dehors ? Besoin de nouvelles serrures ? Nos serruriers fournissent un service rapide et fiable 24h/24.',
+      startingPrice: 45000,
       imageUrl: serrurierImage,
     },
     {
-      id: 'it-support',
+      id: 'it',
       name: 'Support Informatique',
       icon: <Monitor className="text-purple-600" />,
       shortDescription: 'Support technique pour ordinateurs et réseaux.',
       description: 'Nos techniciens informatiques résolvent vos problèmes informatiques, configurent les réseaux et fournissent un support continu.',
-      startingPrice: 75000,
+      startingPrice: 40000,
       imageUrl: 'https://images.pexels.com/photos/3568520/pexels-photo-3568520.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
     },
     {
-      id: 'heating',
+      id: 'air_conditioning',
       name: 'Chauffage & Climatisation',
       icon: <Thermometer className="text-red-500" />,
-      shortDescription: 'Réparations et maintenance des systèmes de chauffage et de climatisation.',
-      description: 'Gardez votre maison confortable toute l\'année avec nos services de réparation et de maintenance CVC.',
-      startingPrice: 95000,
+      shortDescription: 'Réparations et maintenance des systèmes de chauffage et de refroidissement.',
+      description: 'Gardez votre maison confortable toute l\'année avec nos services de réparation et maintenance HVAC.',
+      startingPrice: 70000,
       imageUrl: climatisationImage,
     },
     {
-      id: 'appliances',
+      id: 'appliance_repair',
       name: 'Réparation d\'Électroménagers',
       icon: <Fan className="text-blue-400" />,
-      shortDescription: 'Réparations pour réfrigérateurs, lave-linges, sèche-linges et plus.',
-      description: 'Nos techniciens réparent tous les appareils électroménagers rapidement et à prix abordable.',
-      startingPrice: 85000,
+      shortDescription: 'Réparations pour réfrigérateurs, machines à laver, sèche-linge et plus.',
+      description: 'Nos techniciens réparent tous les appareils électroménagers principaux rapidement et à prix abordable.',
+      startingPrice: 55000,
       imageUrl: 'https://images.pexels.com/photos/4108807/pexels-photo-4108807.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+    },
+    // Ajout des nouveaux services (extraits de BookingForm/ServiceDetails)
+    {
+      id: 'panneauxolaires',
+      name: 'Panneaux Solaires',
+      icon: <Zap className="text-yellow-500" />,
+      shortDescription: 'Installation et maintenance de panneaux solaires.',
+      description: 'Nos experts installent et entretiennent vos panneaux solaires pour une énergie propre et durable.',
+      startingPrice: 100000,
+      imageUrl: solarPanelImage,
+    },
+    {
+      id: 'maconnerie',
+      name: 'Maçonnerie',
+      icon: <Wrench className="text-gray-700" />,
+      shortDescription: 'Travaux de maçonnerie et rénovation.',
+      description: 'Construction, rénovation, réparation de murs, dalles, escaliers, etc.',
+      startingPrice: 80000,
+      imageUrl: MaconnerieImage,
+    },
+    {
+      id: 'decoration',
+      name: 'Décoration',
+      icon: <Key className="text-pink-500" />,
+      shortDescription: 'Décoration intérieure et extérieure.',
+      description: 'Conseils et réalisation de projets de décoration personnalisés.',
+      startingPrice: 60000,
+      imageUrl: DecorationImage,
+    },
+    {
+      id: 'soudure',
+      name: 'Soudure',
+      icon: <Wrench className="text-gray-700" />,
+      shortDescription: 'Travaux de soudure sur mesure.',
+      description: 'Soudure de structures métalliques, portails, grilles, etc.',
+      startingPrice: 90000,
+      imageUrl: SoudureImage,
+    },
+    {
+      id: 'groupeelectrogene',
+      name: 'Groupe électrogène',
+      icon: <Zap className="text-yellow-500" />,
+      shortDescription: 'Installation et dépannage de groupes électrogènes.',
+      description: 'Mise en service, entretien et réparation de groupes électrogènes.',
+      startingPrice: 150000,
+      imageUrl: GroupeElectrogeneImage,
+    },
+    {
+      id: 'pneumatique',
+      name: 'Pneumatique',
+      icon: <Wrench className="text-gray-700" />,
+      shortDescription: 'Changement et réparation de pneus.',
+      description: 'Service rapide pour vos pneus : montage, équilibrage, réparation.',
+      startingPrice: 50000,
+      imageUrl: PneumatiqueImage,
+    },
+    {
+      id: 'coiffeur',
+      name: 'Coiffeur',
+      icon: <Key className="text-pink-500" />,
+      shortDescription: 'Coiffure à domicile pour hommes et femmes.',
+      description: 'Coupes, soins, coiffures tendance à domicile.',
+      startingPrice: 40000,
+      imageUrl: CoiffeurImage,
+    },
+    {
+      id: 'pressing',
+      name: 'Pressing',
+      icon: <Zap className="text-blue-500" />,
+      shortDescription: 'Nettoyage et repassage de vêtements.',
+      description: 'Service de pressing professionnel à domicile.',
+      startingPrice: 30000,
+      imageUrl: PressingImage,
+    },
+    {
+      id: 'tele',
+      name: 'Télé',
+      icon: <Monitor className="text-gray-700" />,
+      shortDescription: 'Installation et réparation de téléviseurs.',
+      description: 'Dépannage, installation murale, réglages TV.',
+      startingPrice: 60000,
+      imageUrl: TeleImage,
+    },
+    {
+      id: 'esthetique',
+      name: 'Esthétique et Beauté',
+      icon: <Key className="text-pink-500" />,
+      shortDescription: 'Soins de beauté à domicile.',
+      description: 'Maquillage, soins du visage, manucure, etc.',
+      startingPrice: 50000,
+      imageUrl: EsthetiquesetbeauteImage,
+    },
+    {
+      id: 'lessive',
+      name: 'Lessive à Domicile',
+      icon: <Zap className="text-blue-500" />,
+      shortDescription: 'Service de lessive et repassage à domicile.',
+      description: 'Collecte, lavage, repassage et livraison de linge.',
+      startingPrice: 25000,
+      imageUrl: LessiveImage,
+    },
+    {
+      id: 'aidemenagere',
+      name: 'Aide Ménagère',
+      icon: <Key className="text-pink-500" />,
+      shortDescription: 'Aide ménagère à domicile.',
+      description: 'Nettoyage, rangement, entretien de la maison.',
+      startingPrice: 35000,
+      imageUrl: AideMenagereImage,
+    },
+    {
+      id: 'vidange',
+      name: 'Vidange',
+      icon: <Wrench className="text-gray-700" />,
+      shortDescription: 'Vidange de fosses et entretien.',
+      description: 'Service de vidange rapide et efficace.',
+      startingPrice: 100000,
+      imageUrl: VidangeImage,
+    },
+    {
+      id: 'livraison',
+      name: 'Livraison',
+      icon: <Zap className="text-blue-500" />,
+      shortDescription: 'Livraison express de colis et repas.',
+      description: 'Livraison rapide à domicile ou au bureau.',
+      startingPrice: 20000,
+      imageUrl: LivraisonImage,
+    },
+    {
+      id: 'livraisongaz',
+      name: 'Livraison Gaz',
+      icon: <Zap className="text-yellow-500" />,
+      shortDescription: 'Livraison de bouteilles de gaz à domicile.',
+      description: 'Commande et livraison de gaz en toute sécurité.',
+      startingPrice: 30000,
+      imageUrl: LivraisonGazImage,
+    },
+    {
+      id: 'froid',
+      name: 'Froid',
+      icon: <Thermometer className="text-blue-500" />,
+      shortDescription: 'Installation et réparation de systèmes de froid.',
+      description: 'Climatisation, réfrigération, chambres froides.',
+      startingPrice: 90000,
+      imageUrl: FroidImage,
+    },
+    {
+      id: 'telephone',
+      name: 'Téléphone',
+      icon: <Monitor className="text-blue-500" />,
+      shortDescription: 'Réparation et configuration de téléphones.',
+      description: 'Dépannage, déblocage, configuration smartphones.',
+      startingPrice: 40000,
+      imageUrl: TelephoneImage,
+    },
+    {
+      id: 'menuisiers',
+      name: 'Menuisiers',
+      icon: <Wrench className="text-gray-700" />,
+      shortDescription: 'Travaux de menuiserie bois et alu.',
+      description: 'Fabrication, réparation, pose de meubles, portes, fenêtres.',
+      startingPrice: 80000,
+      imageUrl: MenuisierImage,
+    },
+    {
+      id: 'mecanique',
+      name: 'Mécanique',
+      icon: <Wrench className="text-gray-700" />,
+      shortDescription: 'Réparation et entretien automobile.',
+      description: 'Diagnostic, réparation, entretien de véhicules.',
+      startingPrice: 100000,
+      imageUrl: MecaniqueImage,
+    },
+    {
+      id: 'antennes',
+      name: 'Antennes',
+      icon: <Monitor className="text-blue-500" />,
+      shortDescription: 'Installation et réglage d\'antennes TV.',
+      description: 'Pose, réglage, dépannage d\'antennes et paraboles.',
+      startingPrice: 60000,
+      imageUrl: AntenneImage,
+    },
+    {
+      id: 'lavage',
+      name: 'Lavage',
+      icon: <Zap className="text-blue-500" />,
+      shortDescription: 'Lavage auto, moto, tapis, etc.',
+      description: 'Nettoyage professionnel de véhicules et textiles.',
+      startingPrice: 30000,
+      imageUrl: LavageImage,
+    },
+    {
+      id: 'demenagement',
+      name: 'Déménagement',
+      icon: <Wrench className="text-gray-700" />,
+      shortDescription: 'Service de déménagement clé en main.',
+      description: 'Emballage, transport, installation à votre nouveau domicile.',
+      startingPrice: 200000,
+      imageUrl: DemenagementImage,
+    },
+    {
+      id: 'nettoyage',
+      name: 'Nettoyage',
+      icon: <Zap className="text-blue-500" />,
+      shortDescription: 'Nettoyage professionnel de locaux et maisons.',
+      description: 'Entretien, ménage, nettoyage après travaux.',
+      startingPrice: 40000,
+      imageUrl: NettoyageImage,
+    },
+    {
+      id: 'peinture',
+      name: 'Peinture',
+      icon: <Wrench className="text-pink-500" />,
+      shortDescription: 'Travaux de peinture intérieure et extérieure.',
+      description: 'Rafraîchissement, décoration, peinture sur mesure.',
+      startingPrice: 60000,
+      imageUrl: PeintureImage,
+    },
+    {
+      id: 'remorquage',
+      name: 'Remorquage Auto',
+      icon: <Wrench className="text-blue-600" />,
+      shortDescription: 'Remorquage de véhicules en panne ou accidentés.',
+      description: 'Service de remorquage rapide et sécurisé pour tout type de véhicule, 24h/24 et 7j/7.',
+      startingPrice: 80000,
+      imageUrl: RemorquageAutoImage,
+    },
+    {
+      id: 'depannageauto',
+      name: 'Dépannage de Voiture',
+      icon: <Zap className="text-yellow-500" />,
+      shortDescription: 'Dépannage sur place pour pannes mécaniques ou électriques.',
+      description: 'Intervention rapide pour redémarrer, réparer ou diagnostiquer votre voiture en panne, où que vous soyez.',
+      startingPrice: 70000,
+      imageUrl: DepannageVoitureImage,
     },
   ];
 
@@ -271,7 +535,7 @@ const Home: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {services.map(service => (
+            {services.slice(0, showAllServices ? services.length : 6).map(service => (
               <div key={service.id} className="relative">
                 <ServiceCard service={service} />
                 <div className="mt-4 text-center">
@@ -286,13 +550,55 @@ const Home: React.FC = () => {
             ))}
           </div>
 
-          <div className="text-center mt-12">
-            <Link
-              to="/booking"
-              className="bg-blue-700 hover:bg-blue-800 text-white font-medium py-3 px-8 rounded-md transition-colors inline-block"
-            >
-              Réserver un Service
-            </Link>
+          <div className="text-center mt-12 space-y-6">
+            {!showAllServices && services.length > 6 && (
+              <div className="flex justify-center">
+                <button
+                  onClick={() => setShowAllServices(true)}
+                  className="group relative inline-flex items-center justify-center px-8 py-4 overflow-hidden font-medium text-white bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg shadow-lg hover:from-orange-600 hover:to-orange-700 transform hover:scale-105 transition-all duration-300 ease-out"
+                >
+                  <span className="absolute right-0 w-8 h-32 -mt-12 transition-all duration-1000 transform translate-x-12 bg-white opacity-10 rotate-12 group-hover:-translate-x-40 ease"></span>
+                  <span className="relative flex items-center space-x-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                    <span>Afficher plus de services</span>
+                  </span>
+                </button>
+              </div>
+            )}
+            
+            {showAllServices && services.length > 6 && (
+              <div className="flex justify-center">
+                <button
+                  onClick={() => setShowAllServices(false)}
+                  className="group relative inline-flex items-center justify-center px-8 py-4 overflow-hidden font-medium text-orange-600 bg-white border-2 border-orange-500 rounded-lg shadow-lg hover:bg-orange-50 transform hover:scale-105 transition-all duration-300 ease-out"
+                >
+                  <span className="absolute right-0 w-8 h-32 -mt-12 transition-all duration-1000 transform translate-x-12 bg-orange-200 opacity-10 rotate-12 group-hover:-translate-x-40 ease"></span>
+                  <span className="relative flex items-center space-x-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path>
+                    </svg>
+                    <span>Afficher moins</span>
+                  </span>
+                </button>
+              </div>
+            )}
+            
+            <div className="flex justify-center">
+              <Link
+                to="/booking"
+                className="group relative inline-flex items-center justify-center px-8 py-4 overflow-hidden font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg shadow-lg hover:from-blue-700 hover:to-blue-800 transform hover:scale-105 transition-all duration-300 ease-out"
+              >
+                <span className="absolute right-0 w-8 h-32 -mt-12 transition-all duration-1000 transform translate-x-12 bg-white opacity-10 rotate-12 group-hover:-translate-x-40 ease"></span>
+                <span className="relative flex items-center space-x-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                  </svg>
+                  <span>Réserver un Service</span>
+                </span>
+              </Link>
+            </div>
           </div>
         </div>
       </section>

@@ -294,12 +294,21 @@ const CustomerDashboard = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-8">
         <div className="max-w-7xl mx-auto">
           {/* Carte de recherche de technicien */}
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-10 border border-gray-100 p-6">
-            <div className="flex items-center mb-4">
-              <MapPin className="h-6 w-6 text-blue-600 mr-2" />
-              <h2 className="text-xl font-semibold">Trouver un technicien proche</h2>
+          <div className="relative rounded-2xl mb-10 p-0 overflow-hidden shadow-xl group border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-blue-100 transition-all duration-300 hover:shadow-2xl">
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-6 p-8">
+              <div className="flex-shrink-0 flex flex-col items-center justify-center w-full md:w-auto">
+                <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center shadow-lg mb-4">
+                  <MapPin className="h-10 w-10 text-blue-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-blue-900 mb-2 text-center">Trouver un technicien proche</h2>
+                <p className="text-blue-700 text-center text-base mb-2">Visualisez les techniciens disponibles autour de vous et contactez-les en un clic.</p>
+              </div>
+              <div className="flex-1 w-full">
+                <div className="rounded-xl overflow-hidden border border-blue-100 bg-white shadow-sm p-2 md:p-4">
+                  <TechnicianMap />
+                </div>
+              </div>
             </div>
-            <TechnicianMap />
           </div>
 
           {/* Stats Cards */}
@@ -444,66 +453,38 @@ const CustomerDashboard = () => {
                   ) : (
                     <div className="space-y-4">
                       {filteredRequests.map((request) => (
-                        <div key={request.id} className="border border-gray-100 rounded-lg p-6 hover:shadow-md transition-all duration-200">
-                          <div className="flex flex-col lg:flex-row justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-3 mb-3">
-                                <div className="h-12 w-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 font-semibold">
-                                  {request.specialty_needed?.substring(0, 2) || 'RE'}
-                                </div>
-                                <div>
-                                  <h4 className="font-semibold text-lg text-gray-800">{request.title}</h4>
-                                  <div className="flex items-center space-x-2 mt-1">
-                                    {getStatusBadge(request.status)}
-                                    <div className={`w-3 h-3 rounded-full ${getPriorityColor(request.priority)}`}></div>
-                                  </div>
-                                </div>
+                        <div key={request.id} className="relative bg-white rounded-2xl shadow-lg border border-gray-100 p-6 flex flex-col md:flex-row gap-6 hover:shadow-2xl transition-all duration-200 group">
+                          {/* Badge statut */}
+                          <div className="absolute top-4 right-4 z-10">
+                            {getStatusBadge(request.status)}
+                          </div>
+                          {/* Avatar ou icône */}
+                          <div className="flex-shrink-0 flex flex-col items-center justify-center">
+                            <div className="h-14 w-14 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xl shadow-md">
+                              {request.specialty_needed?.substring(0, 2) || 'RE'}
+                            </div>
+                            <div className={`w-3 h-3 rounded-full mt-2 ${getPriorityColor(request.priority)}`}></div>
+                          </div>
+                          {/* Contenu principal */}
+                          <div className="flex-1 flex flex-col justify-between">
+                            <div>
+                              <h4 className="font-semibold text-lg text-gray-800 mb-1">{request.title}</h4>
+                              <p className="text-gray-600 mb-3 line-clamp-2">{request.description}</p>
+                              <div className="flex flex-wrap gap-3 mb-3">
+                                <span className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">
+                                  <Calendar className="h-4 w-4 mr-1" /> {formatDate(request.created_at)}
+                                </span>
+                                <span className="inline-flex items-center px-3 py-1 bg-green-50 text-green-700 rounded-full text-xs font-medium">
+                                  {request.specialty_needed}
+                                </span>
+                                <span className="inline-flex items-center px-3 py-1 bg-yellow-50 text-yellow-700 rounded-full text-xs font-medium">
+                                  {request.estimated_cost?.toLocaleString()} FCFA
+                                </span>
                               </div>
-
-                              <p className="text-gray-600 mb-4">{request.description}</p>
-
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-500 mb-4">
-                                <div className="flex items-center">
-                                  <Calendar className="h-4 w-4 mr-2" />
-                                  <span>Créée le {formatDate(request.created_at)}</span>
-                                </div>
-                                <div>
-                                  <span className="font-medium">Spécialité:</span> {request.specialty_needed}
-                                </div>
-                                <div>
-                                  <span className="font-medium">Coût estimé:</span> {request.estimated_cost?.toLocaleString()} FCFA
-                                </div>
-                              </div>
-
-                              {/* Informations du technicien */}
-                              {request.technician && (
-                                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                                  <h5 className="font-medium text-gray-900 mb-2">Technicien assigné</h5>
-                                  <div className="flex flex-wrap items-center gap-4 text-sm">
-                                    <div className="flex items-center space-x-2">
-                                      <span className="font-medium">
-                                        {request.technician.user.first_name} {request.technician.user.last_name}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                      <Phone className="h-4 w-4 text-gray-400" />
-                                      <span className="text-gray-600">{request.technician.phone}</span>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                      <Star className="h-4 w-4 text-yellow-400" />
-                                      <span className="text-gray-600">{request.technician.average_rating}/5</span>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                      <span className="text-gray-600">{request.technician.hourly_rate} FCFA/h</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* À l'endroit où l'adresse du client est affichée dans la liste des demandes */}
-                              <span className="text-gray-700">
+                              {/* Adresse et incohérence */}
+                              <div className="flex items-center flex-wrap gap-2 text-gray-700 text-sm mb-2">
+                                <MapPin className="h-4 w-4 mr-1 text-blue-400" />
                                 {request.client.address}
-                                {/* Badge incohérence + suggestion */}
                                 {!isCoherent(extractQuartier(request.client.address), extractCommune(request.client.address)) && (
                                   <>
                                     <span className="inline-block bg-red-600 text-white text-xs font-bold px-2 py-1 rounded ml-2">Incohérence quartier/commune</span>
@@ -563,17 +544,32 @@ const CustomerDashboard = () => {
                                     )}
                                   </>
                                 )}
-                              </span>
+                              </div>
+                              {/* Technicien assigné */}
+                              {request.technician && (
+                                <div className="mt-3 p-4 bg-blue-50 rounded-lg flex flex-col md:flex-row items-center gap-4 shadow-inner">
+                                  <div className="flex-shrink-0 w-12 h-12 rounded-full bg-blue-200 flex items-center justify-center text-blue-700 font-bold text-lg">
+                                    {request.technician.user.first_name?.charAt(0)}{request.technician.user.last_name?.charAt(0)}
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="font-medium text-gray-900">{request.technician.user.first_name} {request.technician.user.last_name}</div>
+                                    <div className="flex flex-wrap gap-3 text-xs text-gray-600 mt-1">
+                                      <span><Phone className="inline h-4 w-4 mr-1 text-blue-400" />{request.technician.phone}</span>
+                                      <span><Star className="inline h-4 w-4 mr-1 text-yellow-400" />{request.technician.average_rating}/5</span>
+                                      <span>{request.technician.hourly_rate} FCFA/h</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
-
-                            <div className="mt-4 lg:mt-0 lg:ml-6 flex flex-col space-y-2 lg:items-end">
+                            {/* Actions */}
+                            <div className="mt-4 flex flex-col md:flex-row gap-2 md:items-end md:justify-end">
                               {request.conversation && (
                                 <button
-                                  className="inline-flex items-center px-3 py-2 border border-blue-600 text-blue-600 rounded-full hover:bg-blue-50 transition-colors text-sm"
+                                  className="inline-flex items-center px-4 py-2 border border-blue-600 text-blue-600 rounded-full hover:bg-blue-50 transition-colors text-sm font-semibold shadow"
                                   onClick={() => window.location.href = `/chat/${request.conversation?.id}`}
                                 >
-                                  <MessageSquare className="h-4 w-4 mr-2" />
-                                  Messages
+                                  <MessageSquare className="h-4 w-4 mr-2" /> Messages
                                   {request.conversation.unread_count > 0 && (
                                     <span className="ml-2 bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
                                       {request.conversation.unread_count}
@@ -581,7 +577,6 @@ const CustomerDashboard = () => {
                                   )}
                                 </button>
                               )}
-
                               {request.status === 'pending' && (
                                 <button
                                   onClick={async () => {
@@ -597,7 +592,6 @@ const CustomerDashboard = () => {
                                           body: JSON.stringify({ status: 'cancelled' }),
                                         });
                                         if (response.ok) {
-                                          // Rafraîchir la liste des demandes
                                           fetchData();
                                         } else {
                                           alert('Erreur lors de l\'annulation');
@@ -607,7 +601,7 @@ const CustomerDashboard = () => {
                                       }
                                     }
                                   }}
-                                  className="inline-flex items-center px-3 py-2 border border-red-600 text-red-600 rounded-full hover:bg-red-50 transition-colors text-sm"
+                                  className="inline-flex items-center px-4 py-2 border border-red-600 text-red-600 rounded-full hover:bg-red-50 transition-colors text-sm font-semibold shadow"
                                 >
                                   Annuler
                                 </button>

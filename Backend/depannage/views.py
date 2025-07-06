@@ -13,8 +13,9 @@ import json
 import logging
 from decimal import Decimal
 import math
-from django.contrib.gis.geos import Point
-from django.contrib.gis.db.models.functions import Distance
+# Temporairement commenté pour éviter l'erreur GDAL
+# from django.contrib.gis.geos import Point
+# from django.contrib.gis.db.models.functions import Distance
 from django.core.mail import send_mail
 # Ajout import Twilio
 try:

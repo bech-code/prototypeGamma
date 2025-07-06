@@ -16,11 +16,14 @@ import os
 from dotenv import load_dotenv
 from django.utils import timezone
 
-# Charger les variables d'environnement depuis un fichier .env
-load_dotenv()
-
 # Définir le chemin de base du projet
 BASE_DIR = Path(__file__).resolve().parent.parent
+# Charger les variables d'environnement depuis un fichier .env à la racine du Backend
+load_dotenv(dotenv_path=str(BASE_DIR / ".env"), override=True)
+
+# Configuration GDAL pour GeoDjango
+GDAL_LIBRARY_PATH = r'C:\OSGeo4W\bin\gdal311.dll'
+GEOS_LIBRARY_PATH = r'C:\OSGeo4W\bin\geos_c.dll'
 
 # Paramètres de démarrage rapide - ne pas utiliser en production
 # Voir https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/

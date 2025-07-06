@@ -4,6 +4,31 @@ import { MapPin, Upload, Calendar, Clock, Info } from 'lucide-react';
 import { Service } from '../types/service';
 import { fetchWithAuth } from '../contexts/fetchWithAuth';
 import { useAuth } from '../contexts/AuthContext';
+import AideMenagereImage from '../assets/image/AideMenagere.jpg';
+import CoiffeurImage from '../assets/image/Coiffeur.jpg';
+import DecorationImage from '../assets/image/decoration.jpg';
+import DemenagementImage from '../assets/image/Déménagement.jpg';
+import DepannageVoitureImage from '../assets/image/depannageVoiture.jpg';
+import EsthetiquesetbeauteImage from '../assets/image/Esthétiquesetbeaute.jpg';
+import FroidImage from '../assets/image/Froid.jpg';
+import GroupeElectrogeneImage from '../assets/image/groupeElectrogene.jpg';
+import LavageImage from '../assets/image/Lavage.jpg';
+import LessiveImage from '../assets/image/lessive.jpg';
+import LivraisonImage from '../assets/image/Livraison.jpg';
+import LivraisonGazImage from '../assets/image/LivraisonGaz.jpg';
+import MaconnerieImage from '../assets/image/maçonnerie.jpg';
+import MecaniqueImage from '../assets/image/Mécanique.jpg';
+import MenuisierImage from '../assets/image/menuisier.jpg';
+import NettoyageImage from '../assets/image/Nettoyage.jpg';
+import PeintureImage from '../assets/image/Peinture.jpg';
+import PneumatiqueImage from '../assets/image/Pneumatique.jpg';
+import PressingImage from '../assets/image/pressing.jpg';
+import RemorquageAutoImage from '../assets/image/RemorquageAuto.jpg';
+import SoudureImage from '../assets/image/soudure.jpg';
+import TelephoneImage from '../assets/image/telephone.jpg';
+import VidangeImage from '../assets/image/Vidange.jpg';
+import AntenneImage from '../assets/image/Antenne.jpg';
+import TeleImage from '../assets/image/télé.jpg';
 
 interface RepairRequest {
   id: number;
@@ -22,7 +47,7 @@ const services: Service[] = [
     shortDescription: 'Réparations de plomberie expertes pour fuites, bouchons et installations.',
     description: 'Nos plombiers professionnels gèrent tout, des réparations d\'urgence aux nouvelles installations.',
     startingPrice: 50000,
-    imageUrl: 'https://images.pexels.com/photos/4116186/pexels-photo-4116186.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+    imageUrl: AideMenagereImage,
   },
   {
     id: 'electrician',
@@ -30,7 +55,7 @@ const services: Service[] = [
     shortDescription: 'Électriciens certifiés pour tous vos besoins électriques.',
     description: 'Du câblage à l\'installation d\'appareils, nos électriciens agréés garantissent sécurité et qualité.',
     startingPrice: 60000,
-    imageUrl: 'https://images.pexels.com/photos/8005368/pexels-photo-8005368.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+    imageUrl: EsthetiquesetbeauteImage,
   },
   {
     id: 'locksmith',
@@ -38,7 +63,7 @@ const services: Service[] = [
     shortDescription: 'Service de dépannage rapide et solutions de sécurité.',
     description: 'Enfermé dehors ? Besoin de nouvelles serrures ? Nos serruriers fournissent un service rapide et fiable 24h/24.',
     startingPrice: 45000,
-    imageUrl: 'https://images.pexels.com/photos/4219054/pexels-photo-4219054.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+    imageUrl: SoudureImage,
   },
   {
     id: 'it',
@@ -46,7 +71,7 @@ const services: Service[] = [
     shortDescription: 'Support technique pour ordinateurs et réseaux.',
     description: 'Nos techniciens informatiques résolvent vos problèmes informatiques, configurent les réseaux et fournissent un support continu.',
     startingPrice: 40000,
-    imageUrl: 'https://images.pexels.com/photos/3568520/pexels-photo-3568520.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+    imageUrl: EsthetiquesetbeauteImage,
   },
   {
     id: 'air_conditioning',
@@ -54,7 +79,7 @@ const services: Service[] = [
     shortDescription: 'Réparations et maintenance des systèmes de chauffage et de refroidissement.',
     description: 'Gardez votre maison confortable toute l\'année avec nos services de réparation et maintenance HVAC.',
     startingPrice: 70000,
-    imageUrl: 'https://images.pexels.com/photos/4489732/pexels-photo-4489732.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+    imageUrl: EsthetiquesetbeauteImage,
   },
   {
     id: 'appliance_repair',
@@ -62,15 +87,199 @@ const services: Service[] = [
     shortDescription: 'Réparations pour réfrigérateurs, machines à laver, sèche-linge et plus.',
     description: 'Nos techniciens réparent tous les appareils électroménagers principaux rapidement et à prix abordable.',
     startingPrice: 55000,
-    imageUrl: 'https://images.pexels.com/photos/4108807/pexels-photo-4108807.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+    imageUrl: EsthetiquesetbeauteImage,
   },
   {
-    id: 'mechanic',
+    id: 'panneauxolaires',
+    name: 'Panneaux Solaires',
+    shortDescription: 'Installation et maintenance de panneaux solaires.',
+    description: 'Nos experts installent et entretiennent vos panneaux solaires pour une énergie propre et durable.',
+    startingPrice: 100000,
+    imageUrl: GroupeElectrogeneImage,
+  },
+  {
+    id: 'maconnerie',
     name: 'Maçonnerie',
-    shortDescription: 'Prise en charge de votre chantier par nos maçons qualifiés.',
-    description: 'Nos maçons expérimentés réalisent tous types de travaux de construction, rénovation et réparation de maçonnerie.',
+    shortDescription: 'Travaux de maçonnerie et rénovation.',
+    description: 'Construction, rénovation, réparation de murs, dalles, escaliers, etc.',
     startingPrice: 80000,
-    imageUrl: 'https://images.pexels.com/photos/323705/pexels-photo-323705.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+    imageUrl: MaconnerieImage,
+  },
+  {
+    id: 'decoration',
+    name: 'Décoration',
+    shortDescription: 'Décoration intérieure et extérieure.',
+    description: 'Conseils et réalisation de projets de décoration personnalisés.',
+    startingPrice: 60000,
+    imageUrl: DecorationImage,
+  },
+  {
+    id: 'soudure',
+    name: 'Soudure',
+    shortDescription: 'Travaux de soudure sur mesure.',
+    description: 'Soudure de structures métalliques, portails, grilles, etc.',
+    startingPrice: 90000,
+    imageUrl: SoudureImage,
+  },
+  {
+    id: 'groupeelectrogene',
+    name: 'Groupe électrogène',
+    shortDescription: 'Installation et dépannage de groupes électrogènes.',
+    description: 'Mise en service, entretien et réparation de groupes électrogènes.',
+    startingPrice: 150000,
+    imageUrl: GroupeElectrogeneImage,
+  },
+  {
+    id: 'pneumatique',
+    name: 'Pneumatique',
+    shortDescription: 'Changement et réparation de pneus.',
+    description: 'Service rapide pour vos pneus : montage, équilibrage, réparation.',
+    startingPrice: 50000,
+    imageUrl: PneumatiqueImage,
+  },
+  {
+    id: 'coiffeur',
+    name: 'Coiffeur',
+    shortDescription: 'Coiffure à domicile pour hommes et femmes.',
+    description: 'Coupes, soins, coiffures tendance à domicile.',
+    startingPrice: 40000,
+    imageUrl: CoiffeurImage,
+  },
+  {
+    id: 'pressing',
+    name: 'Pressing',
+    shortDescription: 'Nettoyage et repassage de vêtements.',
+    description: 'Service de pressing professionnel à domicile.',
+    startingPrice: 30000,
+    imageUrl: PressingImage,
+  },
+  {
+    id: 'tele',
+    name: 'Télé',
+    shortDescription: 'Installation et réparation de téléviseurs.',
+    description: 'Dépannage, installation murale, réglages TV.',
+    startingPrice: 60000,
+    imageUrl: TeleImage,
+  },
+  {
+    id: 'esthetique',
+    name: 'Esthétique et Beauté',
+    shortDescription: 'Soins de beauté à domicile.',
+    description: 'Maquillage, soins du visage, manucure, etc.',
+    startingPrice: 50000,
+    imageUrl: EsthetiquesetbeauteImage,
+  },
+  {
+    id: 'lessive',
+    name: 'Lessive à Domicile',
+    shortDescription: 'Service de lessive et repassage à domicile.',
+    description: 'Collecte, lavage, repassage et livraison de linge.',
+    startingPrice: 25000,
+    imageUrl: LessiveImage,
+  },
+  {
+    id: 'aidemenagere',
+    name: 'Aide Ménagère',
+    shortDescription: 'Aide ménagère à domicile.',
+    description: 'Nettoyage, rangement, entretien de la maison.',
+    startingPrice: 35000,
+    imageUrl: AideMenagereImage,
+  },
+  {
+    id: 'vidange',
+    name: 'Vidange',
+    shortDescription: 'Vidange de fosses et entretien.',
+    description: 'Service de vidange rapide et efficace.',
+    startingPrice: 100000,
+    imageUrl: VidangeImage,
+  },
+  {
+    id: 'livraison',
+    name: 'Livraison',
+    shortDescription: 'Livraison express de colis et repas.',
+    description: 'Livraison rapide à domicile ou au bureau.',
+    startingPrice: 20000,
+    imageUrl: LivraisonImage,
+  },
+  {
+    id: 'livraisongaz',
+    name: 'Livraison Gaz',
+    shortDescription: 'Livraison de bouteilles de gaz à domicile.',
+    description: 'Commande et livraison de gaz en toute sécurité.',
+    startingPrice: 30000,
+    imageUrl: LivraisonGazImage,
+  },
+  {
+    id: 'froid',
+    name: 'Froid',
+    shortDescription: 'Installation et réparation de systèmes de froid.',
+    description: 'Climatisation, réfrigération, chambres froides.',
+    startingPrice: 90000,
+    imageUrl: FroidImage,
+  },
+  {
+    id: 'telephone',
+    name: 'Téléphone',
+    shortDescription: 'Réparation et configuration de téléphones.',
+    description: 'Dépannage, déblocage, configuration smartphones.',
+    startingPrice: 40000,
+    imageUrl: TelephoneImage,
+  },
+  {
+    id: 'menuisiers',
+    name: 'Menuisiers',
+    shortDescription: 'Travaux de menuiserie bois et alu.',
+    description: 'Fabrication, réparation, pose de meubles, portes, fenêtres.',
+    startingPrice: 80000,
+    imageUrl: MenuisierImage,
+  },
+  {
+    id: 'mecanique',
+    name: 'Mécanique',
+    shortDescription: 'Réparation et entretien automobile.',
+    description: 'Diagnostic, réparation, entretien de véhicules.',
+    startingPrice: 100000,
+    imageUrl: MecaniqueImage,
+  },
+  {
+    id: 'antennes',
+    name: 'Antennes',
+    shortDescription: 'Installation et réglage d\'antennes TV.',
+    description: 'Pose, réglage, dépannage d\'antennes et paraboles.',
+    startingPrice: 60000,
+    imageUrl: AntenneImage,
+  },
+  {
+    id: 'lavage',
+    name: 'Lavage',
+    shortDescription: 'Lavage auto, moto, tapis, etc.',
+    description: 'Nettoyage professionnel de véhicules et textiles.',
+    startingPrice: 30000,
+    imageUrl: LavageImage,
+  },
+  {
+    id: 'demenagement',
+    name: 'Déménagement',
+    shortDescription: 'Service de déménagement clé en main.',
+    description: 'Emballage, transport, installation à votre nouveau domicile.',
+    startingPrice: 200000,
+    imageUrl: DemenagementImage,
+  },
+  {
+    id: 'nettoyage',
+    name: 'Nettoyage',
+    shortDescription: 'Nettoyage professionnel de locaux et maisons.',
+    description: 'Entretien, ménage, nettoyage après travaux.',
+    startingPrice: 40000,
+    imageUrl: NettoyageImage,
+  },
+  {
+    id: 'peinture',
+    name: 'Peinture',
+    shortDescription: 'Travaux de peinture intérieure et extérieure.',
+    description: 'Rafraîchissement, décoration, peinture sur mesure.',
+    startingPrice: 60000,
+    imageUrl: PeintureImage,
   },
   {
     id: 'other',
@@ -78,7 +287,23 @@ const services: Service[] = [
     shortDescription: 'Service personnalisé selon vos besoins.',
     description: 'Contactez-nous pour toute demande spécifique ou autre service.',
     startingPrice: 35000,
-    imageUrl: 'https://images.pexels.com/photos/4108807/pexels-photo-4108807.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+    imageUrl: EsthetiquesetbeauteImage,
+  },
+  {
+    id: 'remorquage',
+    name: 'Remorquage Auto',
+    shortDescription: 'Remorquage de véhicules en panne ou accidentés.',
+    description: 'Service de remorquage rapide et sécurisé pour tout type de véhicule, 24h/24 et 7j/7.',
+    startingPrice: 80000,
+    imageUrl: RemorquageAutoImage,
+  },
+  {
+    id: 'depannageauto',
+    name: 'Dépannage de Voiture',
+    shortDescription: 'Dépannage sur place pour pannes mécaniques ou électriques.',
+    description: 'Intervention rapide pour redémarrer, réparer ou diagnostiquer votre voiture en panne, où que vous soyez.',
+    startingPrice: 70000,
+    imageUrl: DepannageVoitureImage,
   },
 ];
 

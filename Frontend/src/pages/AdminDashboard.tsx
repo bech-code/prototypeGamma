@@ -548,6 +548,45 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Hero Section */}
+      <section className="relative bg-gradient-to-r from-blue-900 to-blue-700 text-white py-24">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto text-center">
+            <h1 className="text-4xl md:text-5xl font-bold mb-4">
+              Tableau de Bord Administrateur
+            </h1>
+            <p className="text-xl text-blue-100 mb-2">
+              Bienvenue, Mr {user?.username || 'Administrateur'}
+            </p>
+            <p className="text-lg text-blue-100 mb-8">
+              Gérez votre plateforme, supervisez les techniciens et suivez les performances de votre service.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="bg-blue-800/50 p-6 rounded-lg">
+                <Wrench className="w-8 h-8 mx-auto mb-4" />
+                <h3 className="font-semibold mb-2">Demandes</h3>
+                <p className="text-sm text-blue-100">Gérez les demandes de réparation</p>
+              </div>
+              <div className="bg-blue-800/50 p-6 rounded-lg">
+                <Users className="w-8 h-8 mx-auto mb-4" />
+                <h3 className="font-semibold mb-2">Techniciens</h3>
+                <p className="text-sm text-blue-100">Supervisez les techniciens</p>
+              </div>
+              <div className="bg-blue-800/50 p-6 rounded-lg">
+                <AlertCircle className="w-8 h-8 mx-auto mb-4" />
+                <h3 className="font-semibold mb-2">Notifications</h3>
+                <p className="text-sm text-blue-100">Suivez les alertes</p>
+              </div>
+              <div className="bg-blue-800/50 p-6 rounded-lg">
+                <Shield className="w-8 h-8 mx-auto mb-4" />
+                <h3 className="font-semibold mb-2">Sécurité</h3>
+                <p className="text-sm text-blue-100">Dashboard sécurité avancé</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -815,50 +854,79 @@ const AdminDashboard: React.FC = () => {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {filteredRequests.map((request) => (
-                    <div key={request.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <h3 className="text-lg font-medium text-gray-900">{request.title}</h3>
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(request.status)}`}>
+                    <div key={request.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden">
+                      {/* Header de la carte */}
+                      <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-6 border-b border-blue-200">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center space-x-3">
+                            {/* Avatar client */}
+                            <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                              {request.client.user.username.charAt(0).toUpperCase()}
+                          </div>
+                            <div>
+                              <h3 className="text-lg font-bold text-gray-900 truncate">{request.title}</h3>
+                              <p className="text-sm text-gray-600">Client: {request.client.user.username}</p>
+                            </div>
+                            </div>
+                          <div className="flex flex-col items-end space-y-2">
+                            {/* Badge statut */}
+                            <span className={`px-3 py-1 text-xs font-bold rounded-full shadow-sm ${getStatusColor(request.status)}`}>
                               {getStatusText(request.status)}
                             </span>
-                            <div className={`w-3 h-3 rounded-full ${getPriorityColor(request.priority)}`}></div>
-                          </div>
-
-                          <p className="text-gray-600 mb-3">{request.description}</p>
-
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-500 mb-4">
-                            <div>
-                              <span className="font-medium">Spécialité:</span> {request.specialty_needed}
+                            {/* Badge priorité */}
+                            <div className="flex items-center space-x-1">
+                              <div className={`w-3 h-3 rounded-full ${getPriorityColor(request.priority)} shadow-sm`}></div>
+                              <span className="text-xs text-gray-500 font-medium">
+                                {request.priority === 'urgent' ? 'Urgent' : 
+                                 request.priority === 'high' ? 'Élevée' : 
+                                 request.priority === 'medium' ? 'Moyenne' : 'Faible'}
+                              </span>
                             </div>
-                            <div>
-                              <span className="font-medium">Coût estimé:</span> {request.estimated_cost !== undefined && request.estimated_cost !== null ? request.estimated_cost.toLocaleString() : "N/A"} FCFA
-                            </div>
-                            <div>
-                              <span className="font-medium">Créée le:</span> {formatDate(request.created_at)}
-                            </div>
-                            <div>
-                              <span className="font-medium">Client:</span> {request.client.user.username}
                             </div>
                           </div>
 
-                          {/* Informations du client */}
-                          <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                            <h4 className="font-medium text-gray-900 mb-2">Informations client</h4>
-                            <div className="flex items-center space-x-4">
+                        {/* Description */}
+                        <p className="text-gray-700 text-sm leading-relaxed mb-4 line-clamp-2">
+                          {request.description}
+                        </p>
+                      </div>
+
+                      {/* Corps de la carte */}
+                      <div className="p-6">
+                        {/* Tags d'informations clés */}
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            <Wrench className="w-3 h-3 mr-1" />
+                            {request.specialty_needed}
+                          </span>
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <span className="font-bold">{request.estimated_cost !== undefined && request.estimated_cost !== null ? request.estimated_cost.toLocaleString() : "N/A"} FCFA</span>
+                          </span>
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                            <Clock className="w-3 h-3 mr-1" />
+                            {formatDate(request.created_at)}
+                          </span>
+                        </div>
+
+                        {/* Informations client stylées */}
+                        <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg p-4 mb-4 border border-gray-200">
+                          <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                            <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                            Informations client
+                          </h4>
+                          <div className="space-y-2">
                               <div className="flex items-center space-x-2">
-                                <MapPin className="h-4 w-4 text-gray-400" />
-                                <span className="text-sm text-gray-600">
+                              <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                              <span className="text-sm text-gray-700 flex-1">
                                   {request.client.address}
                                   {/* Badge incohérence */}
                                   {!isCoherent(extractQuartier(request.client.address), extractCommune(request.client.address)) && (
                                     <>
                                       <span className="inline-block bg-red-600 text-white text-xs font-bold px-2 py-1 rounded ml-2">Incohérence quartier/commune</span>
                                       <button
-                                        className="ml-2 text-xs text-blue-700 underline hover:text-blue-900"
+                                      className="ml-2 text-xs text-blue-700 underline hover:text-blue-900 font-medium"
                                         onClick={() => {
                                           setEditingRequestId(request.id);
                                           setEditQuartier('');
@@ -866,22 +934,22 @@ const AdminDashboard: React.FC = () => {
                                         }}
                                       >Corriger</button>
                                       {editingRequestId === request.id && (
-                                        <div className="mt-2 flex flex-col gap-2 bg-blue-50 p-2 rounded shadow max-w-xs">
-                                          <label className="text-xs font-semibold">Quartier</label>
+                                      <div className="mt-3 bg-blue-50 p-3 rounded-lg border border-blue-200 max-w-xs">
+                                        <label className="text-xs font-semibold text-blue-900">Quartier</label>
                                           <div className="relative">
                                             <input
                                               type="text"
-                                              className="w-full p-1 border border-gray-300 rounded"
+                                            className="w-full p-2 border border-blue-300 rounded text-sm"
                                               value={editQuartier}
                                               onChange={handleEditQuartierChange}
                                               placeholder="Quartier correct"
                                             />
                                             {showEditSuggestions && editSuggestions.length > 0 && (
                                               <div ref={editSuggestionsRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-40 overflow-y-auto">
-                                                {editSuggestions.map((quartier, idx) => (
+                                              {editSuggestions.map((quartier) => (
                                                   <div
-                                                    key={quartier + '-' + idx}
-                                                    className="px-2 py-1 hover:bg-blue-50 cursor-pointer text-xs"
+                                                  key={quartier}
+                                                  className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
                                                     onClick={() => handleEditSuggestionClick(quartier)}
                                                   >
                                                     {quartier}
@@ -890,22 +958,24 @@ const AdminDashboard: React.FC = () => {
                                               </div>
                                             )}
                                           </div>
-                                          <label className="text-xs font-semibold">Commune</label>
+                                        <label className="text-xs font-semibold text-blue-900 mt-2">Commune</label>
                                           <input
                                             type="text"
-                                            className="w-full p-1 border border-gray-300 rounded"
+                                          className="w-full p-2 border border-blue-300 rounded text-sm"
                                             value={editCommune}
                                             onChange={e => setEditCommune(e.target.value)}
                                             placeholder="Commune correcte"
                                           />
+                                        <div className="flex space-x-2 mt-3">
                                           <button
-                                            className="mt-2 bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3 py-1 rounded"
+                                            className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3 py-2 rounded transition-colors"
                                             onClick={() => handleCorrection(request.id)}
                                           >Valider</button>
                                           <button
-                                            className="mt-1 text-xs text-gray-500 underline"
+                                            className="flex-1 text-xs text-gray-500 underline hover:text-gray-700"
                                             onClick={() => setEditingRequestId(null)}
                                           >Annuler</button>
+                                        </div>
                                         </div>
                                       )}
                                     </>
@@ -913,62 +983,72 @@ const AdminDashboard: React.FC = () => {
                                 </span>
                               </div>
                               <div className="flex items-center space-x-2">
-                                <Phone className="h-4 w-4 text-gray-400" />
-                                <span className="text-sm text-gray-600">{request.client.phone}</span>
+                              <Phone className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                              <span className="text-sm text-gray-700">{request.client.phone}</span>
                               </div>
                               <div className="flex items-center space-x-2">
-                                <span className="text-sm text-gray-600">{request.client.user.email}</span>
+                              <span className="text-sm text-gray-700">{request.client.user.email}</span>
                               </div>
                             </div>
                           </div>
 
                           {/* Informations du technicien assigné */}
                           {request.technician && (
-                            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                              <h4 className="font-medium text-gray-900 mb-2">Technicien assigné</h4>
-                              <div className="flex items-center space-x-4">
-                                <div className="flex items-center space-x-2">
-                                  <span className="text-sm text-gray-600">
+                          <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 mb-4 border border-blue-200">
+                            <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                              <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                              Technicien assigné
+                            </h4>
+                            <div className="flex items-center space-x-3">
+                              {/* Avatar technicien */}
+                              <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md">
+                                {(request.technician.user?.username || request.technician.user?.email || 'U').charAt(0).toUpperCase()}
+                              </div>
+                              <div className="flex-1">
+                                <p className="font-medium text-gray-900">
                                     {request.technician.user?.username || request.technician.user?.email || 'Utilisateur inconnu'}
-                                  </span>
+                                </p>
+                                <div className="flex items-center space-x-4 mt-1">
+                                  <div className="flex items-center space-x-1">
+                                    <Phone className="h-3 w-3 text-gray-400" />
+                                    <span className="text-xs text-gray-600">{request.technician.phone}</span>
                                 </div>
-                                <div className="flex items-center space-x-2">
-                                  <Phone className="h-4 w-4 text-gray-400" />
-                                  <span className="text-sm text-gray-600">{request.technician.phone}</span>
+                                  <div className="flex items-center space-x-1">
+                                    <Star className="h-3 w-3 text-yellow-400" />
+                                    <span className="text-xs text-gray-600">{request.technician.average_rating}/5</span>
                                 </div>
-                                <div className="flex items-center space-x-2">
-                                  <Star className="h-4 w-4 text-yellow-400" />
-                                  <span className="text-sm text-gray-600">{request.technician.average_rating}/5</span>
+                                  <div className="flex items-center space-x-1">
+                                    <span className="text-xs text-gray-600 font-medium">{request.technician.hourly_rate} FCFA/h</span>
                                 </div>
-                                <div className="flex items-center space-x-2">
-                                  <span className="text-sm text-gray-600">{request.technician.hourly_rate} FCFA/h</span>
+                                </div>
                                 </div>
                               </div>
                             </div>
                           )}
 
+                        {/* Actions */}
+                        <div className="flex flex-wrap gap-3">
                           {request.conversation && (
                             <button
                               onClick={() => window.location.href = `/chat/${request.conversation?.id}`}
-                              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                              className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
                             >
                               <MessageSquare className="h-4 w-4 mr-2" />
                               Chat
                               {request.conversation?.unread_count > 0 && (
-                                <span className="ml-2 bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
-                                  {request.conversation?.unread_count}
+                                <span className="ml-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold">
+                                  {request.conversation.unread_count}
                                 </span>
                               )}
                             </button>
                           )}
-                        </div>
 
-                        <div className="flex flex-col space-y-2 ml-4">
                           {request.status === 'pending' && (
                             <button
                               onClick={() => openAssignModal(request)}
-                              className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                              className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
                             >
+                              <Users className="h-4 w-4 mr-2" />
                               Assigner un technicien
                             </button>
                           )}
@@ -976,8 +1056,9 @@ const AdminDashboard: React.FC = () => {
                           {request.status === 'assigned' && (
                             <button
                               onClick={() => openAssignModal(request)}
-                              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                              className="inline-flex items-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
                             >
+                              <Users className="h-4 w-4 mr-2" />
                               Réassigner
                             </button>
                           )}

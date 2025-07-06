@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import imageHero from '../assets/image/image.png';
 
 const Profile: React.FC = () => {
     const { user, fetchUser, updateUserProfile, logout } = useAuth();
@@ -69,8 +70,23 @@ const Profile: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-8">
-                <h2 className="text-2xl font-bold mb-6 text-center">Mon Profil</h2>
+            {/* Hero Section avec image de fond */}
+            <div className="relative h-64 md:h-80 w-full flex items-center justify-center">
+                <img
+                    src={imageHero}
+                    alt="Profil Hero"
+                    className="absolute inset-0 w-full h-full object-cover object-center z-0"
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-blue-900/60 z-10"></div>
+                <div className="relative z-20 text-center text-white">
+                    <h1 className="text-3xl md:text-4xl font-bold mb-2 drop-shadow-lg">Mon Profil</h1>
+                    <p className="text-lg md:text-xl font-medium drop-shadow">
+                        {formData.first_name} {formData.last_name}
+                    </p>
+                </div>
+            </div>
+            {/* Formulaire */}
+            <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-8 bg-white rounded-xl shadow-lg -mt-16 relative z-30">
                 {error && <div className="mb-4 bg-red-50 border-l-4 border-red-500 p-4 text-red-700">{error}</div>}
                 {success && <div className="mb-4 bg-green-50 border-l-4 border-green-500 p-4 text-green-700">{success}</div>}
                 <form onSubmit={handleSubmit} className="space-y-4">

@@ -282,7 +282,7 @@ const TechnicianDashboard: React.FC = () => {
       setSuggestingRequestId(null);
       setSuggestQuartier('');
       setSuggestCommune('');
-    } catch (e) {
+    } catch {
       alert('Erreur lors de l\'envoi de la suggestion');
     }
   };
@@ -290,95 +290,54 @@ const TechnicianDashboard: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-orange-600"></div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Tableau de bord technicien
-              </h1>
-              <p className="mt-1 text-sm text-gray-500">
-                Bienvenue, {user?.username} - {stats?.specialty}
-              </p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => window.location.href = '/technician/profile'}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Mon profil
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-8">
-        {/* Statistiques */}
+      {/* Hero Section orange */}
+      <section className="relative bg-gradient-to-r from-orange-600 to-orange-800 text-white py-20 mb-8">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto text-center">
+            <h1 className="text-4xl md:text-5xl font-bold mb-2">Tableau de bord technicien</h1>
+            <p className="text-lg md:text-xl mb-4 text-orange-100">
+              Bienvenue, {user?.username} {stats?.specialty && <span className="font-semibold">- {stats.specialty}</span>}
+            </p>
         {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Wrench className="h-6 w-6 text-blue-600" />
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
+                <div className="bg-orange-800/50 p-6 rounded-lg">
+                  <Wrench className="w-8 h-8 mx-auto mb-4" />
+                  <h3 className="font-semibold mb-2">Demandes assignées</h3>
+                  <p className="text-2xl font-bold">{stats.assigned_requests}</p>
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Demandes assignées</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.assigned_requests}</p>
+                <div className="bg-orange-800/50 p-6 rounded-lg">
+                  <Clock className="w-8 h-8 mx-auto mb-4" />
+                  <h3 className="font-semibold mb-2">En cours</h3>
+                  <p className="text-2xl font-bold">{stats.pending_requests}</p>
                 </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-orange-100 rounded-lg">
-                  <Clock className="h-6 w-6 text-orange-600" />
+                <div className="bg-orange-800/50 p-6 rounded-lg">
+                  <CheckCircle className="w-8 h-8 mx-auto mb-4" />
+                  <h3 className="font-semibold mb-2">Terminées</h3>
+                  <p className="text-2xl font-bold">{stats.completed_requests}</p>
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">En cours</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.pending_requests}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <CheckCircle className="h-6 w-6 text-green-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Terminées</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.completed_requests}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <TrendingUp className="h-6 w-6 text-purple-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Taux de réussite</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                <div className="bg-orange-800/50 p-6 rounded-lg">
+                  <TrendingUp className="w-8 h-8 mx-auto mb-4" />
+                  <h3 className="font-semibold mb-2">Taux de réussite</h3>
+                  <p className="text-2xl font-bold">
                     {stats.assigned_requests > 0
                       ? Math.round((stats.completed_requests / stats.assigned_requests) * 100)
                       : 0}%
                   </p>
                 </div>
               </div>
-            </div>
+            )}
           </div>
-        )}
+        </div>
+      </section>
 
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-0">
         {/* Onglets */}
         <div className="bg-white rounded-lg shadow mb-6">
           <div className="border-b border-gray-200">
@@ -461,10 +420,12 @@ const TechnicianDashboard: React.FC = () => {
                   <label htmlFor="showOnlyIncoherent" className="text-sm">Afficher uniquement les incohérences</label>
                 </div>
                 <TechnicianRequestsMap
-                  requests={repairRequests.map(req => ({
+                  requests={repairRequests
+                    .filter(req => req.latitude !== undefined && req.longitude !== undefined)
+                    .map(req => ({
                     id: req.id,
-                    latitude: req.latitude,
-                    longitude: req.longitude,
+                      latitude: req.latitude!,
+                      longitude: req.longitude!,
                     address: req.client.address,
                     city: extractCommune(req.client.address),
                     quartier: extractQuartier(req.client.address),
@@ -475,6 +436,9 @@ const TechnicianDashboard: React.FC = () => {
                   }))}
                   showOnlyIncoherent={showOnlyIncoherent}
                 />
+
+                {/* Espacement entre la carte et la liste */}
+                <div className="mb-8"></div>
 
                 {/* Liste des demandes */}
                 {filteredRequests.length === 0 ? (
@@ -489,50 +453,79 @@ const TechnicianDashboard: React.FC = () => {
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {filteredRequests.map((request) => (
-                      <div key={request.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-3 mb-2">
-                              <h3 className="text-lg font-medium text-gray-900">{request.title}</h3>
-                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(request.status)}`}>
+                      <div key={request.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden">
+                        {/* Header de la carte */}
+                        <div className="bg-gradient-to-r from-orange-50 to-orange-100 p-6 border-b border-orange-200">
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-center space-x-3">
+                              {/* Avatar client */}
+                              <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                                {request.client.user.username.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <h3 className="text-lg font-bold text-gray-900 truncate">{request.title}</h3>
+                                <p className="text-sm text-gray-600">Client: {request.client.user.username}</p>
+                              </div>
+                              </div>
+                            <div className="flex flex-col items-end space-y-2">
+                              {/* Badge statut */}
+                              <span className={`px-3 py-1 text-xs font-bold rounded-full shadow-sm ${getStatusColor(request.status)}`}>
                                 {getStatusText(request.status)}
                               </span>
-                              <div className={`w-3 h-3 rounded-full ${getPriorityColor(request.priority)}`}></div>
-                            </div>
-
-                            <p className="text-gray-600 mb-3">{request.description}</p>
-
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-500 mb-4">
-                              <div>
-                                <span className="font-medium">Spécialité:</span> {request.specialty_needed}
+                              {/* Badge priorité */}
+                              <div className="flex items-center space-x-1">
+                                <div className={`w-3 h-3 rounded-full ${getPriorityColor(request.priority)} shadow-sm`}></div>
+                                <span className="text-xs text-gray-500 font-medium">
+                                  {request.priority === 'urgent' ? 'Urgent' : 
+                                   request.priority === 'high' ? 'Élevée' : 
+                                   request.priority === 'medium' ? 'Moyenne' : 'Faible'}
+                                </span>
                               </div>
-                              <div>
-                                <span className="font-medium">Coût estimé:</span> {request.estimated_cost !== undefined && request.estimated_cost !== null ? request.estimated_cost.toLocaleString() : "N/A"} FCFA
-                              </div>
-                              <div>
-                                <span className="font-medium">Créée le:</span> {formatDate(request.created_at)}
-                              </div>
-                              <div>
-                                <span className="font-medium">Client:</span> {request.client.user.username}
                               </div>
                             </div>
 
-                            {/* Informations du client */}
-                            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                              <h4 className="font-medium text-gray-900 mb-2">Informations client</h4>
-                              <div className="flex items-center space-x-4">
+                          {/* Description */}
+                          <p className="text-gray-700 text-sm leading-relaxed mb-4 line-clamp-2">
+                            {request.description}
+                          </p>
+                        </div>
+
+                        {/* Corps de la carte */}
+                        <div className="p-6">
+                          {/* Tags d'informations clés */}
+                          <div className="flex flex-wrap gap-2 mb-4">
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              <Wrench className="w-3 h-3 mr-1" />
+                              {request.specialty_needed}
+                            </span>
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <span className="font-bold">{request.estimated_cost !== undefined && request.estimated_cost !== null ? request.estimated_cost.toLocaleString() : "N/A"} FCFA</span>
+                            </span>
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                              <Clock className="w-3 h-3 mr-1" />
+                              {formatDate(request.created_at)}
+                            </span>
+                          </div>
+
+                          {/* Informations client stylées */}
+                          <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg p-4 mb-4 border border-gray-200">
+                            <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                              <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
+                              Informations client
+                            </h4>
+                            <div className="space-y-2">
                                 <div className="flex items-center space-x-2">
-                                  <MapPin className="h-4 w-4 text-gray-400" />
-                                  <span className="text-sm text-gray-600">
+                                <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                <span className="text-sm text-gray-700 flex-1">
                                     {request.client.address}
                                     {/* Badge incohérence */}
                                     {!isCoherent(extractQuartier(request.client.address), extractCommune(request.client.address)) && (
                                       <>
                                         <span className="inline-block bg-red-600 text-white text-xs font-bold px-2 py-1 rounded ml-2">Incohérence quartier/commune</span>
                                         <button
-                                          className="ml-2 text-xs text-blue-700 underline hover:text-blue-900"
+                                        className="ml-2 text-xs text-blue-700 underline hover:text-blue-900 font-medium"
                                           onClick={() => {
                                             setSuggestingRequestId(request.id);
                                             setSuggestQuartier('');
@@ -540,22 +533,22 @@ const TechnicianDashboard: React.FC = () => {
                                           }}
                                         >Suggérer correction</button>
                                         {suggestingRequestId === request.id && (
-                                          <div className="mt-2 flex flex-col gap-2 bg-blue-50 p-2 rounded shadow max-w-xs">
-                                            <label className="text-xs font-semibold">Quartier</label>
+                                        <div className="mt-3 bg-blue-50 p-3 rounded-lg border border-blue-200 max-w-xs">
+                                          <label className="text-xs font-semibold text-blue-900">Quartier</label>
                                             <div className="relative">
                                               <input
                                                 type="text"
-                                                className="w-full p-1 border border-gray-300 rounded"
+                                              className="w-full p-2 border border-blue-300 rounded text-sm"
                                                 value={suggestQuartier}
                                                 onChange={handleSuggestQuartierChange}
                                                 placeholder="Quartier correct"
                                               />
                                               {showSuggestionsList && suggestionsList.length > 0 && (
                                                 <div ref={suggestionsListRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-40 overflow-y-auto">
-                                                  {suggestionsList.map((quartier, idx) => (
+                                                {suggestionsList.map((quartier) => (
                                                     <div
                                                       key={quartier}
-                                                      className="px-2 py-1 hover:bg-blue-50 cursor-pointer text-xs"
+                                                    className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
                                                       onClick={() => handleSuggestListClick(quartier)}
                                                     >
                                                       {quartier}
@@ -564,24 +557,26 @@ const TechnicianDashboard: React.FC = () => {
                                                 </div>
                                               )}
                                             </div>
-                                            <label className="text-xs font-semibold">Commune</label>
+                                          <label className="text-xs font-semibold text-blue-900 mt-2">Commune</label>
                                             <input
                                               type="text"
-                                              className="w-full p-1 border border-gray-300 rounded"
+                                            className="w-full p-2 border border-blue-300 rounded text-sm"
                                               value={suggestCommune}
                                               onChange={e => setSuggestCommune(e.target.value)}
                                               placeholder="Commune correcte"
                                             />
+                                          <div className="flex space-x-2 mt-3">
                                             <button
-                                              className="mt-2 bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3 py-1 rounded"
+                                              className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3 py-2 rounded transition-colors"
                                               onClick={() => handleSendSuggestion(request.id)}
                                             >Envoyer</button>
                                             <button
-                                              className="mt-1 text-xs text-gray-500 underline"
+                                              className="flex-1 text-xs text-gray-500 underline hover:text-gray-700"
                                               onClick={() => setSuggestingRequestId(null)}
                                             >Annuler</button>
+                                          </div>
                                             {suggestionSent && (
-                                              <div className="text-green-700 text-xs mt-2">Suggestion envoyée à l'administrateur !</div>
+                                            <div className="text-green-700 text-xs mt-2 text-center">✓ Suggestion envoyée !</div>
                                             )}
                                           </div>
                                         )}
@@ -590,26 +585,26 @@ const TechnicianDashboard: React.FC = () => {
                                   </span>
                                 </div>
                                 <div className="flex items-center space-x-2">
-                                  <Phone className="h-4 w-4 text-gray-400" />
-                                  <span className="text-sm text-gray-600">{request.client.phone}</span>
+                                <Phone className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                <span className="text-sm text-gray-700">{request.client.phone}</span>
                                 </div>
                                 <div className="flex items-center space-x-2">
-                                  <span className="text-sm text-gray-600">{request.client.user.email}</span>
-                                </div>
+                                <span className="text-sm text-gray-700">{request.client.user.email}</span>
                               </div>
                             </div>
                           </div>
 
-                          <div className="flex flex-col space-y-2 ml-4">
+                          {/* Actions */}
+                          <div className="flex flex-wrap gap-3">
                             {request.conversation && (
                               <button
-                                onClick={() => window.location.href = `/chat/${request.conversation.id}`}
-                                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                                onClick={() => window.location.href = `/chat/${request.conversation?.id}`}
+                                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
                               >
                                 <MessageSquare className="h-4 w-4 mr-2" />
                                 Messages
-                                {request.conversation.unread_count > 0 && (
-                                  <span className="ml-2 bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
+                                {request.conversation?.unread_count > 0 && (
+                                  <span className="ml-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold">
                                     {request.conversation.unread_count}
                                   </span>
                                 )}
@@ -618,12 +613,10 @@ const TechnicianDashboard: React.FC = () => {
 
                             {/* Actions selon le statut */}
                             {request.status === 'pending' && (
-                              <div className="flex space-x-2">
                                 <button
                                   onClick={async () => {
                                     try {
-                                      // Récupérer l'ID du technicien depuis les données utilisateur
-                                      const technicianId = user.technician?.id;
+                                    const technicianId = user?.technician?.id;
                                       if (!technicianId) {
                                         alert('Erreur: ID du technicien non trouvé');
                                         return;
@@ -648,29 +641,30 @@ const TechnicianDashboard: React.FC = () => {
                                         let errorData;
                                         try {
                                           errorData = await response.json();
-                                        } catch (e) {
+                                      } catch {
                                           errorData = null;
                                         }
                                         console.error('Erreur lors de l\'acceptation:', errorData);
                                         alert(`Erreur lors de l'acceptation de la demande: ${errorData && errorData.error ? errorData.error : 'Erreur inconnue'}`);
                                       }
-                                    } catch (e) {
-                                      console.error('Erreur lors de l\'acceptation de la demande:', e);
+                                  } catch {
+                                    console.error('Erreur lors de l\'acceptation de la demande');
                                       alert('Erreur lors de l\'acceptation de la demande');
                                     }
                                   }}
-                                  className="inline-flex items-center px-3 py-2 border border-blue-600 text-blue-600 rounded-full hover:bg-blue-50 transition-colors text-sm"
+                                className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
                                 >
+                                <CheckCircle className="h-4 w-4 mr-2" />
                                   Accepter
                                 </button>
-                              </div>
                             )}
 
                             {request.status === 'assigned' && (
                               <button
                                 onClick={() => updateRequestStatus(request.id, 'in_progress')}
-                                className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700"
+                                className="inline-flex items-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
                               >
+                                <Wrench className="h-4 w-4 mr-2" />
                                 Commencer
                               </button>
                             )}
@@ -678,8 +672,9 @@ const TechnicianDashboard: React.FC = () => {
                             {request.status === 'in_progress' && (
                               <button
                                 onClick={() => updateRequestStatus(request.id, 'completed')}
-                                className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
+                                className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
                               >
+                                <CheckCircle className="h-4 w-4 mr-2" />
                                 Terminer
                               </button>
                             )}
