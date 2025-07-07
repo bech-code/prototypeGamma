@@ -44,6 +44,7 @@ interface RepairRequest {
   };
   latitude?: number;
   longitude?: number;
+  no_show_count: number;
 }
 
 interface Technician {
@@ -201,10 +202,17 @@ const AdminDashboard: React.FC = () => {
   const [loginLocations, setLoginLocations] = useState<any[]>([]);
   const [locationsLoading, setLocationsLoading] = useState(false);
   const [locationsError, setLocationsError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  useEffect(() => {
+    if (repairRequests.some(r => r.no_show_count > 2)) {
+      setToast('Attention : certaines demandes nécessitent une intervention humaine. Merci de les traiter en priorité.');
+    }
+  }, [repairRequests]);
 
   const fetchDashboardData = async () => {
     try {
@@ -348,6 +356,7 @@ const AdminDashboard: React.FC = () => {
 
   const filteredRequests = repairRequests.filter(request => {
     if (filterStatus === 'all') return true;
+    if (filterStatus === 'manual_intervention') return request.no_show_count > 2;
     return request.status === filterStatus;
   });
 
@@ -544,6 +553,27 @@ const AdminDashboard: React.FC = () => {
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
     );
+  }
+
+  const interventionRequests = repairRequests.filter(r => r.no_show_count > 2);
+  {
+    interventionRequests.length > 0 && (
+      <div className="sticky top-0 z-50 w-full bg-orange-100 text-orange-900 px-4 py-3 flex flex-col md:flex-row items-center justify-between shadow-lg border-b border-orange-300 animate-pulse">
+        <div className="flex items-center gap-3">
+          <AlertTriangle className="h-6 w-6 animate-bounce" />
+          <span className="font-bold">{interventionRequests.length} demande{interventionRequests.length > 1 ? 's' : ''} nécessitant une intervention humaine</span>
+          <span className="hidden md:inline">Merci de votre réactivité. Ces clients attendent une prise en charge personnalisée.</span>
+        </div>
+        <div className="flex gap-2 mt-2 md:mt-0">
+          {interventionRequests.slice(0, 3).map(req => (
+            <button key={req.id} onClick={() => setFilterStatus('manual_intervention')} className="bg-orange-500 text-white font-semibold px-3 py-1 rounded shadow hover:bg-orange-600 transition-colors">
+              #{req.id}
+            </button>
+          ))}
+          {interventionRequests.length > 3 && <span className="text-xs ml-2">(+{interventionRequests.length - 3} autres)</span>}
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -838,6 +868,20 @@ const AdminDashboard: React.FC = () => {
                   >
                     Terminées
                   </button>
+                  <button
+                    onClick={() => setFilterStatus('manual_intervention')}
+                    className={`px-3 py-1 rounded-full text-sm font-medium transition-colors relative ${filterStatus === 'manual_intervention'
+                      ? 'bg-orange-100 text-orange-800'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                  >
+                    Intervention requise
+                    {repairRequests.filter(r => r.no_show_count > 2).length > 0 && (
+                      <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs font-bold rounded-full px-2 py-0.5 animate-bounce">
+                        {repairRequests.filter(r => r.no_show_count > 2).length}
+                      </span>
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -856,7 +900,7 @@ const AdminDashboard: React.FC = () => {
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {filteredRequests.map((request) => (
-                    <div key={request.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden">
+                    <div key={request.id} className={`relative bg-white rounded-2xl shadow-lg border border-gray-100 p-6 flex flex-col md:flex-row gap-6 hover:shadow-2xl transition-all duration-200 group ${filterStatus === 'manual_intervention' && request.no_show_count > 2 ? 'ring-4 ring-orange-400' : ''}`}>
                       {/* Header de la carte */}
                       <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-6 border-b border-blue-200">
                         <div className="flex items-start justify-between mb-4">
@@ -864,12 +908,12 @@ const AdminDashboard: React.FC = () => {
                             {/* Avatar client */}
                             <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg">
                               {request.client.user.username.charAt(0).toUpperCase()}
-                          </div>
+                            </div>
                             <div>
                               <h3 className="text-lg font-bold text-gray-900 truncate">{request.title}</h3>
                               <p className="text-sm text-gray-600">Client: {request.client.user.username}</p>
                             </div>
-                            </div>
+                          </div>
                           <div className="flex flex-col items-end space-y-2">
                             {/* Badge statut */}
                             <span className={`px-3 py-1 text-xs font-bold rounded-full shadow-sm ${getStatusColor(request.status)}`}>
@@ -879,13 +923,13 @@ const AdminDashboard: React.FC = () => {
                             <div className="flex items-center space-x-1">
                               <div className={`w-3 h-3 rounded-full ${getPriorityColor(request.priority)} shadow-sm`}></div>
                               <span className="text-xs text-gray-500 font-medium">
-                                {request.priority === 'urgent' ? 'Urgent' : 
-                                 request.priority === 'high' ? 'Élevée' : 
-                                 request.priority === 'medium' ? 'Moyenne' : 'Faible'}
+                                {request.priority === 'urgent' ? 'Urgent' :
+                                  request.priority === 'high' ? 'Élevée' :
+                                    request.priority === 'medium' ? 'Moyenne' : 'Faible'}
                               </span>
                             </div>
-                            </div>
                           </div>
+                        </div>
 
                         {/* Description */}
                         <p className="text-gray-700 text-sm leading-relaxed mb-4 line-clamp-2">
@@ -917,55 +961,55 @@ const AdminDashboard: React.FC = () => {
                             Informations client
                           </h4>
                           <div className="space-y-2">
-                              <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-2">
                               <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
                               <span className="text-sm text-gray-700 flex-1">
-                                  {request.client.address}
-                                  {/* Badge incohérence */}
-                                  {!isCoherent(extractQuartier(request.client.address), extractCommune(request.client.address)) && (
-                                    <>
-                                      <span className="inline-block bg-red-600 text-white text-xs font-bold px-2 py-1 rounded ml-2">Incohérence quartier/commune</span>
-                                      <button
+                                {request.client.address}
+                                {/* Badge incohérence */}
+                                {!isCoherent(extractQuartier(request.client.address), extractCommune(request.client.address)) && (
+                                  <>
+                                    <span className="inline-block bg-red-600 text-white text-xs font-bold px-2 py-1 rounded ml-2">Incohérence quartier/commune</span>
+                                    <button
                                       className="ml-2 text-xs text-blue-700 underline hover:text-blue-900 font-medium"
-                                        onClick={() => {
-                                          setEditingRequestId(request.id);
-                                          setEditQuartier('');
-                                          setEditCommune('');
-                                        }}
-                                      >Corriger</button>
-                                      {editingRequestId === request.id && (
+                                      onClick={() => {
+                                        setEditingRequestId(request.id);
+                                        setEditQuartier('');
+                                        setEditCommune('');
+                                      }}
+                                    >Corriger</button>
+                                    {editingRequestId === request.id && (
                                       <div className="mt-3 bg-blue-50 p-3 rounded-lg border border-blue-200 max-w-xs">
                                         <label className="text-xs font-semibold text-blue-900">Quartier</label>
-                                          <div className="relative">
-                                            <input
-                                              type="text"
-                                            className="w-full p-2 border border-blue-300 rounded text-sm"
-                                              value={editQuartier}
-                                              onChange={handleEditQuartierChange}
-                                              placeholder="Quartier correct"
-                                            />
-                                            {showEditSuggestions && editSuggestions.length > 0 && (
-                                              <div ref={editSuggestionsRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-40 overflow-y-auto">
-                                              {editSuggestions.map((quartier) => (
-                                                  <div
-                                                  key={quartier}
-                                                  className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
-                                                    onClick={() => handleEditSuggestionClick(quartier)}
-                                                  >
-                                                    {quartier}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            )}
-                                          </div>
-                                        <label className="text-xs font-semibold text-blue-900 mt-2">Commune</label>
+                                        <div className="relative">
                                           <input
                                             type="text"
-                                          className="w-full p-2 border border-blue-300 rounded text-sm"
-                                            value={editCommune}
-                                            onChange={e => setEditCommune(e.target.value)}
-                                            placeholder="Commune correcte"
+                                            className="w-full p-2 border border-blue-300 rounded text-sm"
+                                            value={editQuartier}
+                                            onChange={handleEditQuartierChange}
+                                            placeholder="Quartier correct"
                                           />
+                                          {showEditSuggestions && editSuggestions.length > 0 && (
+                                            <div ref={editSuggestionsRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-40 overflow-y-auto">
+                                              {editSuggestions.map((quartier) => (
+                                                <div
+                                                  key={quartier}
+                                                  className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+                                                  onClick={() => handleEditSuggestionClick(quartier)}
+                                                >
+                                                  {quartier}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                        <label className="text-xs font-semibold text-blue-900 mt-2">Commune</label>
+                                        <input
+                                          type="text"
+                                          className="w-full p-2 border border-blue-300 rounded text-sm"
+                                          value={editCommune}
+                                          onChange={e => setEditCommune(e.target.value)}
+                                          placeholder="Commune correcte"
+                                        />
                                         <div className="flex space-x-2 mt-3">
                                           <button
                                             className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3 py-2 rounded transition-colors"
@@ -976,24 +1020,24 @@ const AdminDashboard: React.FC = () => {
                                             onClick={() => setEditingRequestId(null)}
                                           >Annuler</button>
                                         </div>
-                                        </div>
-                                      )}
-                                    </>
-                                  )}
-                                </span>
-                              </div>
-                              <div className="flex items-center space-x-2">
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-2">
                               <Phone className="h-4 w-4 text-gray-400 flex-shrink-0" />
                               <span className="text-sm text-gray-700">{request.client.phone}</span>
-                              </div>
-                              <div className="flex items-center space-x-2">
+                            </div>
+                            <div className="flex items-center space-x-2">
                               <span className="text-sm text-gray-700">{request.client.user.email}</span>
-                              </div>
                             </div>
                           </div>
+                        </div>
 
-                          {/* Informations du technicien assigné */}
-                          {request.technician && (
+                        {/* Informations du technicien assigné */}
+                        {request.technician && (
                           <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 mb-4 border border-blue-200">
                             <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
                               <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
@@ -1006,25 +1050,25 @@ const AdminDashboard: React.FC = () => {
                               </div>
                               <div className="flex-1">
                                 <p className="font-medium text-gray-900">
-                                    {request.technician.user?.username || request.technician.user?.email || 'Utilisateur inconnu'}
+                                  {request.technician.user?.username || request.technician.user?.email || 'Utilisateur inconnu'}
                                 </p>
                                 <div className="flex items-center space-x-4 mt-1">
                                   <div className="flex items-center space-x-1">
                                     <Phone className="h-3 w-3 text-gray-400" />
                                     <span className="text-xs text-gray-600">{request.technician.phone}</span>
-                                </div>
+                                  </div>
                                   <div className="flex items-center space-x-1">
                                     <Star className="h-3 w-3 text-yellow-400" />
                                     <span className="text-xs text-gray-600">{request.technician.average_rating}/5</span>
-                                </div>
+                                  </div>
                                   <div className="flex items-center space-x-1">
                                     <span className="text-xs text-gray-600 font-medium">{request.technician.hourly_rate} FCFA/h</span>
-                                </div>
-                                </div>
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          )}
+                          </div>
+                        )}
 
                         {/* Actions */}
                         <div className="flex flex-wrap gap-3">

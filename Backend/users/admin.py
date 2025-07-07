@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.utils.html import format_html
-from .models import User, AuditLog, OTPChallenge
+from .models import User, AuditLog, OTPChallenge, PasswordResetToken, PieceJointe, TechnicianProfile
 
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
@@ -51,3 +51,34 @@ class OTPChallengeAdmin(admin.ModelAdmin):
     search_fields = ('user__username', 'code', 'session_uuid')
     list_filter = ('is_used',)
     readonly_fields = ('created_at',)
+
+@admin.register(PasswordResetToken)
+class PasswordResetTokenAdmin(admin.ModelAdmin):
+    list_display = ('user', 'token', 'created_at', 'expires_at', 'is_used')
+    search_fields = ('user__email', 'token')
+    list_filter = ('is_used',)
+    readonly_fields = ('created_at',)
+
+@admin.register(PieceJointe)
+class PieceJointeAdmin(admin.ModelAdmin):
+    list_display = ("user", "type_piece", "fichier", "date_upload", "preview")
+    list_filter = ("type_piece", "date_upload")
+    search_fields = ("user__username", "user__email")
+
+    def preview(self, obj):
+        if obj.fichier:
+            url = obj.fichier.url
+            if url.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
+                return format_html('<a href="{}" target="_blank"><img src="{}" style="max-height:60px;max-width:80px;border-radius:4px;box-shadow:0 1px 4px #ccc;"/></a>', url, url)
+            elif url.lower().endswith('.pdf'):
+                return format_html('<a href="{}" target="_blank">Voir PDF</a>', url)
+            else:
+                return format_html('<a href="{}" target="_blank">Télécharger</a>', url)
+        return "-"
+    preview.short_description = "Aperçu / Lien"
+
+@admin.register(TechnicianProfile)
+class TechnicianProfileAdmin(admin.ModelAdmin):
+    list_display = ("user", "specialty", "years_experience", "phone", "piece_identite", "certificat_residence")
+    search_fields = ("user__username", "user__email", "specialty")
+    list_filter = ("specialty",)

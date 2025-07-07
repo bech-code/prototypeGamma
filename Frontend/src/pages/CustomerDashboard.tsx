@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Star, Clock, FileText, CreditCard, MessageSquare, Phone, AlertCircle, CheckCircle, MapPin } from 'lucide-react';
+import { Calendar, Star, Clock, FileText, CreditCard, MessageSquare, Phone, AlertCircle, CheckCircle, MapPin, AlertTriangle } from 'lucide-react';
 import TechnicianMap from '../components/TechnicianMap';
 import { useAuth } from '../contexts/AuthContext';
-// import { Link } from 'react-router-dom'; // Removed for artifact compatibility
+import { useNavigate } from 'react-router-dom';
 import AnimatedBackground from '../components/AnimatedBackground';
 import customerVideo from '../assets/video/customer1-bg.mp4';
 import { fetchWithAuth } from '../contexts/fetchWithAuth';
+import ReviewReminder from '../components/ReviewReminder';
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import L from 'leaflet';
+import html2pdf from 'html2pdf.js';
 
 interface Review {
   id?: number;
@@ -23,13 +27,15 @@ interface RepairRequest {
   title: string;
   description: string;
   specialty_needed: string;
-  status: 'pending' | 'assigned' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'pending' | 'assigned' | 'in_progress' | 'completed' | 'cancelled' | 'draft';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   estimated_cost: number;
   created_at: string;
   assigned_at?: string;
   started_at?: string;
   completed_at?: string;
+  latitude?: number;
+  longitude?: number;
   technician?: {
     id: number;
     user: {
@@ -51,6 +57,9 @@ interface RepairRequest {
   payment_status: string;
   estimated_price: number;
   review?: Review | null;
+  no_show_count: number;
+  mission_validated: boolean;
+  uuid?: string;
 }
 
 interface DashboardStats {
@@ -77,6 +86,7 @@ const CustomerDashboard = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [showOnlyIncoherent, setShowOnlyIncoherent] = useState(false);
+  const navigate = useNavigate();
 
   // Mapping quartiers -> communes (doit être le même que côté admin/technicien)
   const quartierToCommune: Record<string, string> = {
@@ -291,13 +301,13 @@ const CustomerDashboard = () => {
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      'pending': { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'En attente' },
+      'draft': { bg: 'bg-gray-200', text: 'text-gray-700', label: 'Brouillon' },
+      'pending': { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'EN ATTENTE DE MISE EN RELATION' },
       'assigned': { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Assignée' },
       'in_progress': { bg: 'bg-orange-100', text: 'text-orange-800', label: 'En cours' },
       'completed': { bg: 'bg-green-100', text: 'text-green-800', label: 'Terminée' },
       'cancelled': { bg: 'bg-red-100', text: 'text-red-800', label: 'Annulée' }
     };
-
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
     return (
       <span className={`px-2 py-1 ${config.bg} ${config.text} rounded-full text-xs font-medium`}>
@@ -324,6 +334,78 @@ const CustomerDashboard = () => {
     });
   };
 
+  // Chercher la demande assignée la plus récente
+  const assignedRequest = repairRequests.find(r => r.status === 'assigned');
+
+  const [technicianLocation, setTechnicianLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [eta, setEta] = useState<string | null>(null);
+  const [noShowFeedback, setNoShowFeedback] = useState<string | null>(null);
+  const [noShowDisabled, setNoShowDisabled] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  // Fonction pour calculer la distance (Haversine)
+  function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+    const R = 6371; // km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  // Effet pour rafraîchir la position du technicien si demande assignée
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (assignedRequest && assignedRequest.technician) {
+      const fetchTechnicianLocation = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const res = await fetch(`http://127.0.0.1:8000/depannage/api/technician-locations/?technician=${assignedRequest?.technician?.id}`,
+            { headers: { 'Authorization': `Bearer ${token}` } });
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setTechnicianLocation({ latitude: data[0].latitude, longitude: data[0].longitude });
+            // Calcul ETA
+            if (assignedRequest.client && assignedRequest.client.address && data[0].latitude && data[0].longitude) {
+              // Supposons que l'adresse du client contient la latitude/longitude (à adapter si besoin)
+              // Ici, on suppose que la position du client est connue (à adapter selon votre modèle)
+              // Pour la démo, on prend la position du technicien comme point A et une position fictive pour le client
+              const clientLat = assignedRequest.latitude || 0;
+              const clientLng = assignedRequest.longitude || 0;
+              const dist = haversineDistance(data[0].latitude, data[0].longitude, clientLat, clientLng);
+              // Vitesse moyenne 30 km/h
+              const etaMinutes = dist > 0 ? Math.round((dist / 30) * 60) : 0;
+              setEta(etaMinutes > 0 ? `${etaMinutes} min` : null);
+            }
+          }
+        } catch (e) { }
+      };
+      fetchTechnicianLocation();
+      interval = setInterval(fetchTechnicianLocation, 5000);
+    }
+    return () => { if (interval) clearInterval(interval); };
+  }, [assignedRequest]);
+
+  // Icône personnalisée : emoji 🚗 dans un cercle bleu clair avec ombre et animation pulse
+  const carIcon = new L.DivIcon({
+    html: `<div style="display:flex;align-items:center;justify-content:center;width:40px;height:40px;background:#e0f2fe;border-radius:50%;box-shadow:0 2px 8px #60a5fa55;">
+      <span class='animate-pulse text-2xl' style='font-size:2rem;line-height:1;'>🚗</span>
+    </div>`,
+    className: '',
+    iconSize: [40, 40],
+    iconAnchor: [20, 40],
+  });
+
+  const interventionRequest = repairRequests.find(r => r.no_show_count > 2);
+
+  const [showReceiptFor, setShowReceiptFor] = useState<number | null>(null);
+
+  // Ajout d'un état pour le reçu de mission
+  const [receiptData, setReceiptData] = useState<any>(null);
+  const [validatingMission, setValidatingMission] = useState(false);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -337,6 +419,81 @@ const CustomerDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {interventionRequest && (
+        <div className="sticky top-0 z-50 w-full bg-orange-500 text-white px-4 py-3 flex items-center justify-between shadow-lg animate-pulse border-b border-orange-700">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-6 w-6 animate-bounce" />
+            <span className="font-bold">Intervention admin requise</span>
+            <span className="hidden md:inline">Nous sommes désolés pour l'attente. Après plusieurs tentatives, un administrateur va vous accompagner personnellement.</span>
+          </div>
+          <a href="mailto:support@votre-plateforme.com" className="bg-white text-orange-600 font-semibold px-3 py-1 rounded shadow hover:bg-orange-200 hover:scale-105 transition-all ml-4">Contacter le support</a>
+        </div>
+      )}
+
+      {/* Bannière technicien en route */}
+      {assignedRequest && assignedRequest.technician && (
+        <div className="fixed bottom-0 left-0 w-full bg-blue-50 text-blue-900 px-4 py-3 flex flex-col md:flex-row items-center justify-between shadow-2xl animate-fade-in z-50 border-t border-blue-200 rounded-t-xl">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl animate-bounce">🚗</span>
+            <span>
+              <b className="text-blue-700">{assignedRequest?.technician?.user?.first_name} {assignedRequest?.technician?.user?.last_name}</b>
+              {" "}a été assigné à votre demande <b>#{assignedRequest.id}</b> et arrive bientôt chez vous !
+            </span>
+          </div>
+          <div className="flex gap-2 mt-2 md:mt-0">
+            {/* Bouton Annuler (s'il existe) */}
+            {assignedRequest.status === 'pending' && (
+              <button
+                className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-xs font-semibold shadow"
+                onClick={async () => {
+                  if (confirm('Êtes-vous sûr de vouloir annuler cette demande ?')) {
+                    try {
+                      const token = localStorage.getItem('token');
+                      const response = await fetch(`http://127.0.0.1:8000/depannage/api/repair-requests/${assignedRequest.id}/`, {
+                        method: 'PATCH',
+                        headers: {
+                          'Authorization': `Bearer ${token}`,
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ status: 'cancelled' }),
+                      });
+                      if (response.ok) {
+                        fetchData();
+                      } else {
+                        alert('Erreur lors de l\'annulation');
+                      }
+                    } catch (e) {
+                      alert('Erreur lors de l\'annulation');
+                    }
+                  }
+                }}
+              >
+                Annuler
+              </button>
+            )}
+            {/* Bouton Suivre la demande */}
+            <button
+              className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs font-semibold shadow"
+              onClick={() => navigate(`/requests/${assignedRequest.id}`)}
+            >
+              Suivre la demande
+            </button>
+            {/* Bouton Appeler (s'il existe) */}
+            {assignedRequest?.technician?.phone && (
+              <a
+                href={`tel:${assignedRequest?.technician?.phone}`}
+                className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-semibold shadow"
+              >
+                Appeler
+              </a>
+            )}
+          </div>
+          <div className="w-full text-xs text-blue-700 mt-2 md:mt-0 md:ml-4 opacity-80">
+            Vous pouvez contacter votre technicien ou suivre la progression de votre demande à tout moment.
+          </div>
+        </div>
+      )}
+
       {/* Hero Section */}
       <section className="relative text-white py-24 overflow-hidden">
         <AnimatedBackground
@@ -526,8 +683,18 @@ const CustomerDashboard = () => {
                       {filteredRequests.map((request) => (
                         <div key={request.id} className="relative bg-white rounded-2xl shadow-lg border border-gray-100 p-6 flex flex-col md:flex-row gap-6 hover:shadow-2xl transition-all duration-200 group">
                           {/* Badge statut */}
-                          <div className="absolute top-4 right-4 z-10">
+                          <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-2">
                             {getStatusBadge(request.status)}
+                            {request.no_show_count > 2 && (
+                              <span className="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-bold mt-1 animate-pulse border border-orange-300">
+                                <AlertTriangle className="w-3 h-3 mr-1" /> Intervention admin requise
+                              </span>
+                            )}
+                            {request.no_show_count > 0 && (
+                              <span className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium mt-1">
+                                <AlertCircle className="w-3 h-3 mr-1" /> {request.no_show_count} signalement{request.no_show_count > 1 ? 's' : ''}
+                              </span>
+                            )}
                           </div>
                           {/* Avatar ou icône */}
                           <div className="flex-shrink-0 flex flex-col items-center justify-center">
@@ -537,238 +704,124 @@ const CustomerDashboard = () => {
                             <div className={`w-3 h-3 rounded-full mt-2 ${getPriorityColor(request.priority)}`}></div>
                           </div>
                           {/* Contenu principal */}
-                          <div className="flex-1 flex flex-col justify-between">
-                            <div>
-                              <h4 className="font-semibold text-lg text-gray-800 mb-1">{request.title}</h4>
-                              <p className="text-gray-600 mb-3 line-clamp-2">{request.description}</p>
-                              <div className="flex flex-wrap gap-3 mb-3">
-                                <span className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">
-                                  <Calendar className="h-4 w-4 mr-1" /> {formatDate(request.created_at)}
-                                </span>
-                                <span className="inline-flex items-center px-3 py-1 bg-green-50 text-green-700 rounded-full text-xs font-medium">
-                                  {request.specialty_needed}
-                                </span>
-                                <span className="inline-flex items-center px-3 py-1 bg-yellow-50 text-yellow-700 rounded-full text-xs font-medium">
-                                  {request.estimated_cost?.toLocaleString()} FCFA
-                                </span>
+                          <div className="flex-1">
+                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                              <div>
+                                <h4 className="text-lg font-semibold text-gray-900 mb-1">{request.title}</h4>
+                                <div className="text-sm text-gray-500 mb-1">{formatDate(request.created_at)}</div>
                               </div>
-                              {/* Adresse et incohérence */}
-                              <div className="flex items-center flex-wrap gap-2 text-gray-700 text-sm mb-2">
-                                <MapPin className="h-4 w-4 mr-1 text-blue-400" />
-                                {request.client.address}
-                                {!isCoherent(extractQuartier(request.client.address), extractCommune(request.client.address)) && (
-                                  <>
-                                    <span className="inline-block bg-red-600 text-white text-xs font-bold px-2 py-1 rounded ml-2">Incohérence quartier/commune</span>
-                                    <button
-                                      className="ml-2 text-xs text-blue-700 underline hover:text-blue-900"
-                                      onClick={() => {
-                                        setSuggestingRequestId(request.id);
-                                        setSuggestQuartier('');
-                                        setSuggestCommune('');
-                                      }}
-                                    >Suggérer correction</button>
-                                    {suggestingRequestId === request.id && (
-                                      <div className="mt-2 flex flex-col gap-2 bg-blue-50 p-2 rounded shadow max-w-xs">
-                                        <label className="text-xs font-semibold">Quartier</label>
-                                        <div className="relative">
-                                          <input
-                                            type="text"
-                                            className="w-full p-1 border border-gray-300 rounded"
-                                            value={suggestQuartier}
-                                            onChange={handleSuggestQuartierChange}
-                                            placeholder="Quartier correct"
-                                          />
-                                          {showSuggestionsList && suggestionsList.length > 0 && (
-                                            <div ref={suggestionsListRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-40 overflow-y-auto">
-                                              {suggestionsList.map((quartier, idx) => (
-                                                <div
-                                                  key={quartier}
-                                                  className="px-2 py-1 hover:bg-blue-50 cursor-pointer text-xs"
-                                                  onClick={() => handleSuggestListClick(quartier)}
-                                                >
-                                                  {quartier}
-                                                </div>
-                                              ))}
-                                            </div>
-                                          )}
-                                        </div>
-                                        <label className="text-xs font-semibold">Commune</label>
-                                        <input
-                                          type="text"
-                                          className="w-full p-1 border border-gray-300 rounded"
-                                          value={suggestCommune}
-                                          onChange={e => setSuggestCommune(e.target.value)}
-                                          placeholder="Commune correcte"
-                                        />
-                                        <button
-                                          className="mt-2 bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3 py-1 rounded"
-                                          onClick={() => handleSendSuggestion(request.id)}
-                                        >Envoyer</button>
-                                        <button
-                                          className="mt-1 text-xs text-gray-500 underline"
-                                          onClick={() => setSuggestingRequestId(null)}
-                                        >Annuler</button>
-                                        {suggestionSent && (
-                                          <div className="text-green-700 text-xs mt-2">Suggestion envoyée à l'administrateur !</div>
-                                        )}
-                                      </div>
-                                    )}
-                                  </>
-                                )}
-                              </div>
-                              {/* Technicien assigné */}
-                              {request.technician && (
-                                <div className="mt-3 p-4 bg-blue-50 rounded-lg flex flex-col md:flex-row items-center gap-4 shadow-inner">
-                                  <div className="flex-shrink-0 w-12 h-12 rounded-full bg-blue-200 flex items-center justify-center text-blue-700 font-bold text-lg">
-                                    {request.technician.user.first_name?.charAt(0)}{request.technician.user.last_name?.charAt(0)}
-                                  </div>
-                                  <div className="flex-1">
-                                    <div className="font-medium text-gray-900">{request.technician.user.first_name} {request.technician.user.last_name}</div>
-                                    <div className="flex flex-wrap gap-3 text-xs text-gray-600 mt-1">
-                                      <span><Phone className="inline h-4 w-4 mr-1 text-blue-400" />{request.technician.phone}</span>
-                                      <span><Star className="inline h-4 w-4 mr-1 text-yellow-400" />{request.technician.average_rating}/5</span>
-                                      <span>{request.technician.hourly_rate} FCFA/h</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                            {/* Actions */}
-                            <div className="mt-4 flex flex-col md:flex-row gap-2 md:items-end md:justify-end">
-                              {request.conversation && (
-                                <button
-                                  className="inline-flex items-center px-4 py-2 border border-blue-600 text-blue-600 rounded-full hover:bg-blue-50 transition-colors text-sm font-semibold shadow"
-                                  onClick={() => window.location.href = `/chat/${request.conversation?.id}`}
-                                >
-                                  <MessageSquare className="h-4 w-4 mr-2" /> Messages
-                                  {request.conversation.unread_count > 0 && (
-                                    <span className="ml-2 bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
-                                      {request.conversation.unread_count}
-                                    </span>
-                                  )}
-                                </button>
-                              )}
-                              {request.status === 'pending' && (
-                                <button
-                                  onClick={async () => {
-                                    if (confirm('Êtes-vous sûr de vouloir annuler cette demande ?')) {
-                                      try {
-                                        const token = localStorage.getItem('token');
-                                        const response = await fetch(`http://127.0.0.1:8000/depannage/api/repair-requests/${request.id}/`, {
-                                          method: 'PATCH',
-                                          headers: {
-                                            'Authorization': `Bearer ${token}`,
-                                            'Content-Type': 'application/json',
-                                          },
-                                          body: JSON.stringify({ status: 'cancelled' }),
-                                        });
-                                        if (response.ok) {
-                                          fetchData();
-                                        } else {
+                              <div className="flex gap-2">
+                                {request.status === 'pending' && (
+                                  <button
+                                    onClick={async () => {
+                                      if (confirm('Êtes-vous sûr de vouloir annuler cette demande ?')) {
+                                        try {
+                                          const token = localStorage.getItem('token');
+                                          const response = await fetch(`http://127.0.0.1:8000/depannage/api/repair-requests/${request.id}/`, {
+                                            method: 'PATCH',
+                                            headers: {
+                                              'Authorization': `Bearer ${token}`,
+                                              'Content-Type': 'application/json',
+                                            },
+                                            body: JSON.stringify({ status: 'cancelled' }),
+                                          });
+                                          if (response.ok) {
+                                            fetchData();
+                                          } else {
+                                            alert('Erreur lors de l\'annulation');
+                                          }
+                                        } catch (e) {
                                           alert('Erreur lors de l\'annulation');
                                         }
-                                      } catch (e) {
-                                        alert('Erreur lors de l\'annulation');
                                       }
-                                    }
-                                  }}
-                                  className="inline-flex items-center px-4 py-2 border border-red-600 text-red-600 rounded-full hover:bg-red-50 transition-colors text-sm font-semibold shadow"
+                                    }}
+                                    className="inline-flex items-center px-4 py-2 border border-red-600 text-red-600 rounded-full hover:bg-red-50 transition-colors text-sm font-semibold shadow"
+                                  >
+                                    Annuler
+                                  </button>
+                                )}
+                                {request.status === 'draft' && (
+                                  <button
+                                    onClick={() => navigate(`/booking?draftId=${request.id}`)}
+                                    className="inline-flex items-center px-4 py-2 border border-gray-400 text-gray-700 rounded-full hover:bg-gray-100 transition-colors text-sm font-semibold shadow"
+                                  >
+                                    Reprendre
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-gray-700 text-sm mt-2 line-clamp-2">{request.description}</div>
+                          </div>
+                          {/* Message intervention admin */}
+                          {request.no_show_count > 2 && (
+                            <div className="mt-2 flex flex-col md:flex-row items-center gap-2">
+                              <div className="text-sm text-orange-700 font-semibold flex items-center gap-2">
+                                <AlertTriangle className="w-4 h-4 animate-bounce" />
+                                Nous sommes désolés pour l'attente. Un administrateur va vous recontacter pour cette demande.
+                              </div>
+                              <a href="mailto:support@votre-plateforme.com" className="bg-white text-orange-600 font-semibold px-3 py-1 rounded shadow hover:bg-orange-200 hover:scale-105 transition-all ml-4">Contacter le support</a>
+                            </div>
+                          )}
+                          {request.status === 'completed' && !request.mission_validated && (
+                            <button
+                              onClick={async () => {
+                                setValidatingMission(true);
+                                try {
+                                  const token = localStorage.getItem('token');
+                                  const res = await fetch(`http://127.0.0.1:8000/depannage/api/repair-requests/${request.id}/validate_mission/`, {
+                                    method: 'POST',
+                                    headers: { 'Authorization': `Bearer ${token}` }
+                                  });
+                                  const data = await res.json();
+                                  if (res.ok && data.success) {
+                                    setReceiptData(data);
+                                    setToast('Mission validée ! Un reçu vous a été envoyé.');
+                                    fetchData();
+                                  } else {
+                                    setToast(data.error || 'Erreur lors de la validation.');
+                                  }
+                                } catch (e) {
+                                  setToast('Erreur réseau lors de la validation.');
+                                } finally {
+                                  setValidatingMission(false);
+                                }
+                              }}
+                              className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm mt-2 disabled:opacity-50"
+                              disabled={validatingMission}
+                            >
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              {validatingMission ? 'Validation...' : 'Valider la fin de la mission'}
+                            </button>
+                          )}
+                          {request.status === 'completed' && request.mission_validated && (
+                            <div className="flex gap-2 mt-2">
+                              <button
+                                onClick={() => {
+                                  setShowReceiptFor(request.id); setReceiptData({
+                                    date: request.completed_at,
+                                    technician: request.technician?.user?.first_name + ' ' + request.technician?.user?.last_name,
+                                    service: request.title,
+                                    address: request.client?.address,
+                                    reference: request.uuid ?? request.id,
+                                    payment: 'Effectué en main propre au technicien.'
+                                  });
+                                }}
+                                className="inline-flex items-center px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs font-semibold rounded-full shadow transition-colors"
+                              >
+                                <CheckCircle className="h-4 w-4 mr-1 text-green-600" /> Voir le reçu
+                              </button>
+                              {!request.review && (
+                                <button
+                                  onClick={() => navigate(`/review/${request.id}`)}
+                                  className="inline-flex items-center px-3 py-1 bg-yellow-100 hover:bg-yellow-200 text-yellow-700 text-xs font-semibold rounded-full shadow transition-colors"
                                 >
-                                  Annuler
+                                  <Star className="h-4 w-4 mr-1" /> Noter le technicien
                                 </button>
                               )}
-                            </div>
-                          </div>
-
-                          {/* Formulaire d'avis */}
-                          {request.status === 'completed' && !request.review && request.technician && (
-                            <div className="mt-4 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                              <h5 className="font-semibold mb-2 text-yellow-800">Laisser un avis sur le technicien</h5>
-                              {reviewSuccess[request.id] ? (
-                                <div className="text-green-700 font-medium">Merci pour votre avis !</div>
-                              ) : (
-                                <form
-                                  onSubmit={e => {
-                                    e.preventDefault();
-                                    handleReviewSubmit(request);
-                                  }}
-                                  className="space-y-2"
-                                >
-                                  <div>
-                                    <label className="block text-sm font-medium">Note globale *</label>
-                                    <select
-                                      value={reviewForms[request.id]?.rating || ''}
-                                      onChange={e => handleReviewChange(request.id, 'rating', Number(e.target.value))}
-                                      required
-                                      className="border rounded p-2 w-24"
-                                    >
-                                      <option value="">Choisir</option>
-                                      {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} / 5</option>)}
-                                    </select>
-                                  </div>
-                                  <div>
-                                    <label className="block text-sm font-medium">Commentaire</label>
-                                    <textarea
-                                      value={reviewForms[request.id]?.comment || ''}
-                                      onChange={e => handleReviewChange(request.id, 'comment', e.target.value)}
-                                      className="border rounded p-2 w-full"
-                                      rows={2}
-                                      placeholder="Votre retour..."
-                                    />
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="checkbox"
-                                      checked={!!reviewForms[request.id]?.would_recommend}
-                                      onChange={e => handleReviewChange(request.id, 'would_recommend', e.target.checked)}
-                                      id={`would_recommend_${request.id}`}
-                                    />
-                                    <label htmlFor={`would_recommend_${request.id}`}>Je recommande ce technicien</label>
-                                  </div>
-                                  <div className="flex gap-4">
-                                    <div>
-                                      <label className="block text-xs">Ponctualité</label>
-                                      <select
-                                        value={reviewForms[request.id]?.punctuality_rating || ''}
-                                        onChange={e => handleReviewChange(request.id, 'punctuality_rating', Number(e.target.value))}
-                                        className="border rounded p-1 w-16 text-xs"
-                                      >
-                                        <option value="">-</option>
-                                        {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
-                                      </select>
-                                    </div>
-                                    <div>
-                                      <label className="block text-xs">Qualité</label>
-                                      <select
-                                        value={reviewForms[request.id]?.quality_rating || ''}
-                                        onChange={e => handleReviewChange(request.id, 'quality_rating', Number(e.target.value))}
-                                        className="border rounded p-1 w-16 text-xs"
-                                      >
-                                        <option value="">-</option>
-                                        {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
-                                      </select>
-                                    </div>
-                                    <div>
-                                      <label className="block text-xs">Communication</label>
-                                      <select
-                                        value={reviewForms[request.id]?.communication_rating || ''}
-                                        onChange={e => handleReviewChange(request.id, 'communication_rating', Number(e.target.value))}
-                                        className="border rounded p-1 w-16 text-xs"
-                                      >
-                                        <option value="">-</option>
-                                        {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
-                                      </select>
-                                    </div>
-                                  </div>
-                                  {reviewError[request.id] && <div className="text-red-600 text-xs">{reviewError[request.id]}</div>}
-                                  <button
-                                    type="submit"
-                                    disabled={reviewSubmitting[request.id]}
-                                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-semibold"
-                                  >
-                                    {reviewSubmitting[request.id] ? 'Envoi...' : 'Envoyer mon avis'}
-                                  </button>
-                                </form>
+                              {request.review && (
+                                <div className="inline-flex items-center px-3 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
+                                  <Star className="h-4 w-4 mr-1 text-yellow-400" /> Noté ({request.review.rating}/5)
+                                </div>
                               )}
                             </div>
                           )}
@@ -825,6 +878,23 @@ const CustomerDashboard = () => {
               )}
             </div>
           </div>
+
+          {/* Notification pour noter les techniciens */}
+          {repairRequests.filter(r => r.status === 'completed' && r.mission_validated && !r.review).length > 0 && (
+            <ReviewReminder
+              unratedRequests={repairRequests.filter(r => r.status === 'completed' && r.mission_validated && !r.review).length}
+              onReviewClick={() => {
+                const unratedRequest = repairRequests.find(r => r.status === 'completed' && r.mission_validated && !r.review);
+                if (unratedRequest) {
+                  navigate(`/review/${unratedRequest.id}`);
+                }
+              }}
+              onDismiss={() => {
+                // Optionnel : marquer comme vue pour ne plus l'afficher
+                console.log('Notification fermée');
+              }}
+            />
+          )}
 
           {/* Quick Actions Section */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -887,6 +957,169 @@ const CustomerDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Dans la bannière ou la section de suivi, afficher la carte si technicianLocation */}
+      {assignedRequest && assignedRequest.technician && technicianLocation && (
+        <div className="w-full max-w-2xl mx-auto my-6">
+          <div className="bg-white rounded-lg shadow p-4 border border-blue-100">
+            <h3 className="text-lg font-semibold mb-2 text-blue-900 flex items-center gap-2">
+              <span>🗺</span> Suivi du technicien en temps réel
+            </h3>
+            <div className="w-full h-72 rounded-lg overflow-hidden mb-2">
+              <MapContainer
+                center={[technicianLocation.latitude, technicianLocation.longitude]}
+                zoom={14}
+                style={{ height: '100%', width: '100%' }}
+              >
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; OpenStreetMap contributors'
+                />
+                <Marker position={[technicianLocation.latitude, technicianLocation.longitude]} icon={carIcon}>
+                  <Popup>
+                    <div className="text-center">
+                      <div className="font-bold text-blue-700 mb-1">Technicien</div>
+                      <div className="text-sm text-gray-800 mb-1">{assignedRequest?.technician?.user?.first_name} {assignedRequest?.technician?.user?.last_name}</div>
+                      {assignedRequest?.technician?.phone && (
+                        <a href={`tel:${assignedRequest?.technician?.phone}`} className="text-blue-600 underline text-sm block mb-1">{assignedRequest?.technician?.phone}</a>
+                      )}
+                      <div className="text-xs text-blue-700 font-semibold">{eta ? `ETA : ${eta}` : 'Calcul ETA...'}</div>
+                    </div>
+                  </Popup>
+                </Marker>
+                {assignedRequest && assignedRequest.technician && typeof assignedRequest.latitude === 'number' && typeof assignedRequest.longitude === 'number' && (
+                  <Marker position={[assignedRequest.latitude, assignedRequest.longitude]} icon={new L.Icon.Default({ iconUrl: 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/icons/house-door-fill.svg', iconSize: [32, 32], iconAnchor: [16, 32] })}>
+                    <Popup>Votre position</Popup>
+                  </Marker>
+                )}
+                {assignedRequest && assignedRequest.technician && typeof assignedRequest.latitude === 'number' && typeof assignedRequest.longitude === 'number' && (
+                  <Polyline positions={[[technicianLocation.latitude, technicianLocation.longitude], [assignedRequest.latitude, assignedRequest.longitude]]} color="blue" />
+                )}
+              </MapContainer>
+            </div>
+            <div className="flex items-center gap-3 mt-4">
+              <span className="animate-spin inline-block w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full"></span>
+              <span className="inline-block bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-semibold text-base shadow">En déplacement</span>
+              <span className="text-blue-700 text-lg font-semibold">Le technicien est en déplacement...</span>
+            </div>
+            <div className="mt-4 flex flex-col items-center">
+              <button
+                className="px-4 py-2 bg-red-600 text-white rounded font-semibold shadow hover:bg-red-700 transition-colors disabled:opacity-50"
+                disabled={noShowDisabled}
+                onClick={async () => {
+                  if (!window.confirm("Confirmez-vous que le technicien n'est pas venu ?")) return;
+                  setNoShowDisabled(true);
+                  try {
+                    const token = localStorage.getItem('token');
+                    const res = await fetch(`http://127.0.0.1:8000/depannage/api/repair-requests/${assignedRequest.id}/report_no_show/`, {
+                      method: 'POST',
+                      headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                      setNoShowFeedback('Votre demande a bien été prise en compte. Nous sommes désolés pour l\'attente, un administrateur va vous accompagner personnellement.');
+                      setToast('Votre demande a bien été prise en compte. Un administrateur va vous recontacter rapidement.');
+                    } else {
+                      setNoShowFeedback(data.message || 'Erreur lors du signalement.');
+                      setToast(data.message || 'Erreur lors du signalement.');
+                      setNoShowDisabled(false);
+                    }
+                  } catch {
+                    setNoShowFeedback('Erreur réseau.');
+                    setToast('Erreur réseau.');
+                    setNoShowDisabled(false);
+                  }
+                  setTimeout(() => setNoShowFeedback(null), 5000);
+                  setTimeout(() => setToast(null), 5000);
+                }}
+              >
+                Le technicien n'est pas venu
+              </button>
+              {noShowFeedback && <div className="mt-2 text-sm text-blue-700 font-semibold">{noShowFeedback}</div>}
+              {toast && (
+                <div className="fixed top-4 right-4 bg-blue-600 text-white px-4 py-2 rounded shadow-lg z-50 animate-fade-in">
+                  {toast}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {receiptData && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full relative border-2 border-green-600 animate-fade-in">
+            <button onClick={() => { setShowReceiptFor(null); setReceiptData(null); }} className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl">✕</button>
+            <div className="flex flex-col items-center mb-4">
+              <CheckCircle className="h-12 w-12 text-green-600 mb-2 animate-bounce" />
+              <h3 className="text-2xl font-bold text-green-700 mb-1">Reçu de mission</h3>
+              <div className="text-sm text-gray-500 mb-2">Merci pour votre confiance ! 🙏</div>
+            </div>
+            <div id="receipt-pdf" className="space-y-2 text-base text-gray-800 font-mono border-t border-b border-gray-200 py-4 mb-4">
+              <div><span className="font-semibold">Date :</span> {receiptData.date ? new Date(receiptData.date).toLocaleString('fr-FR') : ''}</div>
+              <div><span className="font-semibold">Technicien :</span> {receiptData.technician}</div>
+              <div><span className="font-semibold">Service :</span> {receiptData.service}</div>
+              <div><span className="font-semibold">Adresse :</span> {receiptData.address}</div>
+              <div><span className="font-semibold">Référence :</span> {receiptData.reference}</div>
+              <div><span className="font-semibold">Paiement :</span> {receiptData.payment}</div>
+              <div className="mt-4 text-green-700 font-semibold text-center">Merci pour votre confiance et votre fidélité ! 🙏</div>
+              <div className="text-xs text-gray-500 text-center mt-2">Ce reçu fait foi de la bonne exécution de la mission et du paiement en main propre.</div>
+            </div>
+            <div className="flex flex-col md:flex-row gap-3 justify-center mt-2">
+              <button
+                onClick={() => {
+                  const element = document.getElementById('receipt-pdf');
+                  if (element) {
+                    html2pdf().from(element).set({
+                      margin: 0.5,
+                      filename: `recu-mission-${receiptData.reference}.pdf`,
+                      html2canvas: { scale: 2 },
+                      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+                    }).save();
+                  }
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded shadow hover:bg-green-700 font-semibold flex items-center gap-2"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2V9a2 2 0 012-2h16a2 2 0 012 2v7a2 2 0 01-2 2h-2m-6 0v4m0 0h4m-4 0H8" /></svg>
+                Télécharger le reçu (PDF)
+              </button>
+              <button
+                onClick={async () => {
+                  const shareText = `Reçu de mission\nRéférence : ${receiptData.reference}\nDate : ${receiptData.date ? new Date(receiptData.date).toLocaleString('fr-FR') : ''}\nTechnicien : ${receiptData.technician}\nService : ${receiptData.service}\nAdresse : ${receiptData.address}\nPaiement : ${receiptData.payment}`;
+                  if (navigator.share) {
+                    try {
+                      await navigator.share({
+                        title: 'Reçu de mission',
+                        text: shareText
+                      });
+                    } catch (e) {
+                      setToast('Partage annulé ou non supporté.');
+                    }
+                  } else {
+                    try {
+                      await navigator.clipboard.writeText(shareText);
+                      setToast('Reçu copié dans le presse-papier !');
+                    } catch {
+                      setToast('Impossible de copier le reçu.');
+                    }
+                  }
+                }}
+                className="px-4 py-2 bg-yellow-500 text-white rounded shadow hover:bg-yellow-600 font-semibold flex items-center gap-2"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405M19 13V7a2 2 0 00-2-2h-4a2 2 0 00-2 2v6m0 4h.01" /></svg>
+                Partager
+              </button>
+              <button
+                onClick={() => { setShowReceiptFor(null); setReceiptData(null); }}
+                className="px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 font-semibold"
+              >
+                Fermer
+              </button>
+            </div>
+            <div className="text-xs text-gray-400 mt-4 text-center">Besoin d'aide ? Contactez le support.</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

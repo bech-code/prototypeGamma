@@ -1,8 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Clock, MessageSquare, MapPin, Phone, AlertCircle, CheckCircle, Wrench, TrendingUp } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchWithAuth } from '../contexts/fetchWithAuth';
 import TechnicianRequestsMap from '../components/TechnicianRequestsMap';
+import ReputationBadge from '../components/ReputationBadge';
+import RewardsPanel from '../components/RewardsPanel';
+import SubscriptionPanel from '../components/SubscriptionPanel';
+import TechnicianProfile from '../components/TechnicianProfile';
 import * as XLSX from 'xlsx';
 import { Bar, Pie, Line } from 'react-chartjs-2';
 import {
@@ -76,6 +80,15 @@ interface Review {
   communication_rating?: number;
   client_name?: string;
   created_at?: string;
+  request?: number;
+}
+
+interface ReviewStats {
+  avg: number;
+  count: number;
+  recommend: number;
+  byNote: number[];
+  byDate: [string, number][];
 }
 
 // Mapping quartiers -> communes (doit être le même que côté admin)
@@ -130,7 +143,7 @@ const TechnicianDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'requests' | 'notifications' | 'reviews'>('requests');
+  const [activeTab, setActiveTab] = useState<'requests' | 'notifications' | 'reviews' | 'rewards' | 'subscription' | 'profile'>('requests');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [suggestingRequestId, setSuggestingRequestId] = useState<number | null>(null);
   const [suggestQuartier, setSuggestQuartier] = useState('');
@@ -150,6 +163,29 @@ const TechnicianDashboard: React.FC = () => {
   const [reviewPeriod, setReviewPeriod] = useState<'all' | '7d' | '30d'>('all');
   const REVIEWS_PER_PAGE = 10;
   const [globalAvg, setGlobalAvg] = useState<number | null>(null);
+  const [reviewStats, setReviewStats] = useState<ReviewStats>({
+    avg: 0,
+    count: 0,
+    recommend: 0,
+    byNote: [0, 0, 0, 0, 0],
+    byDate: [],
+  });
+  const [avgPunctuality, setAvgPunctuality] = useState(0);
+  const [avgQuality, setAvgQuality] = useState(0);
+  const [avgCommunication, setAvgCommunication] = useState(0);
+  const [topClients, setTopClients] = useState<[string, number][]>([]);
+  const [filteredAndPeriodReviews, setFilteredAndPeriodReviews] = useState<Review[]>([]);
+  const [sortedReviews, setSortedReviews] = useState<Review[]>([]);
+  const [paginatedReviews, setPaginatedReviews] = useState<Review[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
+  const [subscription, setSubscription] = useState<any>(null);
+  const [subLoading, setSubLoading] = useState(false);
+  const [subError, setSubError] = useState<string | null>(null);
+  const [subSuccess, setSubSuccess] = useState<string | null>(null);
+  const [trackingRequestId, setTrackingRequestId] = useState<number | null>(null);
+  const trackingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -199,6 +235,19 @@ const TechnicianDashboard: React.FC = () => {
       if (notificationsResponse.ok) {
         const notificationsData = await notificationsResponse.json();
         setNotifications(notificationsData.results || notificationsData || []);
+      }
+
+      // Ajouter une notification de test pour démontrer les nouvelles fonctionnalités
+      if (subscription && !subscription.is_active) {
+        const testNotification = {
+          id: Date.now(),
+          title: "Abonnement Premium Expiré",
+          message: "Votre abonnement premium a expiré. Renouvelez-le pour continuer à bénéficier de tous les avantages premium.",
+          type: "warning",
+          is_read: false,
+          created_at: new Date().toISOString()
+        };
+        setNotifications(prev => [testNotification, ...prev]);
       }
 
     } catch (error) {
@@ -353,21 +402,73 @@ const TechnicianDashboard: React.FC = () => {
       return !isNaN(d.getTime()) && (now.getTime() - d.getTime()) <= days * 24 * 60 * 60 * 1000;
     });
   }
-  const filteredReviews = receivedReviews
-    .filter(r => (reviewSearch === '' || (r.client_name?.toLowerCase().includes(reviewSearch.toLowerCase()) || r.comment?.toLowerCase().includes(reviewSearch.toLowerCase())))
-      && (r.rating >= reviewMinRating)
-      && (!reviewOnlyRecommended || r.would_recommend))
-    ;
-  const filteredAndPeriodReviews = filterByPeriod(filteredReviews, reviewPeriod);
-  const totalPages = Math.ceil(filteredAndPeriodReviews.length / REVIEWS_PER_PAGE);
-  const sortedReviews = [...filteredAndPeriodReviews].sort((a, b) => {
-    if (reviewSort === 'date_desc') return (b.created_at || '').localeCompare(a.created_at || '');
-    if (reviewSort === 'date_asc') return (a.created_at || '').localeCompare(b.created_at || '');
-    if (reviewSort === 'note_desc') return b.rating - a.rating;
-    if (reviewSort === 'note_asc') return a.rating - b.rating;
-    return 0;
-  });
-  const paginatedReviews = sortedReviews.slice((reviewPage - 1) * REVIEWS_PER_PAGE, reviewPage * REVIEWS_PER_PAGE);
+
+  const filteredReviews = useMemo(() =>
+    receivedReviews.filter(r =>
+      (reviewSearch === '' || (r.client_name?.toLowerCase().includes(reviewSearch.toLowerCase()) || r.comment?.toLowerCase().includes(reviewSearch.toLowerCase()))) &&
+      (r.rating >= reviewMinRating) &&
+      (!reviewOnlyRecommended || r.would_recommend)
+    ),
+    [receivedReviews, reviewSearch, reviewMinRating, reviewOnlyRecommended]
+  );
+
+  // Update filtered and period reviews
+  useEffect(() => {
+    const filteredAndPeriodReviews = filterByPeriod(filteredReviews, reviewPeriod);
+    setFilteredAndPeriodReviews(filteredAndPeriodReviews);
+
+    const totalPages = Math.ceil(filteredAndPeriodReviews.length / REVIEWS_PER_PAGE);
+    setTotalPages(totalPages);
+
+    const sortedReviews = [...filteredAndPeriodReviews].sort((a, b) => {
+      if (reviewSort === 'date_desc') return (b.created_at || '').localeCompare(a.created_at || '');
+      if (reviewSort === 'date_asc') return (a.created_at || '').localeCompare(b.created_at || '');
+      if (reviewSort === 'note_desc') return b.rating - a.rating;
+      if (reviewSort === 'note_asc') return a.rating - b.rating;
+      return 0;
+    });
+    setSortedReviews(sortedReviews);
+
+    const paginatedReviews = sortedReviews.slice((reviewPage - 1) * REVIEWS_PER_PAGE, reviewPage * REVIEWS_PER_PAGE);
+    setPaginatedReviews(paginatedReviews);
+
+    // Calculate stats
+    const avgPunctuality = filteredAndPeriodReviews.length ? (filteredAndPeriodReviews.reduce((sum, r) => sum + (r.punctuality_rating || 0), 0) / filteredAndPeriodReviews.length) : 0;
+    const avgQuality = filteredAndPeriodReviews.length ? (filteredAndPeriodReviews.reduce((sum, r) => sum + (r.quality_rating || 0), 0) / filteredAndPeriodReviews.length) : 0;
+    const avgCommunication = filteredAndPeriodReviews.length ? (filteredAndPeriodReviews.reduce((sum, r) => sum + (r.communication_rating || 0), 0) / filteredAndPeriodReviews.length) : 0;
+
+    setAvgPunctuality(avgPunctuality);
+    setAvgQuality(avgQuality);
+    setAvgCommunication(avgCommunication);
+
+    // Calculate top clients
+    const map = new Map<string, number>();
+    filteredAndPeriodReviews.forEach(r => {
+      if (r.client_name) map.set(r.client_name, (map.get(r.client_name) || 0) + 1);
+    });
+    const topClients = Array.from(map.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    setTopClients(topClients);
+
+    // Calculate review stats
+    const avg = filteredAndPeriodReviews.length ? Number((filteredAndPeriodReviews.reduce((sum, r) => sum + r.rating, 0) / filteredAndPeriodReviews.length).toFixed(2)) : 0;
+    const reviewStats: ReviewStats = {
+      count: filteredAndPeriodReviews.length,
+      avg,
+      recommend: filteredAndPeriodReviews.length ? Math.round(filteredAndPeriodReviews.filter(r => r.would_recommend).length * 100 / filteredAndPeriodReviews.length) : 0,
+      byNote: [1, 2, 3, 4, 5].map(n => filteredAndPeriodReviews.filter(r => r.rating === n).length),
+      byDate: (() => {
+        const map = new Map<string, number>();
+        filteredAndPeriodReviews.forEach(r => {
+          if (r.created_at) {
+            const d = new Date(r.created_at).toLocaleDateString('fr-FR');
+            map.set(d, (map.get(d) || 0) + 1);
+          }
+        });
+        return Array.from(map.entries()).sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime());
+      })()
+    };
+    setReviewStats(reviewStats);
+  }, [filteredReviews, reviewPeriod, reviewSort, reviewPage]);
 
   // Fonction d'export Excel
   function exportReviewsToExcel() {
@@ -446,37 +547,102 @@ const TechnicianDashboard: React.FC = () => {
       .then(data => setGlobalAvg(data?.overview?.avg_rating || null));
   }, []);
 
-  // Stats par critère
-  const avgPunctuality = filteredAndPeriodReviews.length ? (filteredAndPeriodReviews.reduce((sum, r) => sum + (r.punctuality_rating || 0), 0) / filteredAndPeriodReviews.length).toFixed(2) : '-';
-  const avgQuality = filteredAndPeriodReviews.length ? (filteredAndPeriodReviews.reduce((sum, r) => sum + (r.quality_rating || 0), 0) / filteredAndPeriodReviews.length).toFixed(2) : '-';
-  const avgCommunication = filteredAndPeriodReviews.length ? (filteredAndPeriodReviews.reduce((sum, r) => sum + (r.communication_rating || 0), 0) / filteredAndPeriodReviews.length).toFixed(2) : '-';
+  // Charger l'abonnement à l'arrivée
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      setSubLoading(true);
+      setSubError(null);
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('http://127.0.0.1:8000/depannage/api/technicians/subscription_status/', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setSubscription(data.subscription);
+        }
+      } catch (e) {
+        setSubError('Erreur lors du chargement de l\'abonnement');
+      } finally {
+        setSubLoading(false);
+      }
+    };
+    fetchSubscription();
+  }, []);
 
-  // Top clients
-  const topClients = (() => {
-    const map = new Map<string, number>();
-    filteredAndPeriodReviews.forEach(r => {
-      if (r.client_name) map.set(r.client_name, (map.get(r.client_name) || 0) + 1);
-    });
-    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  })();
+  // Fonction de renouvellement avec paiement CinetPay
+  const handleRenewSubscription = async () => {
+    setSubLoading(true);
+    setSubError(null);
+    setSubSuccess(null);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://127.0.0.1:8000/depannage/api/cinetpay/initiate_subscription_payment/', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.payment_url) {
+          window.location.href = data.payment_url;
+        } else {
+          setSubError('Erreur lors de la génération du paiement.');
+        }
+      } else {
+        setSubError('Erreur lors du renouvellement.');
+      }
+    } catch (e) {
+      setSubError('Erreur lors du renouvellement.');
+    } finally {
+      setSubLoading(false);
+    }
+  };
 
-  // Statistiques sur les avis filtrés
-  const reviewStats = {
-    count: filteredAndPeriodReviews.length,
-    avg: filteredAndPeriodReviews.length ? (filteredAndPeriodReviews.reduce((sum, r) => sum + r.rating, 0) / filteredAndPeriodReviews.length).toFixed(2) : '-',
-    recommend: filteredAndPeriodReviews.length ? Math.round(filteredAndPeriodReviews.filter(r => r.would_recommend).length * 100 / filteredAndPeriodReviews.length) : 0,
-    byNote: [1, 2, 3, 4, 5].map(n => filteredAndPeriodReviews.filter(r => r.rating === n).length),
-    byDate: (() => {
-      const map = new Map();
-      filteredAndPeriodReviews.forEach(r => {
-        if (r.created_at) {
-          const d = new Date(r.created_at).toLocaleDateString('fr-FR');
-          map.set(d, (map.get(d) || 0) + 1);
+  // Fonction pour démarrer le tracking
+  const startTracking = (requestId: number) => {
+    setTrackingRequestId(requestId);
+    if (trackingIntervalRef.current) clearInterval(trackingIntervalRef.current);
+    // Fonction d'envoi de la position
+    const sendPosition = async () => {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          const token = localStorage.getItem('token');
+          await fetchWithAuth('http://127.0.0.1:8000/depannage/api/technician-locations/', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              latitude,
+              longitude,
+              request: requestId
+            })
+          });
+        } catch (e) {
+          // ignore
         }
       });
-      return Array.from(map.entries()).sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime());
-    })()
+    };
+    sendPosition();
+    trackingIntervalRef.current = setInterval(sendPosition, 5000);
   };
+  // Fonction pour arrêter le tracking
+  const stopTracking = () => {
+    setTrackingRequestId(null);
+    if (trackingIntervalRef.current) clearInterval(trackingIntervalRef.current);
+  };
+
+  // Calcul du nombre total de messages non lus sur toutes les conversations
+  const totalUnreadMessages = repairRequests.reduce((acc, req) => acc + (req.conversation?.unread_count || 0), 0);
 
   if (loading) {
     return (
@@ -496,33 +662,126 @@ const TechnicianDashboard: React.FC = () => {
             <p className="text-lg md:text-xl mb-4 text-orange-100">
               Bienvenue, {user?.username} {stats?.specialty && <span className="font-semibold">- {stats.specialty}</span>}
             </p>
-        {stats && (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
-                <div className="bg-orange-800/50 p-6 rounded-lg">
-                  <Wrench className="w-8 h-8 mx-auto mb-4" />
-                  <h3 className="font-semibold mb-2">Demandes assignées</h3>
-                  <p className="text-2xl font-bold">{stats.assigned_requests}</p>
+            {stats && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
+                  <div className="bg-orange-800/50 p-6 rounded-lg">
+                    <Wrench className="w-8 h-8 mx-auto mb-4" />
+                    <h3 className="font-semibold mb-2">Demandes assignées</h3>
+                    <p className="text-2xl font-bold">{stats.assigned_requests}</p>
+                  </div>
+                  <div className="bg-orange-800/50 p-6 rounded-lg">
+                    <Clock className="w-8 h-8 mx-auto mb-4" />
+                    <h3 className="font-semibold mb-2">En cours</h3>
+                    <p className="text-2xl font-bold">{stats.pending_requests}</p>
+                  </div>
+                  <div className="bg-orange-800/50 p-6 rounded-lg">
+                    <CheckCircle className="w-8 h-8 mx-auto mb-4" />
+                    <h3 className="font-semibold mb-2">Terminées</h3>
+                    <p className="text-2xl font-bold">{stats.completed_requests}</p>
+                  </div>
+                  <div className="bg-orange-800/50 p-6 rounded-lg">
+                    <TrendingUp className="w-8 h-8 mx-auto mb-4" />
+                    <h3 className="font-semibold mb-2">Taux de réussite</h3>
+                    <p className="text-2xl font-bold">
+                      {stats.assigned_requests > 0
+                        ? Math.round((stats.completed_requests / stats.assigned_requests) * 100)
+                        : 0}%
+                    </p>
+                  </div>
                 </div>
-                <div className="bg-orange-800/50 p-6 rounded-lg">
-                  <Clock className="w-8 h-8 mx-auto mb-4" />
-                  <h3 className="font-semibold mb-2">En cours</h3>
-                  <p className="text-2xl font-bold">{stats.pending_requests}</p>
+                {/* Statistiques de notation */}
+                <div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6">
+                    <div className="bg-yellow-800/50 p-6 rounded-lg">
+                      <div className="flex items-center justify-center mb-4">
+                        <span className="text-2xl">⭐</span>
+                      </div>
+                      <h3 className="font-semibold mb-2">Note moyenne</h3>
+                      <p className="text-2xl font-bold">{reviewStats.avg}/5</p>
+                    </div>
+                    <div className="bg-green-800/50 p-6 rounded-lg">
+                      <div className="flex items-center justify-center mb-4">
+                        <span className="text-2xl">👍</span>
+                      </div>
+                      <h3 className="font-semibold mb-2">Taux de recommandation</h3>
+                      <p className="text-2xl font-bold">{reviewStats.recommend}%</p>
+                    </div>
+                    <div className="bg-blue-800/50 p-6 rounded-lg">
+                      <div className="flex items-center justify-center mb-4">
+                        <span className="text-2xl">📝</span>
+                      </div>
+                      <h3 className="font-semibold mb-2">Total avis</h3>
+                      <p className="text-2xl font-bold">{reviewStats.count}</p>
+                    </div>
+                    <div className="bg-purple-800/50 p-6 rounded-lg">
+                      <div className="flex items-center justify-center mb-4">
+                        <span className="text-2xl">🎯</span>
+                      </div>
+                      <h3 className="font-semibold mb-2">Ponctualité</h3>
+                      <p className="text-2xl font-bold">{avgPunctuality}/5</p>
+                    </div>
+                  </div>
+
+                  {/* Badge de réputation */}
+                  {reviewStats.count > 0 && (
+                    <div className="mt-8">
+                      <ReputationBadge
+                        averageRating={Number(reviewStats.avg)}
+                        totalReviews={reviewStats.count}
+                        recommendationRate={reviewStats.recommend}
+                        completedJobs={stats?.completed_requests || 0}
+                        yearsExperience={user?.technician?.years_experience || 0}
+                      />
+                    </div>
+                  )}
+
+                  {/* Badges d'abonnement et notifications */}
+                  <div className="mt-6 flex flex-wrap justify-center gap-4">
+                    {/* Badge d'abonnement */}
+                    {subscription && (
+                      <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold ${subscription.is_active
+                        ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg'
+                        : 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg'
+                        }`}>
+                        <span className="mr-2">
+                          {subscription.is_active ? '⭐' : '⚠️'}
+                        </span>
+                        {subscription.is_active ? 'Abonnement Premium Actif' : 'Abonnement Expiré'}
+                        {subscription.is_active && subscription.expires_at && (
+                          <span className="ml-2 text-xs opacity-90">
+                            (Expire le {new Date(subscription.expires_at).toLocaleDateString('fr-FR')})
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Badge de nouvelles notifications */}
+                    {notifications.filter(n => !n.is_read).length > 0 && (
+                      <div className="inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg animate-pulse">
+                        <span className="mr-2">🔔</span>
+                        {notifications.filter(n => !n.is_read).length} nouvelle{notifications.filter(n => !n.is_read).length > 1 ? 's' : ''} notification{notifications.filter(n => !n.is_read).length > 1 ? 's' : ''}
+                      </div>
+                    )}
+
+                    {/* Badge de nouvelles demandes */}
+                    {repairRequests.filter(r => r.status === 'assigned' && !r.started_at).length > 0 && (
+                      <div className="inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-lg">
+                        <span className="mr-2">🆕</span>
+                        {repairRequests.filter(r => r.status === 'assigned' && !r.started_at).length} nouvelle{repairRequests.filter(r => r.status === 'assigned' && !r.started_at).length > 1 ? 's' : ''} demande{repairRequests.filter(r => r.status === 'assigned' && !r.started_at).length > 1 ? 's' : ''}
+                      </div>
+                    )}
+
+                    {/* Badge de tracking actif */}
+                    {trackingRequestId && (
+                      <div className="inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold bg-gradient-to-r from-green-500 to-blue-600 text-white shadow-lg animate-pulse">
+                        <span className="mr-2">📍</span>
+                        Suivi GPS actif
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="bg-orange-800/50 p-6 rounded-lg">
-                  <CheckCircle className="w-8 h-8 mx-auto mb-4" />
-                  <h3 className="font-semibold mb-2">Terminées</h3>
-                  <p className="text-2xl font-bold">{stats.completed_requests}</p>
-                </div>
-                <div className="bg-orange-800/50 p-6 rounded-lg">
-                  <TrendingUp className="w-8 h-8 mx-auto mb-4" />
-                  <h3 className="font-semibold mb-2">Taux de réussite</h3>
-                  <p className="text-2xl font-bold">
-                    {stats.assigned_requests > 0
-                      ? Math.round((stats.completed_requests / stats.assigned_requests) * 100)
-                      : 0}%
-                  </p>
-                </div>
-              </div>
+              </>
             )}
           </div>
         </div>
@@ -532,24 +791,37 @@ const TechnicianDashboard: React.FC = () => {
         {/* Onglets */}
         <div className="bg-white rounded-lg shadow mb-6">
           <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8 px-6">
+            <nav className="-mb-px flex space-x-8 px-6" role="tablist">
               <button
                 onClick={() => setActiveTab('requests')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'requests'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
+                role="tab"
+                aria-selected={activeTab === 'requests'}
+                tabIndex={0}
               >
                 Mes demandes ({repairRequests.length})
               </button>
               <button
                 onClick={() => setActiveTab('notifications')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'notifications'
+                className={`py-4 px-1 border-b-2 font-medium text-sm relative ${activeTab === 'notifications'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
+                role="tab"
+                aria-selected={activeTab === 'notifications'}
+                tabIndex={0}
+                aria-label="Notifications"
               >
                 Notifications ({notifications.filter(n => !n.is_read).length})
+                {/* Badge global nouveaux messages */}
+                {totalUnreadMessages > 0 && (
+                  <span className="absolute -top-1 -right-4 bg-red-600 text-white text-xs px-2 py-0.5 rounded-full font-bold animate-pulse" title="Nouveaux messages">
+                    {totalUnreadMessages}
+                  </span>
+                )}
               </button>
               <button
                 onClick={() => setActiveTab('reviews')}
@@ -557,8 +829,47 @@ const TechnicianDashboard: React.FC = () => {
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
+                role="tab"
+                aria-selected={activeTab === 'reviews'}
+                tabIndex={0}
               >
                 Avis reçus
+              </button>
+              <button
+                onClick={() => setActiveTab('rewards')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'rewards'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                role="tab"
+                aria-selected={activeTab === 'rewards'}
+                tabIndex={0}
+              >
+                Récompenses
+              </button>
+              <button
+                onClick={() => setActiveTab('subscription')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'subscription'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                role="tab"
+                aria-selected={activeTab === 'subscription'}
+                tabIndex={0}
+              >
+                Abonnement
+              </button>
+              <button
+                onClick={() => setActiveTab('profile')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'profile'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                role="tab"
+                aria-selected={activeTab === 'profile'}
+                tabIndex={0}
+              >
+                Mon Profil
               </button>
             </nav>
           </div>
@@ -623,17 +934,17 @@ const TechnicianDashboard: React.FC = () => {
                   requests={repairRequests
                     .filter(req => req.latitude !== undefined && req.longitude !== undefined)
                     .map(req => ({
-                    id: req.id,
+                      id: req.id,
                       latitude: req.latitude!,
                       longitude: req.longitude!,
-                    address: req.client.address,
-                    city: extractCommune(req.client.address),
-                    quartier: extractQuartier(req.client.address),
-                    client: req.client.user.email,
-                    service: req.title,
-                    status: req.status,
-                    is_urgent: req.priority === 'urgent',
-                  }))}
+                      address: req.client.address,
+                      city: extractCommune(req.client.address),
+                      quartier: extractQuartier(req.client.address),
+                      client: req.client.user.email,
+                      service: req.title,
+                      status: req.status,
+                      is_urgent: req.priority === 'urgent',
+                    }))}
                   showOnlyIncoherent={showOnlyIncoherent}
                 />
 
@@ -668,7 +979,7 @@ const TechnicianDashboard: React.FC = () => {
                                 <h3 className="text-lg font-bold text-gray-900 truncate">{request.title}</h3>
                                 <p className="text-sm text-gray-600">Client: {request.client.user.username}</p>
                               </div>
-                              </div>
+                            </div>
                             <div className="flex flex-col items-end space-y-2">
                               {/* Badge statut */}
                               <span className={`px-3 py-1 text-xs font-bold rounded-full shadow-sm ${getStatusColor(request.status)}`}>
@@ -678,13 +989,13 @@ const TechnicianDashboard: React.FC = () => {
                               <div className="flex items-center space-x-1">
                                 <div className={`w-3 h-3 rounded-full ${getPriorityColor(request.priority)} shadow-sm`}></div>
                                 <span className="text-xs text-gray-500 font-medium">
-                                  {request.priority === 'urgent' ? 'Urgent' : 
-                                   request.priority === 'high' ? 'Élevée' : 
-                                   request.priority === 'medium' ? 'Moyenne' : 'Faible'}
+                                  {request.priority === 'urgent' ? 'Urgent' :
+                                    request.priority === 'high' ? 'Élevée' :
+                                      request.priority === 'medium' ? 'Moyenne' : 'Faible'}
                                 </span>
                               </div>
-                              </div>
                             </div>
+                          </div>
 
                           {/* Description */}
                           <p className="text-gray-700 text-sm leading-relaxed mb-4 line-clamp-2">
@@ -716,55 +1027,55 @@ const TechnicianDashboard: React.FC = () => {
                               Informations client
                             </h4>
                             <div className="space-y-2">
-                                <div className="flex items-center space-x-2">
+                              <div className="flex items-center space-x-2">
                                 <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
                                 <span className="text-sm text-gray-700 flex-1">
-                                    {request.client.address}
-                                    {/* Badge incohérence */}
-                                    {!isCoherent(extractQuartier(request.client.address), extractCommune(request.client.address)) && (
-                                      <>
-                                        <span className="inline-block bg-red-600 text-white text-xs font-bold px-2 py-1 rounded ml-2">Incohérence quartier/commune</span>
-                                        <button
+                                  {request.client.address}
+                                  {/* Badge incohérence */}
+                                  {!isCoherent(extractQuartier(request.client.address), extractCommune(request.client.address)) && (
+                                    <>
+                                      <span className="inline-block bg-red-600 text-white text-xs font-bold px-2 py-1 rounded ml-2">Incohérence quartier/commune</span>
+                                      <button
                                         className="ml-2 text-xs text-blue-700 underline hover:text-blue-900 font-medium"
-                                          onClick={() => {
-                                            setSuggestingRequestId(request.id);
-                                            setSuggestQuartier('');
-                                            setSuggestCommune('');
-                                          }}
-                                        >Suggérer correction</button>
-                                        {suggestingRequestId === request.id && (
+                                        onClick={() => {
+                                          setSuggestingRequestId(request.id);
+                                          setSuggestQuartier('');
+                                          setSuggestCommune('');
+                                        }}
+                                      >Suggérer correction</button>
+                                      {suggestingRequestId === request.id && (
                                         <div className="mt-3 bg-blue-50 p-3 rounded-lg border border-blue-200 max-w-xs">
                                           <label className="text-xs font-semibold text-blue-900">Quartier</label>
-                                            <div className="relative">
-                                              <input
-                                                type="text"
-                                              className="w-full p-2 border border-blue-300 rounded text-sm"
-                                                value={suggestQuartier}
-                                                onChange={handleSuggestQuartierChange}
-                                                placeholder="Quartier correct"
-                                              />
-                                              {showSuggestionsList && suggestionsList.length > 0 && (
-                                                <div ref={suggestionsListRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-40 overflow-y-auto">
-                                                {suggestionsList.map((quartier) => (
-                                                    <div
-                                                      key={quartier}
-                                                    className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
-                                                      onClick={() => handleSuggestListClick(quartier)}
-                                                    >
-                                                      {quartier}
-                                                    </div>
-                                                  ))}
-                                                </div>
-                                              )}
-                                            </div>
-                                          <label className="text-xs font-semibold text-blue-900 mt-2">Commune</label>
+                                          <div className="relative">
                                             <input
                                               type="text"
-                                            className="w-full p-2 border border-blue-300 rounded text-sm"
-                                              value={suggestCommune}
-                                              onChange={e => setSuggestCommune(e.target.value)}
-                                              placeholder="Commune correcte"
+                                              className="w-full p-2 border border-blue-300 rounded text-sm"
+                                              value={suggestQuartier}
+                                              onChange={handleSuggestQuartierChange}
+                                              placeholder="Quartier correct"
                                             />
+                                            {showSuggestionsList && suggestionsList.length > 0 && (
+                                              <div ref={suggestionsListRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-40 overflow-y-auto">
+                                                {suggestionsList.map((quartier) => (
+                                                  <div
+                                                    key={quartier}
+                                                    className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+                                                    onClick={() => handleSuggestListClick(quartier)}
+                                                  >
+                                                    {quartier}
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                          <label className="text-xs font-semibold text-blue-900 mt-2">Commune</label>
+                                          <input
+                                            type="text"
+                                            className="w-full p-2 border border-blue-300 rounded text-sm"
+                                            value={suggestCommune}
+                                            onChange={e => setSuggestCommune(e.target.value)}
+                                            placeholder="Commune correcte"
+                                          />
                                           <div className="flex space-x-2 mt-3">
                                             <button
                                               className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3 py-2 rounded transition-colors"
@@ -775,20 +1086,20 @@ const TechnicianDashboard: React.FC = () => {
                                               onClick={() => setSuggestingRequestId(null)}
                                             >Annuler</button>
                                           </div>
-                                            {suggestionSent && (
+                                          {suggestionSent && (
                                             <div className="text-green-700 text-xs mt-2 text-center">✓ Suggestion envoyée !</div>
-                                            )}
-                                          </div>
-                                        )}
-                                      </>
-                                    )}
-                                  </span>
-                                </div>
-                                <div className="flex items-center space-x-2">
+                                          )}
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex items-center space-x-2">
                                 <Phone className="h-4 w-4 text-gray-400 flex-shrink-0" />
                                 <span className="text-sm text-gray-700">{request.client.phone}</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
+                              </div>
+                              <div className="flex items-center space-x-2">
                                 <span className="text-sm text-gray-700">{request.client.user.email}</span>
                               </div>
                             </div>
@@ -796,77 +1107,110 @@ const TechnicianDashboard: React.FC = () => {
 
                           {/* Actions */}
                           <div className="flex flex-wrap gap-3">
-                            {request.conversation && (
+                            {request.conversation?.id ? (
                               <button
-                                onClick={() => window.location.href = `/chat/${request.conversation?.id}`}
-                                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+                                onClick={async () => {
+                                  setChatLoading(true);
+                                  try {
+                                    // Simuler un délai ou une vérification d'accès
+                                    // await someAsyncCheck();
+                                    window.location.href = request.conversation ? `/chat/${request.conversation.id}` : '#';
+                                  } catch (e) {
+                                    setChatError("Impossible d'ouvrir la conversation.");
+                                    setTimeout(() => setChatError(null), 3000);
+                                  } finally {
+                                    setChatLoading(false);
+                                  }
+                                }}
+                                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm relative"
+                                aria-label="Ouvrir la conversation de chat"
                               >
                                 <MessageSquare className="h-4 w-4 mr-2" />
                                 Messages
+                                {/* Badge nouveaux messages */}
                                 {request.conversation?.unread_count > 0 && (
-                                  <span className="ml-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold">
+                                  <span className="ml-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold animate-pulse">
                                     {request.conversation.unread_count}
                                   </span>
                                 )}
+                                {/* Spinner de chargement */}
+                                {chatLoading && (
+                                  <span className="ml-2 animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
+                                )}
+                              </button>
+                            ) : (
+                              <button
+                                disabled
+                                aria-disabled="true"
+                                tabIndex={-1}
+                                className="inline-flex items-center px-4 py-2 bg-gray-300 text-gray-500 text-sm font-medium rounded-lg cursor-not-allowed opacity-60"
+                                title="Aucune conversation disponible pour cette demande"
+                              >
+                                <MessageSquare className="h-4 w-4 mr-2" />
+                                Messages
                               </button>
                             )}
 
                             {/* Actions selon le statut */}
                             {request.status === 'pending' && (
-                                <button
-                                  onClick={async () => {
-                                    try {
+                              <button
+                                onClick={async () => {
+                                  try {
                                     const technicianId = user?.technician?.id;
-                                      if (!technicianId) {
-                                        alert('Erreur: ID du technicien non trouvé');
-                                        return;
-                                      }
+                                    if (!technicianId) {
+                                      alert('Erreur: ID du technicien non trouvé');
+                                      return;
+                                    }
 
-                                      console.log('Tentative d\'assignation avec technician_id:', technicianId);
+                                    console.log('Tentative d\'assignation avec technician_id:', technicianId);
 
-                                      const response = await fetch(`http://127.0.0.1:8000/depannage/api/repair-requests/${request.id}/assign_technician/`, {
-                                        method: 'POST',
-                                        headers: {
-                                          'Authorization': `Bearer ${token}`,
-                                          'Content-Type': 'application/json',
-                                        },
-                                        body: JSON.stringify({ technician_id: technicianId }),
-                                      });
+                                    const response = await fetch(`http://127.0.0.1:8000/depannage/api/repair-requests/${request.id}/assign_technician/`, {
+                                      method: 'POST',
+                                      headers: {
+                                        'Authorization': `Bearer ${token}`,
+                                        'Content-Type': 'application/json',
+                                      },
+                                      body: JSON.stringify({ technician_id: technicianId }),
+                                    });
 
-                                      if (response.ok) {
-                                        const result = await response.json();
-                                        console.log('Assignation réussie:', result);
-                                        fetchDashboardData();
-                                      } else {
-                                        let errorData;
-                                        try {
-                                          errorData = await response.json();
+                                    if (response.ok) {
+                                      const result = await response.json();
+                                      console.log('Assignation réussie:', result);
+                                      fetchDashboardData();
+                                    } else {
+                                      let errorData;
+                                      try {
+                                        errorData = await response.json();
                                       } catch {
-                                          errorData = null;
-                                        }
-                                        console.error('Erreur lors de l\'acceptation:', errorData);
-                                        alert(`Erreur lors de l'acceptation de la demande: ${errorData && errorData.error ? errorData.error : 'Erreur inconnue'}`);
+                                        errorData = null;
                                       }
+                                      console.error('Erreur lors de l\'acceptation:', errorData);
+                                      alert(`Erreur lors de l'acceptation de la demande: ${errorData && errorData.error ? errorData.error : 'Erreur inconnue'}`);
+                                    }
                                   } catch {
                                     console.error('Erreur lors de l\'acceptation de la demande');
-                                      alert('Erreur lors de l\'acceptation de la demande');
-                                    }
-                                  }}
+                                    alert('Erreur lors de l\'acceptation de la demande');
+                                  }
+                                }}
                                 className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
-                                >
+                              >
                                 <CheckCircle className="h-4 w-4 mr-2" />
-                                  Accepter
-                                </button>
+                                Accepter
+                              </button>
                             )}
 
-                            {request.status === 'assigned' && (
+                            {request.status === 'assigned' && trackingRequestId !== request.id && (
                               <button
                                 onClick={() => updateRequestStatus(request.id, 'in_progress')}
                                 className="inline-flex items-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
                               >
-                                <Wrench className="h-4 w-4 mr-2" />
+                                <CheckCircle className="h-4 w-4 mr-2" />
                                 Commencer
                               </button>
+                            )}
+
+                            {trackingRequestId === request.id && (
+                              <span className="ml-2 text-green-600 font-semibold animate-pulse">Tracking en cours...</span>
                             )}
 
                             {request.status === 'in_progress' && (
@@ -889,12 +1233,38 @@ const TechnicianDashboard: React.FC = () => {
 
             {activeTab === 'notifications' && (
               <div>
+                {/* Header avec statistiques */}
+                <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Centre de Notifications</h3>
+                      <p className="text-sm text-gray-600">
+                        {notifications.filter(n => !n.is_read).length} notification{notifications.filter(n => !n.is_read).length > 1 ? 's' : ''} non lue{notifications.filter(n => !n.is_read).length > 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => {
+                          // Marquer toutes comme lues
+                          notifications.forEach(n => n.is_read = true);
+                          setNotifications([...notifications]);
+                        }}
+                        className="px-3 py-1 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        Tout marquer comme lu
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 {notifications.length === 0 ? (
                   <div className="text-center py-12">
-                    <AlertCircle className="mx-auto h-12 w-12 text-gray-400" />
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">Aucune notification</h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                      Vous n'avez pas encore de notifications.
+                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <AlertCircle className="h-8 w-8 text-blue-600" />
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Aucune notification</h3>
+                    <p className="text-gray-500">
+                      Vous n'avez pas encore de notifications. Elles apparaîtront ici quand vous recevrez des mises à jour.
                     </p>
                   </div>
                 ) : (
@@ -902,26 +1272,83 @@ const TechnicianDashboard: React.FC = () => {
                     {notifications.map((notification) => (
                       <div
                         key={notification.id}
-                        className={`p-4 rounded-lg border ${notification.is_read ? 'bg-gray-50 border-gray-200' : 'bg-blue-50 border-blue-200'
+                        className={`relative p-6 rounded-xl border transition-all duration-300 hover:shadow-lg ${notification.is_read
+                          ? 'bg-white border-gray-200'
+                          : 'bg-gradient-to-r from-blue-50 to-blue-100 border-blue-300 shadow-md'
                           }`}
                       >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h4 className={`font-medium ${notification.is_read ? 'text-gray-900' : 'text-blue-900'}`}>
-                              {notification.title}
-                            </h4>
-                            <p className={`mt-1 text-sm ${notification.is_read ? 'text-gray-600' : 'text-blue-700'}`}>
-                              {notification.message}
-                            </p>
-                            <p className="mt-2 text-xs text-gray-500">
-                              {formatDate(notification.created_at)}
-                            </p>
+                        {/* Indicateur de lecture */}
+                        {!notification.is_read && (
+                          <div className="absolute top-4 right-4">
+                            <div className="w-3 h-3 bg-blue-600 rounded-full animate-pulse"></div>
                           </div>
-                          {!notification.is_read && (
-                            <div className="ml-4">
-                              <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                        )}
+
+                        <div className="flex items-start space-x-4">
+                          {/* Icône selon le type */}
+                          <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${notification.type === 'success' ? 'bg-green-100 text-green-600' :
+                            notification.type === 'warning' ? 'bg-yellow-100 text-yellow-600' :
+                              notification.type === 'error' ? 'bg-red-100 text-red-600' :
+                                'bg-blue-100 text-blue-600'
+                            }`}>
+                            {notification.type === 'success' ? '✓' :
+                              notification.type === 'warning' ? '⚠' :
+                                notification.type === 'error' ? '✗' : 'ℹ'}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <h4 className={`font-semibold text-lg ${notification.is_read ? 'text-gray-900' : 'text-blue-900'
+                                  }`}>
+                                  {notification.title}
+                                </h4>
+                                <p className={`mt-2 text-sm leading-relaxed ${notification.is_read ? 'text-gray-600' : 'text-blue-700'
+                                  }`}>
+                                  {notification.message}
+                                </p>
+                                <div className="flex items-center mt-3 space-x-4">
+                                  <span className="text-xs text-gray-500 flex items-center">
+                                    <Clock className="w-3 h-3 mr-1" />
+                                    {formatDate(notification.created_at)}
+                                  </span>
+                                  <span className={`text-xs px-2 py-1 rounded-full ${notification.type === 'success' ? 'bg-green-100 text-green-700' :
+                                    notification.type === 'warning' ? 'bg-yellow-100 text-yellow-700' :
+                                      notification.type === 'error' ? 'bg-red-100 text-red-700' :
+                                        'bg-blue-100 text-blue-700'
+                                    }`}>
+                                    {notification.type === 'success' ? 'Succès' :
+                                      notification.type === 'warning' ? 'Avertissement' :
+                                        notification.type === 'error' ? 'Erreur' : 'Information'}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end space-x-2">
+                          {!notification.is_read && (
+                            <button
+                              onClick={() => {
+                                notification.is_read = true;
+                                setNotifications([...notifications]);
+                              }}
+                              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                              Marquer comme lu
+                            </button>
                           )}
+                          <button
+                            onClick={() => {
+                              // Supprimer la notification
+                              setNotifications(notifications.filter(n => n.id !== notification.id));
+                            }}
+                            className="text-xs text-gray-500 hover:text-red-600 font-medium"
+                          >
+                            Supprimer
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -1030,13 +1457,13 @@ const TechnicianDashboard: React.FC = () => {
                         labels: ['Ponctualité', 'Qualité', 'Communication'],
                         datasets: [{
                           label: 'Moyenne',
-                          data: [Number(avgPunctuality), Number(avgQuality), Number(avgCommunication)],
+                          data: [avgPunctuality, avgQuality, avgCommunication],
                           backgroundColor: ['#fbbf24', '#a3e635', '#22d3ee']
                         }]
                       }}
                       options={{ responsive: true, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 5 } } }}
                     />
-                    <div className="mt-2 text-sm text-gray-500">Ponctualité : {avgPunctuality} / Qualité : {avgQuality} / Communication : {avgCommunication}</div>
+                    <div className="mt-2 text-sm text-gray-500">Ponctualité : {avgPunctuality.toFixed(2)} / Qualité : {avgQuality.toFixed(2)} / Communication : {avgCommunication.toFixed(2)}</div>
                   </div>
                   {/* Top clients */}
                   <div className="bg-white rounded shadow p-4 col-span-1 md:col-span-2">
@@ -1053,7 +1480,7 @@ const TechnicianDashboard: React.FC = () => {
                         labels: ['1', '2', '3', '4', '5'],
                         datasets: [{
                           label: 'Nombre d\'avis',
-                          data: [1, 2, 3, 4, 5].map(n => filteredAndPeriodReviews.filter(r => r.rating === n).length),
+                          data: reviewStats.byNote,
                           backgroundColor: ['#fbbf24', '#f59e42', '#facc15', '#a3e635', '#22d3ee']
                         }]
                       }}
@@ -1064,28 +1491,10 @@ const TechnicianDashboard: React.FC = () => {
                     <h3 className="font-bold mb-2">Évolution des avis dans le temps</h3>
                     <Line
                       data={{
-                        labels: (() => {
-                          const map = new Map();
-                          filteredAndPeriodReviews.forEach(r => {
-                            if (r.created_at) {
-                              const d = new Date(r.created_at).toLocaleDateString('fr-FR');
-                              map.set(d, (map.get(d) || 0) + 1);
-                            }
-                          });
-                          return Array.from(map.keys());
-                        })(),
+                        labels: reviewStats.byDate.map(([date]) => date),
                         datasets: [{
                           label: 'Avis reçus',
-                          data: (() => {
-                            const map = new Map();
-                            filteredAndPeriodReviews.forEach(r => {
-                              if (r.created_at) {
-                                const d = new Date(r.created_at).toLocaleDateString('fr-FR');
-                                map.set(d, (map.get(d) || 0) + 1);
-                              }
-                            });
-                            return Array.from(map.values());
-                          })(),
+                          data: reviewStats.byDate.map(([_, count]) => count),
                           borderColor: '#2563eb',
                           backgroundColor: '#93c5fd',
                           fill: true
@@ -1156,9 +1565,42 @@ const TechnicianDashboard: React.FC = () => {
                 )}
               </div>
             )}
+
+            {activeTab === 'rewards' && (
+              <div>
+                <h2 className="text-xl font-semibold mb-4 text-gray-800">Système de Récompenses</h2>
+                <RewardsPanel technicianId={user?.technician?.id || 0} />
+              </div>
+            )}
+
+            {activeTab === 'subscription' && (
+              <div>
+                <h2 className="text-xl font-semibold mb-4 text-gray-800">Gestion de l'Abonnement</h2>
+                <SubscriptionPanel technicianId={user?.technician?.id || 0} />
+              </div>
+            )}
+
+            {activeTab === 'profile' && (
+              <div>
+                <h2 className="text-xl font-semibold mb-4 text-gray-800">Gestion du Profil</h2>
+                <TechnicianProfile technicianId={user?.technician?.id || 0} />
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {chatError && (
+        <div
+          className="fixed top-4 right-4 bg-red-600 text-white px-4 py-2 rounded shadow-lg z-50 animate-fade-in-out"
+          role="alert"
+          tabIndex={-1}
+          ref={el => el && el.focus()}
+          style={{ outline: 'none' }}
+        >
+          {chatError}
+        </div>
+      )}
     </div>
   );
 };

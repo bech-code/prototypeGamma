@@ -80,7 +80,7 @@ class Technician(BaseTimeStampModel):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="technician_profile",
+        related_name="technician_depannage",
     )
     specialty = models.CharField(
         "Spécialité", max_length=50, choices=Specialty.choices, default=Specialty.OTHER
@@ -146,6 +146,11 @@ class Technician(BaseTimeStampModel):
         completed = self.repair_requests.filter(status="completed").count()
         return round((completed / total) * 100, 1)
 
+    @property
+    def has_active_subscription(self):
+        sub = self.subscriptions.filter(end_date__gt=timezone.now()).order_by('-end_date').first()
+        return bool(sub)
+
     class Meta:
         verbose_name = "Technicien"
         verbose_name_plural = "Techniciens"
@@ -161,6 +166,7 @@ class RepairRequest(BaseTimeStampModel):
     """Demande de dépannage créée par un client."""
 
     class Status(models.TextChoices):
+        DRAFT = "draft", "Brouillon"
         PENDING = "pending", "En attente"
         ASSIGNED = "assigned", "Assignée"
         IN_PROGRESS = "in_progress", "En cours"
@@ -257,6 +263,11 @@ class RepairRequest(BaseTimeStampModel):
     date = models.DateField("Date souhaitée (frontend)", null=True, blank=True)
     time = models.TimeField("Heure souhaitée (frontend)", null=True, blank=True)
     service_type = models.CharField("Type de service (frontend)", max_length=50, blank=True)
+
+    # Nouveau champ no_show_count
+    no_show_count = models.PositiveIntegerField(default=0, verbose_name="Nombre de signalements d'absence technicien")
+    # Nouveau champ : validation finale de la mission par le client
+    mission_validated = models.BooleanField(default=False, verbose_name="Mission validée par le client")
 
     def __str__(self):
         return f"#{self.id} - {self.title} - {self.get_status_display()}"
@@ -906,10 +917,7 @@ class CinetPayPayment(models.Model):
 
     # Liens avec d'autres modèles
     request = models.ForeignKey(
-        RepairRequest,
-        on_delete=models.CASCADE,
-        related_name="cinetpay_payments",
-        verbose_name="Demande de réparation",
+        RepairRequest, on_delete=models.CASCADE, related_name="cinetpay_payments", null=True, blank=True
     )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -940,7 +948,7 @@ class CinetPayPayment(models.Model):
     def get_total_amount(self):
         """Retourne le montant total en tenant compte des frais d'urgence."""
         total = self.amount
-        if self.request.is_urgent:
+        if self.request and self.request.is_urgent:
             total += 25000  # Frais d'urgence
         return total
 
@@ -1019,3 +1027,23 @@ def notify_ws_on_notification(sender, instance, created, **kwargs):
                 "created_at": instance.created_at.isoformat() if instance.created_at else None,
             }
         )
+
+class TechnicianSubscription(models.Model):
+    technician = models.ForeignKey('Technician', on_delete=models.CASCADE, related_name='subscriptions')
+    plan_name = models.CharField(max_length=100, default='Standard')
+    start_date = models.DateTimeField(default=timezone.now)
+    end_date = models.DateTimeField()
+    payment = models.ForeignKey('Payment', on_delete=models.SET_NULL, null=True, blank=True, related_name='subscription_payments')
+    is_active = models.BooleanField(default=True)
+
+    def save(self, *args, **kwargs):
+        self.is_active = self.end_date > timezone.now()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Abonnement {self.plan_name} ({self.technician}) jusqu'au {self.end_date.strftime('%d/%m/%Y')}"
+
+    class Meta:
+        verbose_name = "Abonnement technicien"
+        verbose_name_plural = "Abonnements techniciens"
+        ordering = ['-end_date']

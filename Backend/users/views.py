@@ -8,12 +8,13 @@ from .serializers import UserSerializer, UserRegistrationSerializer
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from depannage.models import Client, Technician
 from .utils import log_event, send_security_notification
-from .models import OTPChallenge, AuditLog, SecurityNotification
+from .models import OTPChallenge, AuditLog, SecurityNotification, PasswordResetToken
 from django.utils import timezone
 from django.core.mail import send_mail
 import random
 from django.db.models import Count
 from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 User = get_user_model()
 
@@ -44,7 +45,7 @@ class UserViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
-        if self.action in ['register', 'login', 'refresh_token']:
+        if self.action in ['register', 'login', 'refresh_token', 'forgot_password', 'reset_password']:
             return [AllowAny()]
         return super().get_permissions()
 
@@ -67,15 +68,17 @@ class UserViewSet(viewsets.ModelViewSet):
                     'specialty': technician.specialty,
                     'phone': technician.phone,
                     'years_experience': technician.years_experience,
-                    'is_verified': technician.is_verified
+                    'address': technician.address,
                 }
             except Technician.DoesNotExist:
                 return None
         return None
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['post'], parser_classes=[MultiPartParser, FormParser, JSONParser])
     def register(self, request):
-        serializer = UserRegistrationSerializer(data=request.data)
+        print("DEBUG FILES:", request.FILES)
+        print("DEBUG DATA:", request.data)
+        serializer = UserRegistrationSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             user = serializer.save()
             refresh = RefreshToken.for_user(user)
@@ -193,6 +196,116 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Code incorrect ou session invalide.'}, status=400)
 
     @action(detail=False, methods=['post'])
+    def forgot_password(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response({
+                'error': 'Email requis',
+                'details': {'email': 'L\'email est requis'}
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            user = User.objects.get(email=email)
+            # Générer un token unique
+            import secrets
+            token = secrets.token_urlsafe(32)
+            expires_at = timezone.now() + timezone.timedelta(hours=24)
+            
+            # Supprimer les anciens tokens pour cet utilisateur
+            PasswordResetToken.objects.filter(user=user).delete()
+            
+            # Créer le nouveau token
+            reset_token = PasswordResetToken.objects.create(
+                user=user,
+                token=token,
+                expires_at=expires_at
+            )
+            
+            # Envoyer l'email
+            reset_url = f"http://127.0.0.1:5173/reset-password?token={token}"
+            send_mail(
+                'Réinitialisation de votre mot de passe - DepanneTeliman',
+                f'''Bonjour {user.first_name},
+
+Vous avez demandé la réinitialisation de votre mot de passe.
+
+Cliquez sur le lien suivant pour créer un nouveau mot de passe :
+{reset_url}
+
+Ce lien expire dans 24 heures.
+
+Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.
+
+Cordialement,
+L'équipe DepanneTeliman''',
+                'no-reply@depanneteliman.com',
+                [user.email],
+                fail_silently=False,
+            )
+            
+            log_event(request, 'password_reset_requested', 'success', risk_score=0, metadata={'user_email': user.email})
+            return Response({
+                'message': 'Un email de récupération a été envoyé à votre adresse email.'
+            }, status=200)
+            
+        except User.DoesNotExist:
+            log_event(request, 'password_reset_requested', 'failure', risk_score=100, metadata={'reason': 'Email inconnu', 'email': email})
+            return Response({
+                'error': 'Aucun compte associé à cette adresse email.'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=False, methods=['post'])
+    def reset_password(self, request):
+        token = request.data.get('token')
+        new_password = request.data.get('new_password')
+        
+        if not token or not new_password:
+            return Response({
+                'error': 'Token et nouveau mot de passe requis',
+                'details': {
+                    'token': 'Le token est requis' if not token else None,
+                    'new_password': 'Le nouveau mot de passe est requis' if not new_password else None
+                }
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            reset_token = PasswordResetToken.objects.get(token=token, is_used=False)
+            
+            if reset_token.is_expired():
+                log_event(request, 'password_reset', 'failure', risk_score=100, metadata={'reason': 'Token expiré'})
+                return Response({'error': 'Token expiré ou déjà utilisé.'}, status=400)
+            
+            # Valider le nouveau mot de passe
+            from django.contrib.auth.password_validation import validate_password
+            from django.core.exceptions import ValidationError
+            
+            try:
+                validate_password(new_password)
+            except ValidationError as e:
+                return Response({
+                    'error': 'Mot de passe invalide',
+                    'details': {'new_password': e.messages[0]}
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Mettre à jour le mot de passe
+            user = reset_token.user
+            user.set_password(new_password)
+            user.save()
+            
+            # Marquer le token comme utilisé
+            reset_token.is_used = True
+            reset_token.save()
+            
+            log_event(request, 'password_reset', 'success', risk_score=0, metadata={'user_email': user.email})
+            return Response({
+                'message': 'Mot de passe mis à jour avec succès.'
+            }, status=200)
+            
+        except PasswordResetToken.DoesNotExist:
+            log_event(request, 'password_reset', 'failure', risk_score=100, metadata={'reason': 'Token invalide'})
+            return Response({'error': 'Token invalide.'}, status=400)
+
+    @action(detail=False, methods=['post'])
     def refresh_token(self, request):
         """Endpoint pour rafraîchir un token d'accès."""
         refresh_token = request.data.get('refresh')
@@ -230,7 +343,6 @@ class UserViewSet(viewsets.ModelViewSet):
                     'id': tech.id,
                     'specialty': tech.specialty,
                     'phone': tech.phone,
-                    'is_verified': tech.is_verified,
                     'years_experience': tech.years_experience,
                 }
             except Technician.DoesNotExist:

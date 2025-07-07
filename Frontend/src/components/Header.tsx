@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, User, Phone, LogOut, Bell, Check, UserPlus, Plus, Dot } from 'lucide-react';
+import { Menu, X, User, Phone, LogOut, Bell, Check, UserPlus, Plus, Dot, MessageSquare } from 'lucide-react';
 import { useAuth, NotificationWS } from '../contexts/AuthContext';
 import Logo from './Logo';
 import axios from 'axios';
@@ -29,18 +29,22 @@ function getEventStyle(type) {
 const Header: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const { user, logout, wsNotifications, allNotifications, consumeWsNotification } = useAuth();
+  const { user, logout, wsNotifications, allNotifications, consumeWsNotification, toast, unreadMessagesCount } = useAuth();
   const [allNotifs, setAllNotifications] = useState(allNotifications);
   const location = useLocation();
   const [notifOpen, setNotifOpen] = useState(false);
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
   const [deletingNotifications, setDeletingNotifications] = useState<Set<number>>(new Set());
   const [selectedNotification, setSelectedNotification] = useState<any | null>(null);
   const [notificationDetails, setNotificationDetails] = useState<any | null>(null);
   const [senderDetails, setSenderDetails] = useState<any | null>(null);
   const [geoCoords, setGeoCoords] = useState<{ lat: number, lon: number } | null>(null);
   const navigate = useNavigate();
+  const [bellAnim, setBellAnim] = useState(false);
+  const notifMenuRef = useRef<HTMLDivElement>(null);
+  const bellBtnRef = useRef<HTMLButtonElement>(null);
+  const [notifMenuPos, setNotifMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const unreadCount = allNotifications.filter(n => !n.is_read).length;
 
   // Handle scroll for transparent header
   useEffect(() => {
@@ -89,6 +93,45 @@ const Header: React.FC = () => {
       setNotificationDetails(null);
     }
   }, [selectedNotification]);
+
+  // Animation de la cloche à l'arrivée d'une nouvelle notif non lue
+  useEffect(() => {
+    if (unreadCount > 0) {
+      setBellAnim(true);
+      const timeout = setTimeout(() => setBellAnim(false), 1200);
+      return () => clearTimeout(timeout);
+    }
+  }, [unreadCount]);
+
+  // Calcul dynamique de la position du menu notifications
+  const openNotifMenu = () => {
+    if (bellBtnRef.current) {
+      const rect = bellBtnRef.current.getBoundingClientRect();
+      // Place le menu sous la navbar (top = rect.bottom + 8px), left = aligné avec la cloche
+      setNotifMenuPos({
+        top: rect.bottom + 8 + window.scrollY, // 8px d'espace
+        left: rect.left + window.scrollX,
+      });
+    }
+    setNotifOpen(true);
+  };
+
+  // Fermer le menu notifications si on clique en dehors
+  useEffect(() => {
+    if (!notifOpen) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        notifMenuRef.current &&
+        !notifMenuRef.current.contains(event.target as Node) &&
+        bellBtnRef.current &&
+        !bellBtnRef.current.contains(event.target as Node)
+      ) {
+        setNotifOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [notifOpen]);
 
   const toggleMenu = () => setIsOpen(!isOpen);
   const closeMenu = () => setIsOpen(false);
@@ -196,6 +239,13 @@ const Header: React.FC = () => {
     }
   };
 
+  // Trie notifications par date décroissante
+  const sortedNotifications = [...allNotifications].sort((a, b) => {
+    const da = new Date(a.created_at || 0).getTime();
+    const db = new Date(b.created_at || 0).getTime();
+    return db - da;
+  });
+
   return (
     <header className={`fixed w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-white shadow-md py-2' : 'bg-transparent py-4'
       }`}>
@@ -276,49 +326,81 @@ const Header: React.FC = () => {
           )}
 
           {user && (
-            <div className="relative">
+            <div className="relative flex items-center space-x-4">
+              {/* Badge messages non lus */}
+              {unreadMessagesCount > 0 && (
+                <Link
+                  to="/chat"
+                  className="relative flex items-center focus:outline-none hover:opacity-80 transition-opacity"
+                  aria-label="Messages non lus"
+                >
+                  <MessageSquare className={isScrolled ? 'text-gray-800' : 'text-white'} />
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] flex items-center justify-center">
+                    {unreadMessagesCount}
+                  </span>
+                </Link>
+              )}
+
+              {/* Notifications */}
               <button
-                className="relative flex items-center focus:outline-none"
-                onClick={() => setNotifOpen(o => !o)}
+                ref={bellBtnRef}
+                className={`relative flex items-center focus:outline-none group ${bellAnim ? 'animate-bounce' : ''}`}
+                onClick={openNotifMenu}
                 aria-label="Notifications"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') openNotifMenu(); }}
               >
-                <Bell className={isScrolled ? 'text-gray-800' : 'text-white'} />
-                {allNotifications.filter(n => !n.is_read).length > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full px-1.5 py-0.5">{allNotifications.filter(n => !n.is_read).length}</span>
-                )}
+                <span className="relative">
+                  <Bell className={`${isScrolled ? 'text-gray-800' : 'text-white'} group-hover:text-orange-500 transition-colors duration-200`} size={26} />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-2 -right-2 flex items-center justify-center w-6 h-6 bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500 text-white text-xs font-bold rounded-full shadow-lg ring-2 ring-white animate-pulse select-none">
+                      {unreadCount}
+                    </span>
+                  )}
+                </span>
               </button>
-              {notifOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
-                  <div className="p-4 border-b font-bold text-gray-700 flex items-center justify-between">
+              {notifOpen && notifMenuPos && (
+                <div
+                  ref={notifMenuRef}
+                  className="fixed z-50 w-80 max-w-xs bg-white/80 backdrop-blur-lg rounded-2xl shadow-2xl max-h-96 overflow-y-auto animate-fade-in-up border border-gray-100 ring-1 ring-black/10"
+                  style={{ top: notifMenuPos.top, left: notifMenuPos.left, minWidth: '320px' }}
+                >
+                  <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-lg rounded-t-2xl p-4 border-b font-bold text-gray-700 flex items-center justify-between shadow-sm">
                     Notifications
-                    <button className="text-xs text-blue-600 hover:underline" onClick={() => setNotifOpen(false)}>Fermer</button>
+                    <button className="text-xs text-blue-600 hover:underline focus:outline-none" onClick={() => setNotifOpen(false)}>Fermer</button>
                   </div>
-                  <div className="px-4 py-2 flex items-center gap-2 border-b justify-between">
+                  <div className="px-4 py-2 flex items-center gap-2 border-b justify-between bg-white/70 sticky top-[56px] z-10">
                     <label className="flex items-center text-sm cursor-pointer">
-                      <input type="checkbox" checked={showUnreadOnly} onChange={e => setShowUnreadOnly(e.target.checked)} className="mr-2" />
+                      <input type="checkbox" checked={showUnreadOnly} onChange={e => setShowUnreadOnly(e.target.checked)} className="mr-2 focus:ring focus:ring-blue-300" />
                       Non lues seulement
                     </label>
-                    <button className="text-xs text-blue-600 hover:underline ml-auto" onClick={handleMarkAllAsRead} disabled={allNotifications.every(n => n.is_read)}>
+                    <button className="text-xs text-blue-600 hover:underline ml-auto focus:outline-none" onClick={handleMarkAllAsRead} disabled={allNotifications.every(n => n.is_read)}>
                       Tout marquer comme lu
                     </button>
                   </div>
-                  {allNotifications.length === 0 ? (
-                    <div className="p-4 text-gray-500 text-sm">Aucune notification</div>
+                  {sortedNotifications.length === 0 ? (
+                    <div className="p-6 text-gray-500 text-sm text-center">Aucune notification</div>
                   ) : (
-                    <ul>
+                    <ul className="divide-y divide-gray-100 scrollbar-thin scrollbar-thumb-blue-200 scrollbar-track-transparent">
                       {(showUnreadOnly
-                        ? allNotifications.filter(n => !n.is_read)
-                        : allNotifications.filter(isRecentlyRead)
+                        ? sortedNotifications.filter(n => !n.is_read)
+                        : sortedNotifications.filter(isRecentlyRead)
                       ).map((notif: any, i) => (
-                        <li key={notif.id || i} className="px-4 py-3 border-b last:border-b-0 hover:bg-gray-50 cursor-pointer flex justify-between items-center"
+                        <li
+                          key={notif.id || i}
+                          className={`px-5 py-4 flex gap-3 items-start transition-all duration-200 cursor-pointer group bg-white/60 hover:bg-orange-50/80 rounded-xl my-2 shadow-sm hover:shadow-lg ${!notif.is_read ? 'border-l-4 border-blue-500' : ''}`}
                           onClick={() => setSelectedNotification(notif)}
+                          tabIndex={0}
+                          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setSelectedNotification(notif); }}
+                          aria-label={notif.title}
                         >
-                          <div style={{ fontSize: '10px', color: 'red' }}>ID: {notif.id || 'Pas d\'ID'}</div>
-                          <div style={{ flex: 1 }}>
-                            <div className="font-semibold text-gray-900">{notif.title}</div>
-                            <div className="text-gray-700 text-sm">{notif.message}</div>
+                          <div className="flex flex-col flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-semibold text-gray-900 text-sm line-clamp-1">{notif.title}</span>
+                              {!notif.is_read && <span className="inline-block w-2.5 h-2.5 bg-blue-600 rounded-full animate-pulse shadow ring-2 ring-blue-200" title="Non lue"></span>}
+                            </div>
+                            <div className="text-gray-700 text-xs line-clamp-2 mb-1">{notif.message}</div>
                             <div className="text-xs text-gray-400 mt-1">{notif.created_at ? new Date(notif.created_at).toLocaleString('fr-FR') : ''}</div>
-                            {!notif.is_read && <span className="inline-block w-2 h-2 bg-blue-600 rounded-full ml-2 align-middle" title="Non lue"></span>}
                           </div>
                         </li>
                       ))}
@@ -459,12 +541,16 @@ const Header: React.FC = () => {
             <button className="absolute top-2 right-2 text-gray-500 hover:text-gray-800" onClick={() => setSelectedNotification(null)}>✕</button>
 
             {/* Badge type notification */}
-            <div className={`inline-block px-3 py-1 rounded-full text-xs font-semibold mb-3 ${selectedNotification.type === 'request_accepted' ? 'bg-green-100 text-green-700' :
-              selectedNotification.type === 'request_assigned' ? 'bg-blue-100 text-blue-700' :
-                selectedNotification.type === 'new_request' ? 'bg-orange-100 text-orange-700' :
-                  'bg-gray-200 text-gray-700'
+            <div className={`inline-block px-3 py-1 rounded-full text-xs font-semibold mb-3
+              ${selectedNotification.type === 'request_accepted' ? 'bg-green-100 text-green-700' :
+                selectedNotification.type === 'request_assigned' || selectedNotification.type === 'technician_assigned' ? 'bg-blue-100 text-blue-700 border border-blue-400' :
+                  selectedNotification.type === 'new_request' ? 'bg-orange-100 text-orange-700' :
+                    'bg-gray-200 text-gray-700'
               }`}>
               {selectedNotification.type.replace(/_/g, ' ')}
+              {['technician_assigned', 'request_assigned'].includes(selectedNotification.type) && (
+                <span className="ml-2 inline-block bg-blue-600 text-white px-2 py-0.5 rounded-full text-[10px] align-middle">Important</span>
+              )}
             </div>
 
             <h2 className="text-lg font-bold mb-2">{selectedNotification.title}</h2>
@@ -474,17 +560,18 @@ const Header: React.FC = () => {
             {/* Actions rapides */}
             <div className="flex gap-2 mb-4">
               {/* Voir la demande */}
-              {notificationDetails && notificationDetails.id && (
-                <button
-                  className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs"
-                  onClick={() => {
-                    setSelectedNotification(null);
-                    navigate(`/admin/requests/${notificationDetails.id}`);
-                  }}
-                >
-                  Voir la demande
-                </button>
-              )}
+              {notificationDetails && notificationDetails.id &&
+                (['technician_assigned', 'request_assigned'].includes(selectedNotification.type)) && (
+                  <button
+                    className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs"
+                    onClick={() => {
+                      setSelectedNotification(null);
+                      navigate(`/requests/${notificationDetails.id}`);
+                    }}
+                  >
+                    Voir la demande
+                  </button>
+                )}
               {/* Contacter (téléphone ou email) */}
               {user && user.user_type === 'technician' && notificationDetails && notificationDetails.client_phone && (
                 <a
@@ -511,127 +598,6 @@ const Header: React.FC = () => {
                 </a>
               )}
             </div>
-
-            {/* Section Émetteur */}
-            {(senderDetails || (notificationDetails && notificationDetails.technician)) && (
-              <div className="mb-4">
-                <div className="font-semibold text-sm mb-1 text-blue-700">Émetteur</div>
-                {senderDetails ? (
-                  <>
-                    <div>Nom : {senderDetails.username || senderDetails.first_name || 'N/A'}</div>
-                    <div>Rôle : {senderDetails.user_type || 'N/A'}</div>
-                    {/* Affichage conditionnel selon le rôle */}
-                    {user && user.user_type === 'admin' && (
-                      <div>Email : {senderDetails.email || 'N/A'}</div>
-                    )}
-                    {user && user.user_type === 'client' && (
-                      <div>Contact : {senderDetails.phone_number || 'N/A'}</div>
-                    )}
-                  </>
-                ) : (
-                  <div>Chargement...</div>
-                )}
-              </div>
-            )}
-
-            {/* Section Détails de la demande */}
-            {notificationDetails && (
-              <div className="mb-4">
-                <div className="font-semibold text-sm mb-1 text-green-700">Détails de la demande</div>
-                <div>ID Demande : {notificationDetails.id}</div>
-                {/* Affichage conditionnel selon le rôle */}
-                {user && user.user_type === 'admin' && (
-                  <>
-                    <div>Client : {notificationDetails.client_name || notificationDetails.client || 'N/A'}</div>
-                    <div>Email client : {notificationDetails.client_email || 'N/A'}</div>
-                  </>
-                )}
-                {user && user.user_type === 'technician' && (
-                  <div>Client : {notificationDetails.client_name || notificationDetails.client || 'N/A'}</div>
-                )}
-                {user && user.user_type === 'client' && senderDetails && (
-                  <div>Technicien : {senderDetails.username || senderDetails.first_name || 'N/A'}</div>
-                )}
-                <div>Type de service : {notificationDetails.service_type || 'N/A'}</div>
-              </div>
-            )}
-
-            {/* Section Localisation */}
-            {notificationDetails && (notificationDetails.address || notificationDetails.city) && (
-              <div className="mb-4">
-                <div className="font-semibold text-sm mb-1 text-purple-700">Localisation</div>
-                <div>Adresse : {notificationDetails.address || 'N/A'}</div>
-                <div>Ville : {notificationDetails.city || 'N/A'}</div>
-                {/* Carte si coordonnées présentes ou géocodées */}
-                {(notificationDetails.latitude && notificationDetails.longitude) ? (
-                  <div className="mt-2">
-                    <MapContainer
-                      center={[notificationDetails.latitude, notificationDetails.longitude]}
-                      zoom={15}
-                      style={{ height: '200px', width: '100%' }}
-                      scrollWheelZoom={false}
-                    >
-                      <TileLayer
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        attribution="&copy; OpenStreetMap contributors"
-                      />
-                      <Marker position={[notificationDetails.latitude, notificationDetails.longitude]}>
-                        <Popup>
-                          {notificationDetails.address || 'Localisation'}
-                        </Popup>
-                      </Marker>
-                    </MapContainer>
-                  </div>
-                ) : geoCoords ? (
-                  <div className="mt-2">
-                    <div className="text-xs text-orange-600 mb-1">Localisation estimée</div>
-                    <MapContainer
-                      center={[geoCoords.lat, geoCoords.lon]}
-                      zoom={15}
-                      style={{ height: '200px', width: '100%' }}
-                      scrollWheelZoom={false}
-                    >
-                      <TileLayer
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        attribution="&copy; OpenStreetMap contributors"
-                      />
-                      <Marker position={[geoCoords.lat, geoCoords.lon]}>
-                        <Popup>
-                          {notificationDetails.address || 'Localisation estimée'}
-                        </Popup>
-                      </Marker>
-                    </MapContainer>
-                  </div>
-                ) : null}
-              </div>
-            )}
-
-            {/* Timeline / Historique */}
-            <div className="mb-2">
-              <div className="font-semibold text-sm mb-1 text-gray-700">Historique de la demande</div>
-              {notificationDetails && Array.isArray(notificationDetails.history) && notificationDetails.history.length > 0 ? (
-                <ul className="border-l-2 border-gray-200 pl-3 space-y-2">
-                  {notificationDetails.history.map((event: any, idx: number) => {
-                    const style = getEventStyle(event.type);
-                    // Mettre en avant l'événement courant (même type et date que la notif)
-                    const isCurrent = selectedNotification && event.type === selectedNotification.type &&
-                      (event.date && selectedNotification.created_at && new Date(event.date).getTime() === new Date(selectedNotification.created_at).getTime());
-                    return (
-                      <li key={idx} className={`relative flex items-center gap-2 ${isCurrent ? 'font-bold text-blue-700' : ''}`}>
-                        <span className={`absolute -left-3 top-1 w-5 h-5 flex items-center justify-center rounded-full border-2 border-white shadow ${style.color}`}>{style.icon}</span>
-                        <span className="text-xs text-gray-500 ml-4">{event.date ? new Date(event.date).toLocaleString('fr-FR') : ''}</span>
-                        <span className="ml-2 font-semibold text-xs text-gray-800">{event.type ? event.type.replace(/_/g, ' ') : ''}</span>
-                        {event.author && <span className="ml-2 text-xs text-gray-600">par {event.author}</span>}
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <div className="text-xs text-gray-400">Aucun historique disponible</div>
-              )}
-            </div>
-
-            {/* TODO : Adapter selon le rôle utilisateur, ajouter carte, etc. */}
           </div>
         </div>
       )}

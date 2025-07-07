@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-<<<<<<< HEAD
 import imageHero from '../assets/image/image.png';
-=======
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -11,7 +9,6 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import { fetchWithAuth } from '../contexts/fetchWithAuth';
->>>>>>> 158cf2b9870950b3674de3ecd784436c65dba68a
 
 const Profile: React.FC = () => {
     const { user, fetchUser, updateUserProfile, logout } = useAuth();
@@ -20,6 +17,9 @@ const Profile: React.FC = () => {
         last_name: '',
         email: '',
         phone: '',
+        specialty: '',
+        years_experience: '',
+        address: '',
     });
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
@@ -43,7 +43,10 @@ const Profile: React.FC = () => {
                 first_name: user.first_name || '',
                 last_name: user.last_name || '',
                 email: user.email || '',
-                phone: user.client?.phone || user.technician?.phone || '',
+                phone: user.user_type === 'client' ? user.client?.phone || '' : user.technician?.phone || '',
+                specialty: user.technician?.specialty || '',
+                years_experience: user.technician?.years_experience?.toString() || '',
+                address: user.technician?.address || '',
             });
         }
     }, [user]);
@@ -55,7 +58,7 @@ const Profile: React.FC = () => {
 
     // Bloquer navigation si numéro manquant
     useEffect(() => {
-        if (user && !(user.client?.phone || user.technician?.phone)) {
+        if (user && !((user.user_type === 'client' && user.client?.phone) || (user.user_type === 'technician' && user.technician?.phone))) {
             setError('Vous devez renseigner un numéro de téléphone pour continuer.');
         }
     }, [user]);
@@ -63,7 +66,7 @@ const Profile: React.FC = () => {
     // Charger la localisation du client au chargement
     useEffect(() => {
         const fetchLocation = async () => {
-            const clientId = user?.client?.id;
+            const clientId = user?.user_type === 'client' ? user.client?.id : undefined;
             if (!clientId) return;
             const res = await fetchWithAuth(`/depannage/api/client-locations/?client=${clientId}`);
             const data = await res.json();
@@ -73,8 +76,8 @@ const Profile: React.FC = () => {
                 setClientLocation(null);
             }
         };
-        if (user?.client?.id) fetchLocation();
-    }, [user, geoStatus]); // recharge si user ou géoloc change
+        if (user?.user_type === 'client' && user.client?.id) fetchLocation();
+    }, [user, geoStatus]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -110,7 +113,7 @@ const Profile: React.FC = () => {
         setGeoLoading(true);
         setGeoStatus(null);
         try {
-            const clientId = user?.client?.id;
+            const clientId = user?.user_type === 'client' ? user.client?.id : undefined;
             if (!clientId) {
                 setGeoStatus("Impossible de trouver le profil client.");
                 setGeoLoading(false);
@@ -238,6 +241,71 @@ const Profile: React.FC = () => {
                             required
                         />
                     </div>
+                    {/* Champs spécifiques technicien */}
+                    {user?.user_type === 'technician' && user.technician && (
+                        <>
+                            <div>
+                                <label htmlFor="specialty" className="block text-sm font-medium text-gray-700 mb-1">Spécialité</label>
+                                <input
+                                    id="specialty"
+                                    name="specialty"
+                                    type="text"
+                                    value={formData.specialty}
+                                    onChange={handleChange}
+                                    className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="years_experience" className="block text-sm font-medium text-gray-700 mb-1">Années d'expérience</label>
+                                <input
+                                    id="years_experience"
+                                    name="years_experience"
+                                    type="number"
+                                    min="0"
+                                    value={formData.years_experience}
+                                    onChange={handleChange}
+                                    className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
+                                <input
+                                    id="address"
+                                    name="address"
+                                    type="text"
+                                    value={formData.address}
+                                    onChange={handleChange}
+                                    className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2 mt-2">
+                                <span className="font-medium text-gray-700">Pièces jointes :</span>
+                                {user.technician.piece_identite && (
+                                    <a
+                                        href={user.technician.piece_identite}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 underline"
+                                    >
+                                        Télécharger la pièce d'identité
+                                    </a>
+                                )}
+                                {user.technician.certificat_residence && (
+                                    <a
+                                        href={user.technician.certificat_residence}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 underline"
+                                    >
+                                        Télécharger le certificat de résidence
+                                    </a>
+                                )}
+                            </div>
+                        </>
+                    )}
                     <button
                         type="submit"
                         className="w-full py-3 bg-blue-600 text-white rounded-md font-semibold hover:bg-blue-700 transition-colors"

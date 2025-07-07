@@ -97,11 +97,56 @@ class OTPChallenge(models.Model):
         return timezone.now() > self.expires_at or self.is_used
 
 class SecurityNotification(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     subject = models.CharField(max_length=255)
     message = models.TextField()
     sent_at = models.DateTimeField(auto_now_add=True)
     event_type = models.CharField(max_length=64, blank=True, null=True)
 
     def __str__(self):
-        return f"{self.user.email} - {self.subject} ({self.sent_at:%Y-%m-%d %H:%M})"
+        return f"{self.subject} - {self.user.email} ({self.sent_at})"
+
+class PasswordResetToken(models.Model):
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+    token = models.CharField(max_length=100, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_used = models.BooleanField(default=False)
+
+    def is_expired(self):
+        return timezone.now() > self.expires_at or self.is_used
+
+    def __str__(self):
+        return f"Reset token for {self.user.email} - {'Used' if self.is_used else 'Active'}"
+
+class PieceJointe(models.Model):
+    TYPE_CHOICES = [
+        ("carte_identite", "Carte d'identité nationale"),
+        ("carte_biometrique", "Carte biométrique"),
+        ("passeport", "Passeport"),
+        ("certificat_residence", "Certificat de résidence"),
+    ]
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="pieces_jointes")
+    type_piece = models.CharField(max_length=32, choices=TYPE_CHOICES)
+    fichier = models.FileField(upload_to="pieces_jointes/")
+    date_upload = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Pièce jointe justificative"
+        verbose_name_plural = "Pièces jointes justificatives"
+        ordering = ["-date_upload"]
+
+    def __str__(self):
+        return f"{self.get_type_piece_display()} - {self.user.username} ({self.date_upload:%d/%m/%Y})"
+
+class TechnicianProfile(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='technician_profile')
+    piece_identite = models.FileField(upload_to='technician_docs/')
+    certificat_residence = models.FileField(upload_to='technician_docs/')
+    specialty = models.CharField(max_length=100)
+    years_experience = models.PositiveIntegerField(default=0)
+    phone = models.CharField(max_length=20)
+    address = models.CharField(max_length=255, blank=True)
+
+    def __str__(self):
+        return f"{self.user.username} ({self.specialty})"

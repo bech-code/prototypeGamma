@@ -36,6 +36,7 @@ const Login: React.FC = () => {
       // La redirection sera gérée par le useEffect ci-dessous
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Identifiants invalides');
+    } finally {
       setIsLoading(false);
     }
   };
@@ -83,9 +84,9 @@ const Login: React.FC = () => {
           <div className="p-6">
             <h2 className="text-2xl font-bold text-center text-gray-900 mb-6">Connexion</h2>
 
-            {error && (
+            {(error || authError) && (
               <div className="mb-4 bg-red-50 border-l-4 border-red-500 p-4">
-                <p className="text-red-700">{error}</p>
+                <p className="text-red-700">{error || authError}</p>
               </div>
             )}
 

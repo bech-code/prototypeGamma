@@ -95,6 +95,8 @@ class RepairRequestSerializer(serializers.ModelSerializer):
     technician = TechnicianSerializer(read_only=True)
     payment_status = serializers.SerializerMethodField()
     review = ReviewSerializer(read_only=True, allow_null=True)
+    no_show_count = serializers.IntegerField(read_only=True)
+    mission_validated = serializers.BooleanField(read_only=True)
     
     class Meta:
         model = RepairRequest
@@ -104,7 +106,9 @@ class RepairRequestSerializer(serializers.ModelSerializer):
             'preferred_date', 'assigned_at', 'started_at', 'completed_at',
             'estimated_price', 'final_price', 'travel_cost',
             'is_urgent', 'city', 'postalCode', 'date', 'time', 'service_type',
-            'created_at', 'updated_at', 'payment_status', 'review'
+            'no_show_count', 'mission_validated',
+            'payment_status', 'review', 'conversation',
+            'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'uuid', 'created_at', 'updated_at', 'assigned_at', 'started_at', 'completed_at']
 
@@ -219,13 +223,14 @@ class RepairRequestCreateSerializer(serializers.ModelSerializer):
     min_rating = serializers.IntegerField(required=False, min_value=1, max_value=5)
     latitude = serializers.FloatField(required=False)
     longitude = serializers.FloatField(required=False)
+    status = serializers.ChoiceField(choices=RepairRequest.Status.choices, required=False)
     
     class Meta:
         model = RepairRequest
         fields = [
             'title', 'description', 'address', 'specialty_needed', 'priority', 'estimated_price',
             'urgency_level', 'min_experience_level', 'min_rating', 'latitude', 'longitude',
-            'is_urgent', 'city', 'postalCode', 'date', 'time', 'service_type'
+            'is_urgent', 'city', 'postalCode', 'date', 'time', 'service_type', 'status'
         ]
         extra_kwargs = {
             'title': {'required': False},

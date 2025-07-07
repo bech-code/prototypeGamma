@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { MapPin, Upload, Calendar, Clock, Info } from 'lucide-react';
 import { Service } from '../types/service';
 import { fetchWithAuth } from '../contexts/fetchWithAuth';
@@ -320,6 +320,8 @@ const bamakoCities = [
 const BookingForm: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const draftId = searchParams.get('draftId');
   const [step, setStep] = useState(1);
 
   // État du formulaire
@@ -427,6 +429,47 @@ const BookingForm: React.FC = () => {
       }));
     }
   }, [location.state]);
+
+  useEffect(() => {
+    if (draftId) {
+      // Charger le brouillon depuis l'API
+      const fetchDraft = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const response = await fetch(`http://127.0.0.1:8000/depannage/api/repair-requests/${draftId}/`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setFormData({
+              serviceId: data.specialty_needed || '',
+              address: data.address || '',
+              city: data.city || '',
+              postalCode: data.postalCode || '',
+              description: data.description || '',
+              date: data.date || '',
+              time: data.time || '',
+              isUrgent: data.is_urgent || false,
+              phone: data.phone || '',
+              photos: [],
+              photosPreviews: [],
+              quartier: data.quartier || '',
+              commune: data.commune || '',
+            });
+            if (data.latitude && data.longitude) {
+              setUserLocation({ lat: data.latitude, lng: data.longitude });
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+      };
+      fetchDraft();
+    }
+  }, [draftId]);
 
   // Auto-complétion Nominatim pour le champ adresse
   const handleAddressChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -568,75 +611,91 @@ const BookingForm: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('[DEBUG] handleSubmit appelé');
-    setIsSubmitting(true);
     setError(null);
-
-    if (!userLocation || typeof userLocation.lat !== 'number' || typeof userLocation.lng !== 'number' || isNaN(userLocation.lat) || isNaN(userLocation.lng)) {
-      setIsSubmitting(false);
-      setShowGeoModal(true);
-      console.log('[DEBUG] Blocage: géolocalisation absente ou invalide', userLocation);
-      const geoBtn = document.getElementById('get-location-btn');
-      if (geoBtn) geoBtn.focus();
-      return;
-    }
-
-    const rawPhone = formData.phone;
-    const cleanedPhone = rawPhone.replace(/\s+/g, '');
-    // Validation téléphone Mali (accepte espaces, mais exige 8 chiffres après +223)
-    const phoneRegex = /^\+223\d{8}$/;
-    if (!phoneRegex.test(cleanedPhone)) {
-      setPhoneError('Le numéro doit commencer par +223 et contenir 8 chiffres après (espaces autorisés).');
-      setError('Le numéro doit commencer par +223 et contenir 8 chiffres après (espaces autorisés).');
-      setIsSubmitting(false);
-      console.log('[DEBUG] Blocage: téléphone invalide', rawPhone);
-      const phoneInput = document.getElementById('phone-input');
-      if (phoneInput) phoneInput.focus();
-      return;
-    }
-
-    if (!formData.city) {
-      setCityError('La ville est requise.');
-      setError('La ville est requise.');
-      setIsSubmitting(false);
-      console.log('[DEBUG] Blocage: ville absente');
-      // Focus sur le champ ville
-      const cityInput = document.getElementById('city-input');
-      if (cityInput) cityInput.focus();
-      return;
-    }
-
+    setIsSubmitting(true);
     try {
-      // Formater la date et l'heure
-      const preferredDate = formData.date && formData.time
-        ? new Date(`${formData.date}T${formData.time === 'morning' ? '10:00' : formData.time === 'afternoon' ? '14:00' : '18:00'}`).toISOString()
-        : null;
+      let response;
+      // Déplacer la déclaration de cleanedPhone ici, avant le if/else
+      const rawPhone = formData.phone;
+      const cleanedPhone = rawPhone.replace(/\s+/g, '');
 
-      // Créer la demande de réparation
-      const repairRequestData = {
-        title: `Demande de ${services.find(s => s.id === formData.serviceId)?.name}`,
-        description: formData.description,
-        specialty_needed: formData.serviceId,
-        address: `${formData.address}, ${formData.city} ${formData.postalCode}`,
-        preferred_date: preferredDate,
-        is_urgent: formData.isUrgent,
-        priority: formData.isUrgent ? 'urgent' : 'medium',
-        estimated_price: services.find(s => s.id === formData.serviceId)?.startingPrice || 0,
-        latitude: userLocation.lat,
-        longitude: userLocation.lng,
-        phone: cleanedPhone,
-      };
+      if (draftId) {
+        // Mise à jour du brouillon existant
+        const repairRequestData = {
+          title: `Demande de ${services.find(s => s.id === formData.serviceId)?.name}`,
+          description: formData.description,
+          specialty_needed: formData.serviceId,
+          address: `${formData.address}, ${formData.city} ${formData.postalCode}`,
+          priority: formData.isUrgent ? 'urgent' : 'medium',
+          estimated_price: services.find(s => s.id === formData.serviceId)?.startingPrice || 0,
+          latitude: userLocation && typeof userLocation.lat === 'number' ? userLocation.lat : null,
+          longitude: userLocation && typeof userLocation.lng === 'number' ? userLocation.lng : null,
+          phone: cleanedPhone,
+          status: 'pending',
+        };
+        response = await fetchWithAuth(`http://127.0.0.1:8000/depannage/api/repair-requests/${draftId}/`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(repairRequestData),
+        });
+      } else {
+        // Création classique
+        // Validation téléphone Mali (accepte espaces, mais exige 8 chiffres après +223)
+        const phoneRegex = /^\+223\d{8}$/;
+        if (!phoneRegex.test(cleanedPhone)) {
+          setPhoneError('Le numéro doit commencer par +223 et contenir 8 chiffres après (espaces autorisés).');
+          setError('Le numéro doit commencer par +223 et contenir 8 chiffres après (espaces autorisés).');
+          setIsSubmitting(false);
+          console.log('[DEBUG] Blocage: téléphone invalide', rawPhone);
+          const phoneInput = document.getElementById('phone-input');
+          if (phoneInput) phoneInput.focus();
+          return;
+        }
 
-      console.log('Body envoyé au backend:', repairRequestData);
+        if (!formData.city) {
+          setCityError('La ville est requise.');
+          setError('La ville est requise.');
+          setIsSubmitting(false);
+          console.log('[DEBUG] Blocage: ville absente');
+          // Focus sur le champ ville
+          const cityInput = document.getElementById('city-input');
+          if (cityInput) cityInput.focus();
+          return;
+        }
 
-      // Envoyer la demande au backend
-      const response = await fetchWithAuth('http://127.0.0.1:8000/depannage/api/repair-requests/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(repairRequestData),
-      });
+        // Formater la date et l'heure
+        const preferredDate = formData.date && formData.time
+          ? new Date(`${formData.date}T${formData.time === 'morning' ? '10:00' : formData.time === 'afternoon' ? '14:00' : '18:00'}`).toISOString()
+          : null;
+
+        // Créer la demande de réparation
+        const repairRequestData = {
+          title: `Demande de ${services.find(s => s.id === formData.serviceId)?.name}`,
+          description: formData.description,
+          specialty_needed: formData.serviceId,
+          address: `${formData.address}, ${formData.city} ${formData.postalCode}`,
+          preferred_date: preferredDate,
+          is_urgent: formData.isUrgent,
+          priority: formData.isUrgent ? 'urgent' : 'medium',
+          estimated_price: services.find(s => s.id === formData.serviceId)?.startingPrice || 0,
+          latitude: userLocation && typeof userLocation.lat === 'number' ? userLocation.lat : null,
+          longitude: userLocation && typeof userLocation.lng === 'number' ? userLocation.lng : null,
+          phone: cleanedPhone,
+        };
+
+        console.log('Body envoyé au backend:', repairRequestData);
+
+        // Envoyer la demande au backend
+        response = await fetchWithAuth('http://127.0.0.1:8000/depannage/api/repair-requests/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(repairRequestData),
+        });
+      }
 
       const rawText = await response.clone().text();
       const data = await response.json().catch(() => ({}));
@@ -678,7 +737,13 @@ const BookingForm: React.FC = () => {
       };
 
       console.log('[DEBUG] Redirection vers /payment avec paymentData:', paymentData);
-      navigate('/payment', { state: { paymentData } });
+      // Supprimer la redirection vers le paiement
+      // navigate('/payment', { state: { paymentData } });
+
+      // Afficher un message de confirmation à l'utilisateur
+      setError(null);
+      alert('Votre demande a bien été envoyée et est en attente de mise en relation avec un technicien. Vous serez notifié dès qu\'un professionnel sera assigné.');
+      navigate('/customer-dashboard');
 
     } catch (error: unknown) {
       console.error('Erreur lors de la soumission:', error);
@@ -687,6 +752,52 @@ const BookingForm: React.FC = () => {
       } else {
         setError('Erreur lors de la création de la demande');
       }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Nouvelle fonction pour sauvegarder le brouillon
+  const handleSaveDraft = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      // Même logique que handleSubmit mais statut draft
+      const rawPhone = formData.phone;
+      const cleanedPhone = rawPhone.replace(/\s+/g, '');
+      const repairRequestData = {
+        title: `Demande de ${services.find(s => s.id === formData.serviceId)?.name}`,
+        description: formData.description,
+        specialty_needed: formData.serviceId,
+        address: `${formData.address}, ${formData.city} ${formData.postalCode}`,
+        priority: formData.isUrgent ? 'urgent' : 'medium',
+        estimated_price: services.find(s => s.id === formData.serviceId)?.startingPrice || 0,
+        latitude: userLocation && typeof userLocation.lat === 'number' ? userLocation.lat : null,
+        longitude: userLocation && typeof userLocation.lng === 'number' ? userLocation.lng : null,
+        phone: cleanedPhone,
+        status: 'draft',
+      };
+      const response = await fetchWithAuth('http://127.0.0.1:8000/depannage/api/repair-requests/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(repairRequestData),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        let errorMsg = data.detail || data.message || 'Erreur lors de la sauvegarde du brouillon';
+        setError(errorMsg);
+        alert('Erreur lors de la sauvegarde du brouillon: ' + errorMsg);
+        throw new Error(errorMsg);
+      }
+      setError(null);
+      alert('Votre brouillon a bien été sauvegardé. Vous pouvez le retrouver dans votre tableau de bord client.');
+      navigate('/customer-dashboard');
+    } catch (error: unknown) {
+      if (error instanceof Error) setError(error.message);
+      else setError('Erreur lors de la sauvegarde du brouillon');
     } finally {
       setIsSubmitting(false);
     }
@@ -1102,22 +1213,23 @@ const BookingForm: React.FC = () => {
               >
                 Retour
               </button>
-              <button
-                type="submit"
-                className="py-2 px-6 bg-orange-500 text-white rounded-md hover:bg-orange-600 disabled:bg-orange-300 disabled:cursor-not-allowed flex items-center"
-                disabled={isSubmitting}
-                onClick={() => console.log('[DEBUG] Bouton Finaliser la Réservation cliqué')}
-              >
-                {isSubmitting ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Traitement...
-                  </>
-                ) : 'Finaliser la Réservation'}
-              </button>
+              <div className="flex gap-4 mt-8">
+                <button
+                  type="submit"
+                  className="inline-flex items-center px-6 py-3 bg-blue-700 hover:bg-blue-800 text-white font-semibold rounded-lg shadow transition-colors disabled:opacity-60"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Envoi en cours...' : 'Envoyer la demande'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveDraft}
+                  className="inline-flex items-center px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg shadow transition-colors disabled:opacity-60"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Sauvegarde...' : 'Sauvegarder le brouillon'}
+                </button>
+              </div>
             </div>
           </form>
         );

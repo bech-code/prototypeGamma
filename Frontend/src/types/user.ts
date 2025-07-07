@@ -1,9 +1,18 @@
+export interface Client {
+  id: number;
+  address: string;
+  phone: string;
+}
+
 export interface Technician {
   id: number;
   specialty: string;
   phone: string;
   is_verified: boolean;
   years_experience: number;
+  piece_identite?: string;
+  certificat_residence?: string;
+  address?: string;
 }
 
 export interface User {
@@ -18,6 +27,7 @@ export interface User {
   created_at: string;
   updated_at: string;
   technician?: Technician;
+  client?: Client;
 }
 
 export interface Profile {

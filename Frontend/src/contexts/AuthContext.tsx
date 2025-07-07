@@ -5,13 +5,13 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 dayjs.extend(relativeTime);
 
-export type AuthContextType = {
+type AuthContextType = {
   user: User | null;
   token: string | null;
   profile: Profile | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (userData: RegisterData) => Promise<void>;
+  register: (userData: RegisterData | FormData) => Promise<void>;
   logout: () => void;
   loading: boolean;
   error: string | null;
@@ -26,6 +26,10 @@ export type AuthContextType = {
   wsNotifications: NotificationWS[];
   allNotifications: NotificationWS[];
   consumeWsNotification: () => void;
+  toast: string | null;
+  setToast: (toast: string | null) => void;
+  updateUnreadMessagesCount: (count: number) => void;
+  unreadMessagesCount: number;
 };
 
 interface RegisterData {
@@ -47,7 +51,7 @@ export const AuthContext = React.createContext<AuthContextType | undefined>(unde
 
 // Configure axios defaults
 axios.defaults.baseURL = 'http://127.0.0.1:8000';
-axios.defaults.headers.common['Content-Type'] = 'application/json';
+// axios.defaults.headers.common['Content-Type'] = 'application/json'; // SUPPRIMÉ pour éviter d'écraser le Content-Type lors de l'envoi de FormData
 
 // Variable pour éviter les boucles de refresh
 let isRefreshing = false;
@@ -240,7 +244,7 @@ const ReauthModal: React.FC<{
   );
 };
 
-export type NotificationWS = {
+type NotificationWS = {
   id?: number;
   title: string;
   message: string;
@@ -249,7 +253,7 @@ export type NotificationWS = {
   is_read?: boolean;
 };
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -266,7 +270,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [wsNotifications, setWsNotifications] = useState<NotificationWS[]>([]);
   const [allNotifications, setAllNotifications] = useState<NotificationWS[]>([]);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   // Initialize token from localStorage
   useEffect(() => {
@@ -534,6 +540,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             error.response?.data?.message ||
             'Données invalides';
           setError(message);
+        } else if (error.response?.status === 404) {
+          setError('Email ou mot de passe incorrect');
         } else {
           setError(`Erreur serveur: ${error.response?.status || 'Inconnue'}`);
         }
@@ -547,12 +555,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (userData: RegisterData) => {
+  const register = async (userData: RegisterData | FormData) => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await axios.post('/users/register/', userData);
+      let response;
+      if (userData instanceof FormData) {
+        response = await axios.post('/users/register/', userData);
+      } else {
+        response = await axios.post('/users/register/', userData);
+      }
 
       if (!response.data) {
         throw new Error('Empty response from server');
@@ -589,30 +602,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         throw new Error('Impossible de récupérer les données utilisateur');
       }
-    } catch (error: unknown) {
-      console.error('Registration error:', error);
-
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 400) {
-          const details = error.response?.data?.details;
-          if (details) {
-            const errorMessages = Object.values(details).filter(Boolean);
-            setError(errorMessages.join(', '));
-          } else {
-            const message = error.response?.data?.detail ||
-              error.response?.data?.message ||
-              'Données invalides';
-            setError(message);
-          }
+    } catch (error: any) {
+      if (error.response && error.response.data) {
+        const data = error.response.data;
+        if (data.details) {
+          // Concatène tous les messages d'erreur du backend
+          const messages = Object.entries(data.details)
+            .map(([field, msg]) => `${field}: ${msg}`)
+            .join(' | ');
+          setError(messages);
+        } else if (typeof data === 'string') {
+          setError(data);
+        } else if (data.detail) {
+          setError(data.detail);
+        } else if (data.message) {
+          setError(data.message);
         } else {
-          setError(`Erreur serveur: ${error.response?.status || 'Inconnue'}`);
+          setError('Erreur inconnue lors de l\'inscription');
         }
-      } else if (error instanceof Error) {
-        setError(error.message || 'Échec de l\'inscription');
+      } else if (error.message) {
+        setError(error.message);
       } else {
-        setError('Échec de l\'inscription');
+        setError('Erreur inconnue lors de l\'inscription');
       }
-
       throw error;
     } finally {
       setLoading(false);
@@ -841,6 +853,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           };
           setWsNotifications(prev => [wsNotif, ...prev]);
           setAllNotifications(prev => [wsNotif, ...prev]);
+          // Afficher un toast si notification d'assignation technicien
+          if (notif.type === 'technician_assigned' || notif.type === 'request_assigned') {
+            let techName = '';
+            if (notif.extra && notif.extra.technician_name) {
+              techName = notif.extra.technician_name;
+            }
+            setToast(`${techName ? `👨‍🔧 ${techName} est en route pour votre demande !` : 'Un technicien est en route pour votre demande !'}`);
+            setTimeout(() => setToast(null), 5000);
+          }
         } catch { }
       };
       ws.onerror = (e) => { };
@@ -858,6 +879,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Méthode pour consommer une notification (ex: marquer comme lue)
   const consumeWsNotification = () => {
     setWsNotifications(prev => prev.slice(0, prev.length - 1));
+  };
+
+  const updateUnreadMessagesCount = (count: number) => {
+    setUnreadMessagesCount(count);
   };
 
   return (
@@ -883,6 +908,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         wsNotifications,
         allNotifications,
         consumeWsNotification,
+        toast,
+        setToast,
+        updateUnreadMessagesCount,
+        unreadMessagesCount,
       }}
     >
       <ReauthModal
@@ -914,10 +943,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
-export const useAuth = () => {
+const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth doit être utilisé à l\'intérieur d\'un AuthProvider');
   }
   return context;
 };
+
+// Exports pour éviter les conflits Fast Refresh
+export { AuthProvider, useAuth };
+export type { AuthContextType, NotificationWS };
