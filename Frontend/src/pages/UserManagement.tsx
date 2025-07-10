@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Users, Search, Edit, Trash2, UserCheck, Shield, Phone, MapPin, Calendar, Eye, Plus, Download, AlertCircle, CheckCircle, Clock, Ban, Star, X, Globe, Wrench, CreditCard, Star as StarIcon } from 'lucide-react';
+import { fetchWithAuth } from '../contexts/fetchWithAuth';
+import { Users, Search, Edit, Trash2, UserCheck, Shield, Phone, MapPin, Calendar, Eye, Plus, Download, AlertCircle, CheckCircle, Clock, Ban, Star, X, Globe, Wrench, CreditCard, Star as StarIcon, RefreshCw, EyeOff } from 'lucide-react';
 
 interface User {
     id: number;
@@ -57,6 +58,18 @@ const UserManagement: React.FC = () => {
     const [reviewMinRating, setReviewMinRating] = useState<number>(1);
     const [showFullComment, setShowFullComment] = useState<string | null>(null);
     const [paymentStatus, setPaymentStatus] = useState<string>('all');
+    const [technicianSubscriptions, setTechnicianSubscriptions] = useState<{ [key: number]: any }>({});
+
+    // États pour les toasts et feedback
+    const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info', message: string } | null>(null);
+    const [actionLoading, setActionLoading] = useState<{ type: string, userId: number } | null>(null);
+    const [exporting, setExporting] = useState(false);
+
+    // Fonction pour afficher les toasts
+    const showToast = (type: 'success' | 'error' | 'info', message: string) => {
+        setToast({ type, message });
+        setTimeout(() => setToast(null), 5000);
+    };
 
     useEffect(() => {
         loadUsers();
@@ -64,75 +77,87 @@ const UserManagement: React.FC = () => {
 
     useEffect(() => {
         if (showDetailModal && detailUser) {
-            // Historique de connexion
-            fetchWithAuth('/users/admin/login-locations/?limit=1000')
-                .then(res => res.json())
-                .then(data => {
-                    setLoginHistory(data.filter((l: any) => l.user_email === detailUser.email));
-                });
-            // Historique des demandes
-            fetchWithAuth('/depannage/api/repair-requests/')
-                .then(res => res.json())
-                .then(data => {
-                    let filtered = data.results || data;
-                    if (detailUser.user_type === 'client') {
-                        filtered = filtered.filter((r: any) => r.client && r.client.email === detailUser.email);
-                    } else if (detailUser.user_type === 'technician') {
-                        filtered = filtered.filter((r: any) => r.technician && r.technician.email === detailUser.email);
-                    }
-                    setRequestHistory(filtered);
-                });
-            // Historique des paiements
-            fetchWithAuth('/depannage/api/payments/')
-                .then(res => res.json())
-                .then(data => {
-                    let filtered = data.results || data;
-                    if (detailUser.user_type === 'client') {
-                        filtered = filtered.filter((p: any) => p.payer && p.payer.email === detailUser.email);
-                    } else if (detailUser.user_type === 'technician') {
-                        filtered = filtered.filter((p: any) => p.recipient && p.recipient.email === detailUser.email);
-                    }
-                    setPaymentHistory(filtered);
-                });
-            // Historique des avis
-            fetchWithAuth('/depannage/api/reviews/')
-                .then(res => res.json())
-                .then(data => {
-                    let filtered = data.results || data;
-                    if (detailUser.user_type === 'client') {
-                        filtered = filtered.filter((r: any) => r.client && r.client_name && r.client_name.toLowerCase().includes(detailUser.first_name.toLowerCase()));
-                    } else if (detailUser.user_type === 'technician') {
-                        filtered = filtered.filter((r: any) => r.technician && r.technician_name && r.technician_name.toLowerCase().includes(detailUser.first_name.toLowerCase()));
-                    }
-                    setReviewHistory(filtered);
-                });
+            loadUserDetails(detailUser);
         }
     }, [showDetailModal, detailUser]);
 
     const loadUsers = async () => {
         try {
             setLoading(true);
-            // Appel API réel
             const response = await fetchWithAuth('/users/');
             if (response.ok) {
                 const data = await response.json();
-                // Le backend renvoie { results: [...] } ou une liste
                 setUsers(data.results || data);
+                showToast('success', 'Utilisateurs chargés avec succès');
             } else {
                 setUsers([]);
+                showToast('error', 'Erreur lors du chargement des utilisateurs');
             }
         } catch (err) {
             setUsers([]);
+            showToast('error', 'Erreur de connexion lors du chargement');
         } finally {
             setLoading(false);
         }
     };
 
+    const loadUserDetails = async (user: User) => {
+        try {
+            // Historique de connexion
+            const loginResponse = await fetchWithAuth('/users/admin/login-locations/?limit=1000');
+            if (loginResponse.ok) {
+                const loginData = await loginResponse.json();
+                setLoginHistory(loginData.filter((l: any) => l.user_email === user.email));
+            }
+
+            // Historique des demandes
+            const requestResponse = await fetchWithAuth('/depannage/api/repair-requests/');
+            if (requestResponse.ok) {
+                const requestData = await requestResponse.json();
+                let filtered = requestData.results || requestData;
+                if (user.user_type === 'client') {
+                    filtered = filtered.filter((r: any) => r.client && r.client.email === user.email);
+                } else if (user.user_type === 'technician') {
+                    filtered = filtered.filter((r: any) => r.technician && r.technician.email === user.email);
+                }
+                setRequestHistory(filtered);
+            }
+
+            // Historique des paiements
+            const paymentResponse = await fetchWithAuth('/depannage/api/payments/');
+            if (paymentResponse.ok) {
+                const paymentData = await paymentResponse.json();
+                let filtered = paymentData.results || paymentData;
+                if (user.user_type === 'client') {
+                    filtered = filtered.filter((p: any) => p.payer && p.payer.email === user.email);
+                } else if (user.user_type === 'technician') {
+                    filtered = filtered.filter((p: any) => p.recipient && p.recipient.email === user.email);
+                }
+                setPaymentHistory(filtered);
+            }
+
+            // Historique des avis
+            const reviewResponse = await fetchWithAuth('/depannage/api/reviews/');
+            if (reviewResponse.ok) {
+                const reviewData = await reviewResponse.json();
+                let filtered = reviewData.results || reviewData;
+                if (user.user_type === 'client') {
+                    filtered = filtered.filter((r: any) => r.client && r.client_name && typeof r.client_name === 'string' && r.client_name.toLowerCase().includes(user.first_name.toLowerCase()));
+                } else if (user.user_type === 'technician') {
+                    filtered = filtered.filter((r: any) => r.technician && r.technician_name && typeof r.technician_name === 'string' && r.technician_name.toLowerCase().includes(user.first_name.toLowerCase()));
+                }
+                setReviewHistory(filtered);
+            }
+        } catch (error) {
+            showToast('error', 'Erreur lors du chargement des détails utilisateur');
+        }
+    };
+
     const filteredUsers = users.filter(user => {
         const matchesSearch =
-            user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            `${user.first_name} ${user.last_name}`.toLowerCase().includes(searchTerm.toLowerCase());
+            (typeof user.username === 'string' && user.username.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (typeof user.email === 'string' && user.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (typeof user.first_name === 'string' && typeof user.last_name === 'string' && `${user.first_name} ${user.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()));
 
         const matchesType = filterType === 'all' || user.user_type === filterType;
 
@@ -159,83 +184,133 @@ const UserManagement: React.FC = () => {
 
     // Action: activer/désactiver
     const toggleActive = async (userId: number, isActive: boolean) => {
+        setActionLoading({ type: 'toggle', userId });
         try {
-            setLoading(true);
             const response = await fetchWithAuth(`/users/${userId}/`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ is_active: !isActive })
             });
+
             if (response.ok) {
-                await loadUsers();
+                setUsers(prev => prev.map(user =>
+                    user.id === userId ? { ...user, is_active: !isActive } : user
+                ));
+                showToast('success', `Utilisateur ${!isActive ? 'activé' : 'désactivé'} avec succès`);
+            } else {
+                const errorData = await response.json();
+                showToast('error', errorData.message || 'Erreur lors de la modification');
             }
+        } catch (error) {
+            showToast('error', 'Erreur de connexion lors de la modification');
         } finally {
-            setLoading(false);
+            setActionLoading(null);
         }
     };
 
     // Action: supprimer
     const deleteUser = async (userId: number) => {
-        if (!window.confirm('Supprimer cet utilisateur ?')) return;
+        if (!window.confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ? Cette action est irréversible.')) {
+            return;
+        }
+
+        setActionLoading({ type: 'delete', userId });
         try {
-            setLoading(true);
             const response = await fetchWithAuth(`/users/${userId}/`, {
                 method: 'DELETE'
             });
+
             if (response.ok || response.status === 204) {
-                await loadUsers();
+                setUsers(prev => prev.filter(user => user.id !== userId));
+                showToast('success', 'Utilisateur supprimé avec succès');
+            } else {
+                const errorData = await response.json();
+                showToast('error', errorData.message || 'Erreur lors de la suppression');
             }
+        } catch (error) {
+            showToast('error', 'Erreur de connexion lors de la suppression');
         } finally {
-            setLoading(false);
+            setActionLoading(null);
         }
     };
 
     const handleCreateChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setCreateForm({ ...createForm, [e.target.name]: e.target.value });
+        setCreateError(null);
     };
 
     const handleCreateUser = async (e: React.FormEvent) => {
         e.preventDefault();
         setCreateLoading(true);
         setCreateError(null);
-        setCreateSuccess(false);
+
+        if (createForm.password !== createForm.password2) {
+            setCreateError({ password: ['Les mots de passe ne correspondent pas'] });
+            setCreateLoading(false);
+            return;
+        }
+
         try {
-            // Utilise l'endpoint /users/register/ pour la création
-            const response = await fetchWithAuth('/users/register/', {
+            const response = await fetchWithAuth('/users/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(createForm)
+                body: JSON.stringify({
+                    first_name: createForm.first_name,
+                    last_name: createForm.last_name,
+                    email: createForm.email,
+                    user_type: createForm.user_type,
+                    password: createForm.password,
+                })
             });
-            const data = await response.json();
+
             if (response.ok) {
+                const newUser = await response.json();
+                setUsers(prev => [...prev, newUser]);
                 setCreateSuccess(true);
+                setCreateForm({
+                    first_name: '',
+                    last_name: '',
+                    email: '',
+                    user_type: 'client',
+                    password: '',
+                    password2: '',
+                });
                 setShowCreateModal(false);
-                setCreateForm({ first_name: '', last_name: '', email: '', user_type: 'client', password: '', password2: '' });
-                await loadUsers();
+                showToast('success', 'Utilisateur créé avec succès');
             } else {
-                setCreateError(data.details || data.error || 'Erreur inconnue');
+                const errorData = await response.json();
+                setCreateError(errorData);
+                showToast('error', 'Erreur lors de la création de l\'utilisateur');
             }
-        } catch (err) {
-            setCreateError('Erreur réseau');
+        } catch (error) {
+            showToast('error', 'Erreur de connexion lors de la création');
         } finally {
             setCreateLoading(false);
         }
     };
 
     const openEditModal = (user: User) => {
-        setEditForm({ ...user });
-        setEditError(null);
+        setEditForm({
+            id: user.id,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            email: user.email,
+            user_type: user.user_type,
+            phone_number: user.phone_number,
+        });
         setShowEditModal(true);
     };
 
     const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setEditForm({ ...editForm, [e.target.name]: e.target.value });
+        setEditError(null);
     };
 
     const handleEditUser = async (e: React.FormEvent) => {
         e.preventDefault();
         setEditLoading(true);
         setEditError(null);
+
         try {
             const response = await fetchWithAuth(`/users/${editForm.id}/`, {
                 method: 'PATCH',
@@ -245,19 +320,24 @@ const UserManagement: React.FC = () => {
                     last_name: editForm.last_name,
                     email: editForm.email,
                     user_type: editForm.user_type,
-                    is_active: editForm.is_active,
+                    phone_number: editForm.phone_number,
                 })
             });
-            const data = await response.json();
+
             if (response.ok) {
+                const updatedUser = await response.json();
+                setUsers(prev => prev.map(user =>
+                    user.id === editForm.id ? { ...user, ...updatedUser } : user
+                ));
                 setShowEditModal(false);
-                setEditForm(null);
-                await loadUsers();
+                showToast('success', 'Utilisateur modifié avec succès');
             } else {
-                setEditError(data.details || data.error || 'Erreur inconnue');
+                const errorData = await response.json();
+                setEditError(errorData);
+                showToast('error', 'Erreur lors de la modification');
             }
-        } catch (err) {
-            setEditError('Erreur réseau');
+        } catch (error) {
+            showToast('error', 'Erreur de connexion lors de la modification');
         } finally {
             setEditLoading(false);
         }
@@ -268,60 +348,114 @@ const UserManagement: React.FC = () => {
         setShowDetailModal(true);
     };
 
-    // Export CSV
-    const exportCSV = () => {
-        const headers = [
-            'Prénom', 'Nom', 'Email', 'Type', 'Statut', 'Vérifié', 'Date inscription', 'Dernière connexion'
-        ];
-        const rows = filteredUsers.map(u => [
-            u.first_name || '',
-            u.last_name || '',
-            u.email || '',
-            getUserTypeLabel(u.user_type),
-            u.is_active ? 'Actif' : 'Inactif',
-            u.is_verified ? 'Oui' : 'Non',
-            u.date_joined ? new Date(u.date_joined).toLocaleDateString('fr-FR') : '',
-            u.last_login ? new Date(u.last_login).toLocaleString('fr-FR') : ''
-        ]);
-        const csvContent = [headers, ...rows].map(r => r.map(v => `"${(v ?? '').toString().replace(/"/g, '""')}`).join(',')).join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', 'utilisateurs.csv');
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    const exportCSV = async () => {
+        setExporting(true);
+        try {
+            const response = await fetchWithAuth('/users/export/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filter_type: filterType,
+                    search_term: searchTerm
+                })
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `utilisateurs-${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                showToast('success', 'Export CSV réussi');
+            } else {
+                showToast('error', 'Erreur lors de l\'export');
+            }
+        } catch (error) {
+            showToast('error', 'Erreur de connexion lors de l\'export');
+        } finally {
+            setExporting(false);
+        }
     };
 
-    // Fonctions de filtrage
     const filterByPeriod = (items: any[], dateKey: string, period: 'all' | '7d' | '30d') => {
         if (period === 'all') return items;
         const now = new Date();
-        const days = period === '7d' ? 7 : 30;
-        const minDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-        return items.filter(item => item[dateKey] && new Date(item[dateKey]) >= minDate);
+        const daysAgo = period === '7d' ? 7 : 30;
+        const cutoff = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
+        return items.filter(item => new Date(item[dateKey]) >= cutoff);
     };
+
+    const fetchTechnicianSubscription = async (technicianId: number) => {
+        try {
+            const response = await fetchWithAuth(`/depannage/api/technician-subscriptions/${technicianId}/`);
+            if (response.ok) {
+                const subscription = await response.json();
+                setTechnicianSubscriptions(prev => ({
+                    ...prev,
+                    [technicianId]: subscription
+                }));
+            }
+        } catch (error) {
+            console.error('Erreur lors du chargement de l\'abonnement:', error);
+        }
+    };
+
+    // Charger les statuts d'abonnement pour tous les techniciens affichés
+    useEffect(() => {
+        filteredUsers.forEach(user => {
+            if (user.user_type === 'technician' && !technicianSubscriptions[user.id]) {
+                fetchTechnicianSubscription(user.id);
+            }
+        });
+        // eslint-disable-next-line
+    }, [filteredUsers]);
+
     const filteredLoginHistory = filterByPeriod(loginHistory, 'timestamp', loginPeriod);
     const filteredRequestHistory = filterByPeriod(requestHistory, 'created_at', requestPeriod).filter(r => requestStatus === 'all' || r.status === requestStatus);
+
     const filteredPaymentHistory = filterByPeriod(paymentHistory, 'created_at', paymentPeriod)
-        .filter(p => paymentType === 'all' || p.payment_type === paymentType)
-        .filter(p => paymentStatus === 'all' || p.status === paymentStatus);
+        .filter(p => (paymentType === 'all' || p.payment_type === paymentType) && (paymentStatus === 'all' || p.status === paymentStatus));
+
     const filteredReviewHistory = filterByPeriod(reviewHistory, 'created_at', reviewPeriod).filter(r => r.rating >= reviewMinRating);
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="mt-4 text-gray-600">Chargement des utilisateurs...</p>
-                </div>
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-2 text-gray-600">Chargement des utilisateurs...</span>
             </div>
         );
     }
 
     return (
         <div className="min-h-screen bg-gray-50">
+            {/* Toast notifications */}
+            {toast && (
+                <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg flex items-center ${toast.type === 'success' ? 'bg-green-500 text-white' :
+                    toast.type === 'error' ? 'bg-red-500 text-white' :
+                        'bg-blue-500 text-white'
+                    }`}>
+                    {toast.type === 'success' ? (
+                        <CheckCircle className="h-5 w-5 mr-2" />
+                    ) : toast.type === 'error' ? (
+                        <AlertCircle className="h-5 w-5 mr-2" />
+                    ) : (
+                        <Clock className="h-5 w-5 mr-2" />
+                    )}
+                    {toast.message}
+                    <button
+                        onClick={() => setToast(null)}
+                        className="ml-4 hover:opacity-75"
+                    >
+                        <X className="h-4 w-4" />
+                    </button>
+                </div>
+            )}
+
             {/* Modal création utilisateur */}
             {showCreateModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
@@ -355,11 +489,31 @@ const UserManagement: React.FC = () => {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium mb-1">Mot de passe</label>
-                                <input name="password" type="password" value={createForm.password} onChange={handleCreateChange} required className="w-full border rounded px-3 py-2" />
+                                <div className="relative">
+                                    <input name="password" type={showCreatePassword ? "text" : "password"} value={createForm.password} onChange={handleCreateChange} required className="w-full border rounded px-3 py-2 pr-10" />
+                                    <button
+                                        type="button"
+                                        className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 focus:outline-none"
+                                        onClick={() => setShowCreatePassword((v) => !v)}
+                                        tabIndex={-1}
+                                    >
+                                        {showCreatePassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium mb-1">Confirmation du mot de passe</label>
-                                <input name="password2" type="password" value={createForm.password2} onChange={handleCreateChange} required className="w-full border rounded px-3 py-2" />
+                                <div className="relative">
+                                    <input name="password2" type={showCreatePassword2 ? "text" : "password"} value={createForm.password2} onChange={handleCreateChange} required className="w-full border rounded px-3 py-2 pr-10" />
+                                    <button
+                                        type="button"
+                                        className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 focus:outline-none"
+                                        onClick={() => setShowCreatePassword2((v) => !v)}
+                                        tabIndex={-1}
+                                    >
+                                        {showCreatePassword2 ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
                             </div>
                             {createError && (
                                 <div className="text-red-600 text-sm">{typeof createError === 'string' ? createError : Object.entries(createError).map(([k, v]) => <div key={k}>{k}: {v}</div>)}</div>
@@ -403,11 +557,8 @@ const UserManagement: React.FC = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Statut</label>
-                                <select name="is_active" value={editForm.is_active ? 'true' : 'false'} onChange={e => setEditForm({ ...editForm, is_active: e.target.value === 'true' })} className="w-full border rounded px-3 py-2">
-                                    <option value="true">Actif</option>
-                                    <option value="false">Inactif</option>
-                                </select>
+                                <label className="block text-sm font-medium mb-1">Téléphone</label>
+                                <input name="phone_number" type="text" value={editForm.phone_number} onChange={handleEditChange} className="w-full border rounded px-3 py-2" />
                             </div>
                             {editError && (
                                 <div className="text-red-600 text-sm">{typeof editError === 'string' ? editError : Object.entries(editError).map(([k, v]) => <div key={k}>{k}: {v}</div>)}</div>
@@ -631,11 +782,31 @@ const UserManagement: React.FC = () => {
                             </p>
                         </div>
                         <div className="flex space-x-3">
-                            <button className="flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50" onClick={exportCSV}>
-                                <Download className="h-4 w-4 mr-2" />
-                                Exporter
+                            <button
+                                className="flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                                onClick={loadUsers}
+                                disabled={actionLoading?.type === 'toggle' || actionLoading?.type === 'delete'}
+                            >
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Actualiser
                             </button>
-                            <button className="flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700" onClick={() => setShowCreateModal(true)}>
+                            <button
+                                className="flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                                onClick={exportCSV}
+                                disabled={exporting}
+                            >
+                                {exporting ? (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b border-gray-600 mr-2"></div>
+                                ) : (
+                                    <Download className="h-4 w-4 mr-2" />
+                                )}
+                                {exporting ? 'Export...' : 'Exporter'}
+                            </button>
+                            <button
+                                className="flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                                onClick={() => setShowCreateModal(true)}
+                                disabled={actionLoading?.type === 'toggle' || actionLoading?.type === 'delete'}
+                            >
                                 <Plus className="h-4 w-4 mr-2" />
                                 Ajouter Utilisateur
                             </button>
@@ -654,10 +825,10 @@ const UserManagement: React.FC = () => {
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                                 <input
                                     type="text"
-                                    placeholder="Nom, email, téléphone..."
+                                    placeholder="Nom, email, username..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="pl-10 w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                             </div>
                         </div>
@@ -666,7 +837,7 @@ const UserManagement: React.FC = () => {
                             <select
                                 value={filterType}
                                 onChange={(e) => setFilterType(e.target.value as any)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
                                 <option value="all">Tous les types</option>
                                 <option value="client">Clients</option>
@@ -675,12 +846,9 @@ const UserManagement: React.FC = () => {
                             </select>
                         </div>
                         <div className="flex items-end">
-                            <button
-                                onClick={loadUsers}
-                                className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                            >
-                                Actualiser
-                            </button>
+                            <div className="text-sm text-gray-600">
+                                {filteredUsers.length} utilisateur{filteredUsers.length !== 1 ? 's' : ''} trouvé{filteredUsers.length !== 1 ? 's' : ''}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -755,6 +923,9 @@ const UserManagement: React.FC = () => {
                                             Statut
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Abonnement
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Dernière connexion
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -769,9 +940,7 @@ const UserManagement: React.FC = () => {
                                                 <div className="flex items-center">
                                                     <div className="flex-shrink-0 h-10 w-10">
                                                         <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
-                                                            <span className="text-sm font-medium text-gray-700">
-                                                                {user.first_name?.charAt(0) || ''}{user.last_name?.charAt(0) || ''}
-                                                            </span>
+                                                            <Users className="h-6 w-6 text-gray-600" />
                                                         </div>
                                                     </div>
                                                     <div className="ml-4">
@@ -779,6 +948,7 @@ const UserManagement: React.FC = () => {
                                                             {user.first_name} {user.last_name}
                                                         </div>
                                                         <div className="text-sm text-gray-500">{user.email}</div>
+                                                        <div className="text-sm text-gray-500">@{user.username}</div>
                                                     </div>
                                                 </div>
                                             </td>
@@ -788,28 +958,27 @@ const UserManagement: React.FC = () => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex flex-col space-y-1">
-                                                    <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                                <div className="flex items-center space-x-2">
+                                                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                                                         }`}>
-                                                        {user.is_active ? (
-                                                            <>
-                                                                <CheckCircle className="h-3 w-3 mr-1" />
-                                                                Actif
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <Ban className="h-3 w-3 mr-1" />
-                                                                Inactif
-                                                            </>
-                                                        )}
+                                                        {user.is_active ? 'Actif' : 'Inactif'}
                                                     </span>
                                                     {!user.is_verified && (
-                                                        <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                                                            <Clock className="h-3 w-3 mr-1" />
-                                                            Non vérifié
-                                                        </span>
+                                                        <CheckCircle className="h-4 w-4 text-green-500" />
                                                     )}
                                                 </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                {user.user_type === 'technician' && technicianSubscriptions[user.id] ? (
+                                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${technicianSubscriptions[user.id].is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                        {technicianSubscriptions[user.id].is_active ? 'Actif' : 'Inactif'}
+                                                        {technicianSubscriptions[user.id].end_date && (
+                                                            <span className="ml-2 text-xs opacity-80">(Expire le {new Date(technicianSubscriptions[user.id].end_date).toLocaleDateString('fr-FR')})</span>
+                                                        )}
+                                                    </span>
+                                                ) : user.user_type === 'technician' ? (
+                                                    <span className="text-xs text-gray-400">Chargement...</span>
+                                                ) : null}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 <div className="flex items-center">
@@ -828,11 +997,29 @@ const UserManagement: React.FC = () => {
                                                     <button className="text-gray-600 hover:text-gray-900" onClick={() => openEditModal(user)}>
                                                         <Edit className="h-4 w-4" />
                                                     </button>
-                                                    <button className="text-green-600 hover:text-green-900" onClick={() => toggleActive(user.id, user.is_active)}>
-                                                        {user.is_active ? 'Désactiver' : 'Activer'}
+                                                    <button
+                                                        className={`hover:text-green-900 ${user.is_active ? 'text-green-600' : 'text-gray-600'}`}
+                                                        onClick={() => toggleActive(user.id, user.is_active)}
+                                                        disabled={actionLoading?.type === 'toggle' && actionLoading?.userId === user.id}
+                                                    >
+                                                        {actionLoading?.type === 'toggle' && actionLoading?.userId === user.id ? (
+                                                            <div className="animate-spin rounded-full h-4 w-4 border-b border-current"></div>
+                                                        ) : user.is_active ? (
+                                                            <UserCheck className="h-4 w-4" />
+                                                        ) : (
+                                                            <Ban className="h-4 w-4" />
+                                                        )}
                                                     </button>
-                                                    <button className="text-red-600 hover:text-red-900" onClick={() => deleteUser(user.id)}>
-                                                        <Trash2 className="h-4 w-4" />
+                                                    <button
+                                                        className="text-red-600 hover:text-red-900"
+                                                        onClick={() => deleteUser(user.id)}
+                                                        disabled={actionLoading?.type === 'delete' && actionLoading?.userId === user.id}
+                                                    >
+                                                        {actionLoading?.type === 'delete' && actionLoading?.userId === user.id ? (
+                                                            <div className="animate-spin rounded-full h-4 w-4 border-b border-red-600"></div>
+                                                        ) : (
+                                                            <Trash2 className="h-4 w-4" />
+                                                        )}
                                                     </button>
                                                 </div>
                                             </td>
@@ -842,6 +1029,16 @@ const UserManagement: React.FC = () => {
                             </table>
                         )}
                     </div>
+
+                    {filteredUsers.length === 0 && (
+                        <div className="text-center py-12">
+                            <Users className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun utilisateur trouvé</h3>
+                            <p className="text-gray-500">
+                                {users.length === 0 ? 'Aucun utilisateur disponible.' : 'Aucun utilisateur ne correspond aux critères de recherche.'}
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

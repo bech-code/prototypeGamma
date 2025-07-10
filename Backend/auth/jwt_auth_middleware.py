@@ -1,37 +1,33 @@
 from urllib.parse import parse_qs
 from channels.middleware import BaseMiddleware
-from asgiref.sync import sync_to_async
-import logging
+from channels.db import database_sync_to_async
+
+
+@database_sync_to_async
+def get_user(validated_token):
+    from django.contrib.auth import get_user_model
+    from django.contrib.auth.models import AnonymousUser
+    User = get_user_model()
+    try:
+        user_id = validated_token['user_id']
+        return User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return AnonymousUser()
 
 class JWTAuthMiddleware(BaseMiddleware):
     async def __call__(self, scope, receive, send):
-        from django.contrib.auth.models import AnonymousUser
         from rest_framework_simplejwt.tokens import UntypedToken
-        from rest_framework_simplejwt.authentication import JWTAuthentication
-        from django.db import close_old_connections
-
-        logger = logging.getLogger("channels.jwt")
-        query_string = scope["query_string"].decode()
-        token = parse_qs(query_string).get("token")
-        
-        if token:
-            token = token[0]
+        from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+        # Extraire le token de l'URL
+        query_string = scope['query_string'].decode()
+        params = parse_qs(query_string)
+        token = params.get('token', [None])[0]
+        if token is not None:
             try:
-                # Envelopper les appels synchrones dans sync_to_async
-                @sync_to_async
-                def validate_token_and_get_user(token_str):
-                    validated_token = UntypedToken(token_str)
-                    return JWTAuthentication().get_user(validated_token)
-                
-                user = await validate_token_and_get_user(token)
-                logger.info(f"WebSocket JWT OK: user={user}")
-                scope["user"] = user
-            except Exception as e:
-                logger.warning(f"WebSocket JWT INVALID: {e}")
-                scope["user"] = AnonymousUser()
+                validated_token = UntypedToken(token)
+                scope['user'] = await get_user(validated_token)
+            except (InvalidToken, TokenError):
+                scope['user'] = AnonymousUser()
         else:
-            logger.warning("WebSocket JWT: No token provided")
-            scope["user"] = AnonymousUser()
-        
-        close_old_connections()
+            scope['user'] = AnonymousUser()
         return await super().__call__(scope, receive, send) 

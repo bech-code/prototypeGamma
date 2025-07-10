@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 const specialiteOptions = [
   { value: '', label: 'Sélectionner une spécialité' },
@@ -36,9 +36,27 @@ const Register: React.FC = () => {
   const [pieceIdentite, setPieceIdentite] = useState<File | null>(null);
   const [certificatResidence, setCertificatResidence] = useState<File | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword2, setShowPassword2] = useState(false);
 
-  const { register } = useAuth();
+  const { register, user } = useAuth();
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (user) {
+      switch (user.user_type) {
+        case 'admin':
+          navigate('/admin/dashboard');
+          break;
+        case 'technician':
+          navigate('/technician/dashboard');
+          break;
+        case 'client':
+        default:
+          navigate('/dashboard');
+      }
+    }
+  }, [user, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -74,6 +92,21 @@ const Register: React.FC = () => {
       setError('Le nom est requis');
       return;
     }
+    // Validation stricte du numéro de téléphone pour client et technicien
+    if ((formData.user_type === 'client' || formData.user_type === 'technician')) {
+      // Normaliser les espaces : un seul espace entre chaque groupe, pas d'espaces en début/fin
+      const normalizedPhone = formData.phone.trim().replace(/\s+/g, ' ');
+      // Regex identique au backend
+      const phonePattern = /^(\+223\d{8}|\+223( +\d{2}){4})$/;
+      if (!normalizedPhone) {
+        setError('Le numéro de téléphone est requis');
+        return;
+      }
+      if (!phonePattern.test(normalizedPhone)) {
+        setError('Le numéro de téléphone doit être au format +223XXXXXXXX ou +223 XX XX XX XX (8 chiffres après +223)');
+        return;
+      }
+    }
     if (formData.user_type === 'technician' && !formData.specialty) {
       setError('La spécialité est requise pour un technicien');
       return;
@@ -94,9 +127,11 @@ const Register: React.FC = () => {
     }
     setIsLoading(true);
     try {
+      const normalizedPhone = formData.phone.trim().replace(/\s+/g, ' ');
       const dataToSend = {
         ...formData,
         years_experience: formData.years_experience ? Number(formData.years_experience) : undefined,
+        phone: normalizedPhone, // Toujours envoyer la version normalisée
       };
       let payload: any = dataToSend;
       if (formData.user_type === 'technician') {
@@ -106,14 +141,10 @@ const Register: React.FC = () => {
         });
         if (pieceIdentite) fd.append('piece_identite', pieceIdentite);
         if (certificatResidence) fd.append('certificat_residence', certificatResidence);
-        console.log('pieceIdentite:', pieceIdentite);
-        console.log('certificatResidence:', certificatResidence);
-        console.log('Type pieceIdentite:', typeof pieceIdentite, pieceIdentite instanceof File);
-        console.log('Type certificatResidence:', typeof certificatResidence, certificatResidence instanceof File);
         payload = fd;
       }
       await register(payload);
-      navigate('/dashboard');
+      // navigate('/dashboard'); // SUPPRIMÉ : la redirection est gérée par le useEffect
     } catch (err: any) {
       setIsLoading(false);
       let backendDetails = undefined;
@@ -308,9 +339,9 @@ const Register: React.FC = () => {
                       onChange={handleChange}
                       className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="+223 XX XX XX XX"
-                      pattern="\+223 ?\d{2} ?\d{2} ?\d{2} ?\d{2}"
                       required
                     />
+                    <p className="text-xs text-gray-500 mt-1">Format attendu : <span className="font-mono">+223 XX XX XX XX</span> (Mali, X = chiffre)</p>
                     {fieldErrors['phone'] && <p className="text-xs text-red-600 mt-1">{fieldErrors['phone']}</p>}
                   </div>
                   <div className="mb-4">
@@ -348,6 +379,27 @@ const Register: React.FC = () => {
                 </>
               )}
 
+              {/* Champ numéro de téléphone pour client et technicien */}
+              {(formData.user_type === 'client' || formData.user_type === 'technician') && (
+                <div className="mb-4">
+                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                    Numéro de téléphone <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="+223 XX XX XX XX"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Format attendu : <span className="font-mono">+223 XX XX XX XX</span> (Mali, X = chiffre)</p>
+                  {fieldErrors['phone'] && <p className="text-xs text-red-600 mt-1">{fieldErrors['phone']}</p>}
+                </div>
+              )}
+
               <div className="mb-4">
                 <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
                   Adresse
@@ -369,16 +421,26 @@ const Register: React.FC = () => {
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                   Mot de passe
                 </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="••••••••"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    value={formData.password}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                    placeholder="••••••••"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 focus:outline-none"
+                    onClick={() => setShowPassword((v) => !v)}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
                 {fieldErrors['password'] && <p className="text-xs text-red-600 mt-1">{fieldErrors['password']}</p>}
               </div>
 
@@ -386,16 +448,26 @@ const Register: React.FC = () => {
                 <label htmlFor="password2" className="block text-sm font-medium text-gray-700 mb-1">
                   Confirmer le mot de passe
                 </label>
-                <input
-                  id="password2"
-                  name="password2"
-                  type="password"
-                  value={formData.password2}
-                  onChange={handleChange}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="••••••••"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    id="password2"
+                    name="password2"
+                    type={showPassword2 ? "text" : "password"}
+                    value={formData.password2}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                    placeholder="••••••••"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 focus:outline-none"
+                    onClick={() => setShowPassword2((v) => !v)}
+                    tabIndex={-1}
+                  >
+                    {showPassword2 ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
                 {fieldErrors['password2'] && <p className="text-xs text-red-600 mt-1">{fieldErrors['password2']}</p>}
               </div>
 

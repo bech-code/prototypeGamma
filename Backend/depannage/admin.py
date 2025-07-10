@@ -10,7 +10,7 @@ from datetime import timedelta
 from .models import (
     Client, Technician, RepairRequest, RequestDocument, Review, 
     Payment, Conversation, Message, MessageAttachment, 
-    Notification, TechnicianLocation, SystemConfiguration, CinetPayPayment, ClientLocation
+    Notification, TechnicianLocation, SystemConfiguration, CinetPayPayment, ClientLocation, Report, AdminNotification
 )
 
 
@@ -793,3 +793,16 @@ class ClientLocationAdmin(admin.ModelAdmin):
     list_display = ('client', 'latitude', 'longitude', 'created_at', 'updated_at')
     search_fields = ('client__user__username', 'client__user__first_name', 'client__user__last_name')
     readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(Report)
+class ReportAdmin(admin.ModelAdmin):
+    list_display = ('id', 'sender', 'request', 'subject', 'status', 'created_at', 'reviewed_by')
+    list_filter = ('status', 'created_at')
+    search_fields = ('subject', 'message', 'sender__email')
+
+@admin.register(AdminNotification)
+class AdminNotificationAdmin(admin.ModelAdmin):
+    list_display = ('id', 'title', 'severity', 'is_read', 'created_at', 'related_request', 'triggered_by')
+    list_filter = ('severity', 'is_read', 'created_at')
+    search_fields = ('title', 'message')

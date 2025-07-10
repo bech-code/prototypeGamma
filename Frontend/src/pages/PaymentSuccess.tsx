@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { CheckCircle, Clock, Star, Shield, Zap, ArrowRight } from 'lucide-react';
+import { fetchWithAuth } from '../contexts/fetchWithAuth';
 
 interface PaymentSuccessProps {
     // Props if needed
@@ -9,6 +10,8 @@ interface PaymentSuccessProps {
 const PaymentSuccess: React.FC<PaymentSuccessProps> = () => {
     const [searchParams] = useSearchParams();
     const [isVisible, setIsVisible] = useState(false);
+    const navigate = useNavigate();
+    const [checking, setChecking] = useState(false);
 
     const transactionId = searchParams.get('transaction_id');
     const amount = searchParams.get('amount');
@@ -20,6 +23,21 @@ const PaymentSuccess: React.FC<PaymentSuccessProps> = () => {
         const timer = setTimeout(() => setIsVisible(true), 100);
         return () => clearTimeout(timer);
     }, []);
+
+    // Rafraîchir le statut d’abonnement après paiement réussi
+    useEffect(() => {
+        if (status === 'success') {
+            setChecking(true);
+            fetchWithAuth('/depannage/api/technicians/subscription_status/')
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.can_receive_requests) {
+                        setTimeout(() => navigate('/technician/dashboard'), 2000);
+                    }
+                })
+                .finally(() => setChecking(false));
+        }
+    }, [status, navigate]);
 
     const getDurationText = (duration: string | null) => {
         switch (duration) {

@@ -128,7 +128,7 @@ class PieceJointe(models.Model):
     ]
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="pieces_jointes")
     type_piece = models.CharField(max_length=32, choices=TYPE_CHOICES)
-    fichier = models.FileField(upload_to="pieces_jointes/")
+    fichier = models.FileField(upload_to="technician_docs/")
     date_upload = models.DateTimeField(auto_now_add=True)
 
     class Meta:

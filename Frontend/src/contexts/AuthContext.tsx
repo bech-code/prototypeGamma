@@ -55,6 +55,8 @@ axios.defaults.baseURL = 'http://127.0.0.1:8000';
 
 // Variable pour éviter les boucles de refresh
 let isRefreshing = false;
+let isInitializing = false;
+const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 let failedQueue: Array<{
   resolve: (value?: any) => void;
   reject: (error?: any) => void;
@@ -253,6 +255,18 @@ type NotificationWS = {
   is_read?: boolean;
 };
 
+// Fonction utilitaire pour comparer deux notifications (sans/avec ID)
+function isSameNotification(a: any, b: any) {
+  if (!a || !b) return false;
+  if (a.title !== b.title) return false;
+  if (a.message !== b.message) return false;
+  if (a.type !== b.type) return false;
+  if (!a.created_at || !b.created_at) return false;
+  const dateA = new Date(a.created_at).getTime();
+  const dateB = new Date(b.created_at).getTime();
+  return Math.abs(dateA - dateB) <= 2000; // 2 secondes de tolérance
+}
+
 const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -273,6 +287,8 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [wsNotifDisconnected, setWsNotifDisconnected] = useState(false);
+  const wsNotifDisconnectTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize token from localStorage
   useEffect(() => {
@@ -285,43 +301,75 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
   // Initialize auth when token changes
   useEffect(() => {
+    let cancelled = false;
     const initializeAuth = async () => {
-      if (token && !isInitialized.current) {
-        try {
-          const response = await axios.get('/users/me/', {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-
-          if (response.data && response.status === 200) {
-            let userData = response.data.user;
-            if (userData.user_type === 'technician' && response.data.user.technician) {
-              userData = { ...userData, technician: response.data.user.technician };
+      if (isInitializing) return;
+      isInitializing = true;
+      try {
+        if (token && !isInitialized.current) {
+          try {
+            const response = await axios.get('/users/me/', {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.data && response.status === 200) {
+              let userData = response.data.user;
+              if (!userData) {
+                setError('Erreur de connexion : données utilisateur manquantes. Veuillez vous reconnecter.');
+                localStorage.removeItem('token');
+                localStorage.removeItem('refreshToken');
+                setToken(null);
+                setUser(null);
+                setProfile(null);
+                isInitialized.current = false;
+                window.location.href = '/login';
+                return;
+              }
+              if (userData.user_type === 'technician' && response.data.user.technician) {
+                userData = { ...userData, technician: response.data.user.technician };
+              }
+              setUser(userData);
+              setProfile(response.data.profile);
+              isInitialized.current = true;
+            } else {
+              setError('Erreur de connexion : données utilisateur manquantes. Veuillez vous reconnecter.');
+              localStorage.removeItem('token');
+              localStorage.removeItem('refreshToken');
+              setToken(null);
+              setUser(null);
+              setProfile(null);
+              isInitialized.current = false;
+              window.location.href = '/login';
+              return;
             }
-            setUser(userData);
-            setProfile(response.data.profile);
-            isInitialized.current = true;
-          } else {
-            throw new Error('Invalid response from server');
-          }
-        } catch (error) {
-          console.error('Auth initialization failed:', error);
-
-          // Essayer de rafraîchir le token
-          const refreshSuccess = await refreshToken();
-          if (!refreshSuccess) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('refreshToken');
-            setToken(null);
-            setUser(null);
-            setProfile(null);
-            isInitialized.current = false;
+          } catch (error: any) {
+            if (axios.isAxiosError(error) && error.response?.status === 429) {
+              // Trop de requêtes, attendre 5s avant de réessayer
+              await delay(5000);
+              if (!cancelled) await initializeAuth();
+              return;
+            }
+            // Essayer de rafraîchir le token
+            const refreshSuccess = await refreshToken();
+            if (!refreshSuccess) {
+              // No valid tokens available - user needs to login
+              console.log('Aucun token valide disponible - redirection vers login');
+              localStorage.removeItem('token');
+              localStorage.removeItem('refreshToken');
+              setToken(null);
+              setUser(null);
+              setProfile(null);
+              isInitialized.current = false;
+              // Don't redirect immediately, let the user navigate naturally
+            }
           }
         }
+      } finally {
+        isInitializing = false;
+        setLoading(false);
       }
-      setLoading(false);
     };
-
     initializeAuth();
+    return () => { cancelled = true; };
   }, [token]);
 
   useEffect(() => {
@@ -331,7 +379,12 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       async (error) => {
         const originalRequest = error.config;
 
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        // Ne pas faire de refresh sur les endpoints de login/register
+        const isAuthEndpoint = originalRequest.url?.includes('/users/login/') ||
+          originalRequest.url?.includes('/users/register/') ||
+          originalRequest.url?.includes('/users/token/refresh/');
+
+        if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
           console.log('Token expiré détecté, tentative de refresh...');
 
           if (isRefreshing) {
@@ -353,12 +406,13 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
           try {
             const refreshToken = localStorage.getItem('refreshToken');
             if (!refreshToken) {
-              console.error('Aucun refresh token disponible');
+              // Silently handle missing refresh token (user not logged in)
+              console.log('Aucun refresh token disponible - utilisateur non connecté');
               throw new Error('No refresh token available');
             }
 
             console.log('Tentative de refresh du token...');
-            const response = await axios.post('/users/token/refresh/', {
+            const response = await axios.post('http://127.0.0.1:8000/users/token/refresh/', {
               refresh: refreshToken
             });
 
@@ -372,7 +426,12 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
             return axios(originalRequest);
           } catch (refreshError) {
-            console.error('Échec du refresh token:', refreshError);
+            // Only log as error if it's not a "no token" situation
+            if (refreshError instanceof Error && refreshError.message !== 'No refresh token available') {
+              console.error('Échec du refresh token:', refreshError);
+            } else {
+              console.log('Refresh token non disponible - redirection vers login');
+            }
             processQueue(refreshError, null);
 
             // Refresh token expiré, déconnexion propre
@@ -422,10 +481,12 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     try {
       const refreshToken = localStorage.getItem('refreshToken');
       if (!refreshToken) {
+        // No refresh token available - user not logged in
+        console.log('Aucun refresh token disponible pour le refresh');
         return false;
       }
 
-      const response = await axios.post('/users/token/refresh/', {
+      const response = await axios.post('http://127.0.0.1:8000/users/token/refresh/', {
         refresh: refreshToken
       });
 
@@ -485,16 +546,19 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   };
 
   const login = async (email: string, password: string) => {
+    console.log('AuthContext.login appelé avec:', { email, password: password ? '***' : 'VIDE' });
+    console.log('Email length:', email.length, 'Password length:', password.length);
+
     setLoading(true);
     setError(null);
     setOtpRequired(false);
     setOtpToken(null);
     setPendingEmail(null);
     try {
-      const response = await axios.post('http://127.0.0.1:8000/users/login/', {
-        email,
-        password
-      });
+      const loginData = { email, password };
+      console.log('Données envoyées au backend:', loginData);
+
+      const response = await axios.post('http://127.0.0.1:8000/users/login/', loginData);
       if (!response.data) {
         throw new Error('Empty response from server');
       }
@@ -504,19 +568,35 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         setPendingEmail(email);
         return; // Arrêter ici, attendre la saisie OTP côté UI
       }
-      const { access, refresh } = response.data;
-      if (!access) {
+      const { access, token, refresh } = response.data;
+      const accessToken = access || token;
+      if (!accessToken) {
         throw new Error('Invalid login response format');
       }
-      localStorage.setItem('token', access);
+      if (!refresh) {
+        throw new Error('Refresh token manquant dans la réponse');
+      }
+      localStorage.setItem('token', accessToken);
       localStorage.setItem('refreshToken', refresh);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${access}`;
+      console.log('Tokens stockés:', { accessToken: accessToken ? 'présent' : 'absent', refresh: refresh ? 'présent' : 'absent' });
+      axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
       const meResponse = await axios.get('http://127.0.0.1:8000/users/me/', {
-        headers: { Authorization: `Bearer ${access}` }
+        headers: { Authorization: `Bearer ${accessToken}` }
       });
       if (meResponse.data && meResponse.status === 200) {
         const { user: userData, profile: profileData } = meResponse.data;
-        setToken(access);
+        if (!userData) {
+          setError('Erreur de connexion : données utilisateur manquantes. Veuillez vous reconnecter.');
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+          setToken(null);
+          setUser(null);
+          setProfile(null);
+          isInitialized.current = false;
+          window.location.href = '/login';
+          return;
+        }
+        setToken(accessToken);
         setUser(userData);
         setProfile(profileData);
         isInitialized.current = true;
@@ -528,7 +608,15 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         }
         console.log('Login réussi avec données utilisateur:', userData);
       } else {
-        throw new Error('Impossible de récupérer les données utilisateur');
+        setError('Erreur de connexion : données utilisateur manquantes. Veuillez vous reconnecter.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        setToken(null);
+        setUser(null);
+        setProfile(null);
+        isInitialized.current = false;
+        window.location.href = '/login';
+        return;
       }
     } catch (error: unknown) {
       console.error('Login error:', error);
@@ -541,7 +629,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
             'Données invalides';
           setError(message);
         } else if (error.response?.status === 404) {
-          setError('Email ou mot de passe incorrect');
+          setError('Aucun compte n\'existe avec cet email.');
         } else {
           setError(`Erreur serveur: ${error.response?.status || 'Inconnue'}`);
         }
@@ -562,9 +650,9 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     try {
       let response;
       if (userData instanceof FormData) {
-        response = await axios.post('/users/register/', userData);
+        response = await axios.post('http://127.0.0.1:8000/users/register/', userData);
       } else {
-        response = await axios.post('/users/register/', userData);
+        response = await axios.post('http://127.0.0.1:8000/users/register/', userData);
       }
 
       if (!response.data) {
@@ -814,14 +902,20 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         });
         if (response.data && response.status === 200) {
           const notifs = response.data.results || response.data || [];
-          setAllNotifications(notifs.map((n: any) => ({
-            id: n.id,
-            title: n.title,
-            message: n.message,
-            type: n.type,
-            created_at: n.created_at,
-            is_read: n.is_read,
-          })));
+          // Supprimer les notifications WebSocket sans ID qui sont doublons d'une notification API
+          setAllNotifications(prev => {
+            const apiNotifs = notifs.map((n: any) => ({
+              id: n.id,
+              title: n.title,
+              message: n.message,
+              type: n.type,
+              created_at: n.created_at,
+              is_read: n.is_read,
+            }));
+            // Filtrer les wsNotif sans ID qui ne sont pas doublons
+            const wsNotifs = prev.filter(n => !n.id && !apiNotifs.some((apiN: any) => isSameNotification(apiN, n)));
+            return [...apiNotifs, ...wsNotifs].slice(0, 100);
+          });
         }
       } catch (e) {
         // ignore
@@ -839,11 +933,16 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       const wsUrl = `${wsProtocol}://${window.location.hostname}:8000/ws/notifications/?token=${token}`;
       ws = new WebSocket(wsUrl);
       wsRef.current = ws;
-      ws.onopen = () => { };
+      ws.onopen = () => {
+        setWsNotifDisconnected(false);
+        if (wsNotifDisconnectTimer.current) {
+          clearTimeout(wsNotifDisconnectTimer.current);
+          wsNotifDisconnectTimer.current = null;
+        }
+      };
       ws.onmessage = (event) => {
         try {
           const notif = JSON.parse(event.data);
-          // Les notifications WebSocket n'ont pas d'ID car elles ne sont pas dans la DB
           const wsNotif = {
             title: notif.title,
             message: notif.message,
@@ -851,8 +950,15 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
             created_at: notif.created_at,
             is_read: false,
           };
-          setWsNotifications(prev => [wsNotif, ...prev]);
-          setAllNotifications(prev => [wsNotif, ...prev]);
+          // Déduplication : n'ajouter que si aucune notification équivalente n'existe déjà
+          setWsNotifications(prev => {
+            if (prev.some(n => isSameNotification(n, wsNotif))) return prev;
+            return [wsNotif, ...prev].slice(0, 100);
+          });
+          setAllNotifications(prev => {
+            if (prev.some(n => isSameNotification(n, wsNotif))) return prev;
+            return [wsNotif, ...prev].slice(0, 100);
+          });
           // Afficher un toast si notification d'assignation technicien
           if (notif.type === 'technician_assigned' || notif.type === 'request_assigned') {
             let techName = '';
@@ -866,6 +972,11 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       };
       ws.onerror = (e) => { };
       ws.onclose = () => {
+        // Si la reconnexion échoue > 10s, afficher l'alerte
+        if (wsNotifDisconnectTimer.current) clearTimeout(wsNotifDisconnectTimer.current);
+        wsNotifDisconnectTimer.current = setTimeout(() => {
+          setWsNotifDisconnected(true);
+        }, 10000);
         reconnectTimeout = setTimeout(connect, 2000);
       };
     };
@@ -873,6 +984,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     return () => {
       if (ws) ws.close();
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (wsNotifDisconnectTimer.current) clearTimeout(wsNotifDisconnectTimer.current);
     };
   }, [user, token]);
 
@@ -935,6 +1047,13 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       {sessionExpired && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', zIndex: 9999, background: '#f87171', color: 'white', textAlign: 'center', padding: '1rem', fontWeight: 'bold' }}>
           Votre session a expiré. Veuillez vous reconnecter.
+        </div>
+      )}
+      {wsNotifDisconnected && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', zIndex: 9999, background: '#f87171', color: 'white', textAlign: 'center', padding: '1rem', fontWeight: 'bold', boxShadow: '0 2px 8px #0002' }}>
+          <span style={{ marginRight: 8, fontSize: 20 }}>⚠️</span>
+          Connexion temps réel perdue : vous ne recevrez plus les notifications instantanées.<br />
+          <span style={{ fontWeight: 400, fontSize: '0.95em' }}>Vérifiez votre connexion internet ou rafraîchissez la page si le problème persiste.</span>
         </div>
       )}
       {warningPopup}

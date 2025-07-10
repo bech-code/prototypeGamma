@@ -379,7 +379,27 @@ const Home: React.FC = () => {
         setLoadingLocation(false);
       },
       (error) => {
-        setLocationError('Erreur lors de la récupération de votre position');
+        // Gestion spécifique des erreurs de géolocalisation
+        let errorMessage = "Impossible de récupérer votre position.";
+
+        switch (error.code) {
+          case 1: // PERMISSION_DENIED
+            errorMessage = "Permission de géolocalisation refusée. Veuillez autoriser l'accès à votre position dans les paramètres de votre navigateur.";
+            break;
+          case 2: // POSITION_UNAVAILABLE
+            errorMessage = "Position non disponible. Vérifiez que votre GPS est activé et que vous êtes dans une zone avec signal.";
+            break;
+          case 3: // TIMEOUT
+            errorMessage = "Délai d'attente dépassé. Vérifiez votre connexion internet et réessayez.";
+            break;
+          default:
+            errorMessage = "Erreur de géolocalisation. Veuillez entrer votre adresse manuellement.";
+        }
+
+        // Log informatif au lieu d'erreur console
+        console.log(`Géolocalisation (Home): ${errorMessage} (Code: ${error.code})`);
+
+        setLocationError(errorMessage);
         setLoadingLocation(false);
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
@@ -567,7 +587,7 @@ const Home: React.FC = () => {
                 </button>
               </div>
             )}
-            
+
             {showAllServices && services.length > 6 && (
               <div className="flex justify-center">
                 <button
@@ -584,7 +604,7 @@ const Home: React.FC = () => {
                 </button>
               </div>
             )}
-            
+
             <div className="flex justify-center">
               <Link
                 to="/booking"

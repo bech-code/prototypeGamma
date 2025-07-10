@@ -1,5 +1,6 @@
 from django.shortcuts import render
-from rest_framework import viewsets, status, permissions
+from rest_framework import viewsets, permissions
+import rest_framework.status as rf_status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
@@ -47,12 +48,50 @@ from .serializers import (
     GroupSerializer,
     PlatformConfigurationSerializer,
     ClientLocationSerializer,
+    ReportSerializer,
+    AdminNotificationSerializer,
+    AuditLogSerializer,
+    SubscriptionPaymentRequestSerializer,
+    TechnicianSubscriptionSerializer,
 )
 from .models import (
-    Client, Technician, RepairRequest, RequestDocument, Review, Payment, Conversation, Message, Notification, MessageAttachment, TechnicianLocation, SystemConfiguration, CinetPayPayment, PlatformConfiguration, ClientLocation
+    Client, Technician, RepairRequest, RequestDocument, Review, Payment, Conversation, Message, Notification, MessageAttachment, TechnicianLocation, SystemConfiguration, CinetPayPayment, PlatformConfiguration, ClientLocation,
+    Report, AdminNotification, SubscriptionPaymentRequest, TechnicianSubscription,
 )
+from rest_framework.views import APIView
+from users.models import AuditLog
+from django.utils.timezone import now
+from rest_framework.pagination import PageNumberPagination
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from django.utils.decorators import classonlymethod
+from .cinetpay import init_cinetpay_payment
 
 logger = logging.getLogger(__name__)
+
+# ============================================================================
+# FONCTIONS UTILITAIRES
+# ============================================================================
+
+def get_technician_profile(user):
+    """
+    Récupère le profil technicien d'un utilisateur en essayant les deux relations possibles.
+    Retourne le premier profil trouvé ou None si aucun n'existe.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    # Essayer d'abord technician_depannage (relation dans l'app depannage)
+    technician = getattr(user, 'technician_depannage', None)
+    if technician:
+        logger.info(f"[DEBUG] get_technician_profile: technician_depannage trouvé: {technician} (type: {type(technician)})")
+        return technician
+    # Essayer ensuite technician_profile (relation dans l'app users)
+    technician = getattr(user, 'technician_profile', None)
+    if technician:
+        logger.info(f"[DEBUG] get_technician_profile: technician_profile trouvé: {technician} (type: {type(technician)})")
+        return technician
+    logger.info(f"[DEBUG] get_technician_profile: Aucun profil technicien trouvé pour user {user}")
+    return None
 
 # ============================================================================
 # VUES DE TEST PUBLIQUES
@@ -69,7 +108,7 @@ def find_nearest_technician(request):
     except (TypeError, ValueError):
         return Response(
             {"error": "Latitude et longitude invalides"},
-            status=status.HTTP_400_BAD_REQUEST,
+            status=400,
         )
 
     # Récupérer tous les techniciens disponibles
@@ -78,7 +117,7 @@ def find_nearest_technician(request):
     if not available_technicians:
         return Response(
             {"error": "Aucun technicien disponible pour le moment"},
-            status=status.HTTP_404_NOT_FOUND,
+            status=404,
         )
 
     # Calculer la distance pour chaque technicien
@@ -151,8 +190,12 @@ class CinetPayViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
-        if self.action in ["notify", "webhook"]:
-            return [AllowAny()]
+        # Désactivation temporaire de CinetPay
+        # from rest_framework.exceptions import APIException
+        # class CinetPayDisabled(APIException):
+        #     status_code = 503
+        #     default_detail = "Le paiement en ligne est temporairement désactivé. Contactez l'admin pour activer votre abonnement."
+        # raise CinetPayDisabled()
         return super().get_permissions()
 
     @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
@@ -170,7 +213,7 @@ class CinetPayViewSet(viewsets.ModelViewSet):
                 if repair_request.client.user != request.user:
                     return Response(
                         {"error": "Vous n'êtes pas autorisé à payer cette demande."},
-                        status=status.HTTP_403_FORBIDDEN,
+                        status=403,
                     )
 
                 # Calculer le montant total
@@ -236,120 +279,99 @@ class CinetPayViewSet(viewsets.ModelViewSet):
                                     "Erreur lors de l'initialisation du paiement",
                                 ),
                             },
-                            status=status.HTTP_400_BAD_REQUEST,
+                            status=400,
                         )
                 else:
                     return Response(
-                        payment_serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                        payment_serializer.errors, status=400
                     )
 
             except Exception as e:
                 logger.error(f"Erreur lors de l'initialisation du paiement: {str(e)}")
                 return Response(
                     {"success": False, "error": "Erreur interne du serveur"},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    status=500,
                 )
         else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.errors, status=400)
 
     @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated], url_path="initiate_subscription_payment")
     def initiate_subscription_payment(self, request):
-        """Initialise un paiement CinetPay pour l'abonnement technicien."""
+        """Initialise un paiement CinetPay pour l'abonnement technicien (logique simplifiée et claire)."""
         user = request.user
-        technician = getattr(user, 'technician_profile', None)
+        technician = get_technician_profile(user)
         if not technician:
             return Response({"error": "Seul un technicien peut initier un paiement d'abonnement."}, status=403)
-        
-        # Récupérer la durée depuis la requête (défaut: 1 mois)
-        duration_months = request.data.get('duration_months', 1)
+        duration_months = int(request.data.get('duration_months', 1))
         if duration_months not in [1, 3, 6]:
             return Response({"error": "Durée invalide. Choisissez 1, 3 ou 6 mois."}, status=400)
-        
-        # Calculer le montant selon la durée
-        base_amount = 5000  # Montant de base pour 1 mois
+        base_amount = 5000
         amount = base_amount * duration_months
-        
-        # Messages personnalisés selon la durée
-        duration_texts = {
-            1: "1 mois",
-            3: "3 mois",
-            6: "6 mois"
-        }
-        
-        description = f"Abonnement technicien {duration_texts[duration_months]} - Accès premium aux demandes de réparation"
-        
+        description = f"Abonnement technicien {duration_months} mois - Accès premium aux demandes de réparation"
         phone = getattr(user, 'phone', None) or getattr(user, 'phone_number', None) or '+22300000000'
-        
-        # Créer directement l'objet CinetPayPayment sans utiliser le serializer
-        payment = CinetPayPayment(
-            amount=amount,
-            currency="XOF",
-            description=description,
-            customer_name=user.last_name,
-            customer_surname=user.first_name,
-            customer_email=user.email,
-            customer_phone_number=phone,
-            customer_address="Bamako, Mali",
-            customer_city="Bamako",
-            customer_country="ML",
-            customer_state="ML",
-            customer_zip_code="00000",
-            user=user,
-            metadata=f"user_{user.id}_subscription_{duration_months}months",
-            invoice_data={
-                "Type": "Abonnement technicien",
-                "Technicien": user.get_full_name(),
-                "Durée": f"{duration_months} mois"
-            },
-        )
-        payment.transaction_id = payment.generate_transaction_id()
-        payment.save()
-        
-        cinetpay_response = self._initiate_cinetpay_payment(payment)
-        if cinetpay_response.get("success"):
+        name = user.last_name or user.username or "Technicien"
+        metadata = f"user_{user.id}_subscription_{duration_months}months"
+        # Appel au module CinetPay
+        result, transaction_id = init_cinetpay_payment(amount, phone, name, description, metadata)
+        if result.get("code") == "201":
+            payment_url = result["data"]["payment_url"]
             return Response({
                 "success": True,
-                "payment_url": cinetpay_response["payment_url"],
-                "transaction_id": payment.transaction_id,
-                "amount": payment.amount,
+                "payment_url": payment_url,
+                "transaction_id": transaction_id,
+                "amount": amount,
                 "duration_months": duration_months,
-                "message": f"Paiement d'abonnement {duration_texts[duration_months]} initialisé avec succès",
+                "message": f"Paiement d'abonnement {duration_months} mois initialisé avec succès"
             })
         else:
             return Response({
                 "success": False,
-                "error": cinetpay_response.get("error", "Erreur lors de l'initialisation du paiement"),
-            }, status=status.HTTP_400_BAD_REQUEST)
+                "error": result.get("message", "Erreur lors de l'initialisation du paiement")
+            }, status=400)
 
-    def _initiate_cinetpay_payment(self, payment):
-        """Initialise un paiement avec l'API CinetPay selon la documentation officielle."""
+    def _initiate_cinetpay_payment(self, payment, duration_months=None):
         try:
-            # Configuration CinetPay depuis settings
             from django.conf import settings
-
             CINETPAY_CONFIG = getattr(settings, "CINETPAY_CONFIG", {})
-            
-            # Vérifier si les clés CinetPay sont configurées
             api_key = CINETPAY_CONFIG.get("API_KEY", "")
             site_id = CINETPAY_CONFIG.get("SITE_ID", "")
-            
-            # Si les clés ne sont pas configurées, retourner une réponse de test
+            # Mode test détecté
             if not api_key or not site_id or api_key == "test_api_key_123456789" or site_id == "test_site_id_123456":
                 logger.warning("Clés CinetPay non configurées - Mode test activé")
-                
-                # Simuler une réponse de test
                 payment.payment_token = f"test_token_{payment.transaction_id}"
                 payment.payment_url = f"http://127.0.0.1:5173/payment/test/{payment.transaction_id}"
+                payment.status = "success"
+                payment.metadata = (payment.metadata or "") + " [MODE TEST]"
                 payment.save()
-                
-                logger.info(f"Paiement de test initialisé: {payment.transaction_id}")
-                
+                # Créer l'abonnement immédiatement
+                from .models import TechnicianSubscription
+                from django.utils import timezone
+                now = timezone.now()
+                months = duration_months or 1
+                end_date = now + timezone.timedelta(days=30*months)
+                sub = TechnicianSubscription.objects.create(
+                    technician=payment.user.technician_profile,
+                    plan_name=f"Abonnement {months} mois (test)",
+                    start_date=now,
+                    end_date=end_date,
+                    is_active=True,
+                    payment=payment
+                )
+                # Notification spécifique
+                from .models import Notification
+                Notification.objects.create(
+                    recipient=payment.user,
+                    title="Abonnement activé (mode test)",
+                    message=f"Votre abonnement a été activé en mode test jusqu'au {end_date.strftime('%d/%m/%Y')}. Aucun paiement réel n'a été effectué.",
+                    type="subscription_renewed_test",
+                )
                 return {
                     "success": True,
                     "payment_url": payment.payment_url,
                     "payment_token": payment.payment_token,
+                    "mode_test": True,
+                    "message": "Paiement simulé (mode test) : abonnement activé immédiatement."
                 }
-
             # Code pour l'API CinetPay réelle (seulement si les clés sont valides)
             logger.info("Utilisation de l'API CinetPay réelle")
 
@@ -459,160 +481,231 @@ class CinetPayViewSet(viewsets.ModelViewSet):
                 "error": "Erreur interne lors de l'initialisation du paiement",
             }
 
-    @action(detail=False, methods=["post"], permission_classes=[AllowAny])
+    @action(detail=False, methods=["post"], permission_classes=[AllowAny], url_path="cinetpay/notify")
     def notify(self, request):
-        """Endpoint pour recevoir les notifications de paiement de CinetPay."""
+        """Endpoint de notification CinetPay pour traiter les paiements."""
+        logger.info(f"Notification CinetPay reçue: {request.data}")
+        
+        # Validation des données de notification
+        serializer = CinetPayNotificationSerializer(data=request.data)
+        if not serializer.is_valid():
+            logger.error(f"Données de notification invalides: {serializer.errors}")
+            return Response(serializer.errors, status=400)
+        
         try:
-            # Log de la notification reçue
-            logger.info(f"Notification CinetPay reçue: {request.data}")
-
-            # Valider les données reçues
-            serializer = CinetPayNotificationSerializer(data=request.data)
-            if serializer.is_valid():
-                data = serializer.validated_data
-
-                # Récupérer le paiement
+            # Extraire les données validées
+            transaction_id = serializer.validated_data['transaction_id']
+            status = serializer.validated_data['status']
+            payment_token = serializer.validated_data.get('payment_token', '')
+            amount = serializer.validated_data.get('amount', 0)
+            currency = serializer.validated_data.get('currency', 'XOF')
+            customer_name = serializer.validated_data.get('customer_name', '')
+            customer_surname = serializer.validated_data.get('customer_surname', '')
+            customer_email = serializer.validated_data.get('customer_email', '')
+            customer_phone_number = serializer.validated_data.get('customer_phone_number', '')
+            customer_address = serializer.validated_data.get('customer_address', '')
+            customer_city = serializer.validated_data.get('customer_city', '')
+            customer_country = serializer.validated_data.get('customer_country', 'ML')
+            customer_state = serializer.validated_data.get('customer_state', 'ML')
+            customer_zip_code = serializer.validated_data.get('customer_zip_code', '')
+            metadata = serializer.validated_data.get('metadata', '')
+            
+            # Vérifier si le paiement a déjà été traité
+            existing_payment = CinetPayPayment.objects.filter(transaction_id=transaction_id).first()
+            if existing_payment:
+                logger.warning(f"Paiement {transaction_id} déjà traité, statut: {existing_payment.status}")
+                if existing_payment.status == 'success':
+                    return Response({"success": True, "message": "Paiement déjà traité avec succès"})
+                else:
+                    # Mettre à jour le statut si nécessaire
+                    existing_payment.status = status
+                    existing_payment.save()
+                    return Response({"success": True, "message": "Statut mis à jour"})
+            
+            # Récupérer l'utilisateur depuis le metadata
+            user_id = None
+            if metadata and "_user_" in metadata:
                 try:
-                    payment = CinetPayPayment.objects.get(
-                        transaction_id=data["transaction_id"]
-                    )
-                except CinetPayPayment.DoesNotExist:
-                    logger.error(f"Paiement non trouvé: {data['transaction_id']}")
-                    return Response(
-                        {"error": "Paiement non trouvé"},
-                        status=status.HTTP_404_NOT_FOUND,
-                    )
-
-                # Mettre à jour le statut du paiement
-                if data["status"] == "ACCEPTED":
-                    payment.status = "success"
-                    payment.paid_at = timezone.now()
-                    payment.cinetpay_transaction_id = data.get("payment_token", "")
-
-                    # Paiement d'abonnement technicien ?
-                    if payment.metadata and "subscription" in payment.metadata:
-                        from .models import TechnicianSubscription, Technician
-                        user = payment.user
-                        technician = getattr(user, 'technician_profile', None)
-                        if technician:
-                            now = timezone.now()
-                            
-                            # Extraire la durée depuis le metadata
-                            duration_months = 1  # Par défaut
-                            if "_subscription_" in payment.metadata:
-                                try:
-                                    duration_part = payment.metadata.split("_subscription_")[1]
-                                    duration_months = int(duration_part.split("months")[0])
-                                except:
-                                    duration_months = 1
-                            
-                            # Chercher l'abonnement actif ou le plus récent
-                            sub = technician.subscriptions.filter(end_date__gt=now).order_by('-end_date').first()
-                            if sub:
-                                # Prolonger l'abonnement existant
-                                sub.end_date += timedelta(days=30 * duration_months)
-                                sub.payment = payment
-                                sub.save()
-                            else:
-                                # Créer un nouvel abonnement
-                                sub = technician.subscriptions.create(
-                                    plan_name=f"Standard {duration_months} mois",
-                                    start_date=now,
-                                    end_date=now + timedelta(days=30 * duration_months),
-                                    payment=payment
-                                )
-                            
-                            # Message personnalisé selon la durée
-                            duration_texts = {1: "1 mois", 3: "3 mois", 6: "6 mois"}
-                            duration_text = duration_texts.get(duration_months, f"{duration_months} mois")
-                            
-                            Notification.objects.create(
-                                recipient=user,
-                                title="Abonnement renouvelé avec succès !",
-                                message=f"Votre abonnement a été renouvelé pour {duration_text} jusqu'au {sub.end_date.strftime('%d/%m/%Y')}. Vous pouvez maintenant recevoir de nouvelles demandes de réparation.",
-                                type="subscription_renewed",
-                            )
-                    else:
-                        # Paiement classique (demande de réparation)
-                        repair_request = payment.request
-                        repair_request.status = "paid"
-                        repair_request.save()
-                        Notification.objects.create(
-                            recipient=payment.user,
-                            title="Paiement réussi",
-                            message=f"Votre paiement de {payment.amount} FCFA a été effectué avec succès.",
-                            type="payment_success",
-                        )
-                    # ENVOI EMAIL DE CONFIRMATION MALI
-                    try:
-                        subject = "Paiement reçu – Merci pour votre confiance !"
-                        message = (
-                            f"Bonjour {payment.customer_name},\n\n"
-                            f"Votre paiement de {payment.amount} FCFA a bien été reçu pour la demande #{repair_request.id} à Bamako/Mali.\n"
-                            f"Un technicien malien vous contactera sous peu pour planifier l'intervention.\n\n"
-                            f"Contact support : +223 XX XX XX XX (WhatsApp disponible)\n"
-                            f"Merci d'avoir choisi [Votre Service]."
-                        )
-                        send_mail(
-                            subject,
-                            message,
-                            'no-reply@votreservice.ml',  # À personnaliser
-                            [payment.customer_email],
-                            fail_silently=True,
-                        )
-                        logger.info(f"Email de confirmation envoyé à {payment.customer_email}")
-                    except Exception as e:
-                        logger.error(f"Erreur lors de l'envoi de l'email de confirmation: {e}")
-
-                    # ENVOI SMS DE CONFIRMATION (Twilio ou à adapter)
-                    try:
-                        if TwilioClient:
-                            twilio_sid = os.getenv('TWILIO_ACCOUNT_SID')
-                            twilio_token = os.getenv('TWILIO_AUTH_TOKEN')
-                            twilio_from = os.getenv('TWILIO_FROM_NUMBER', '+15017122661')
-                            if twilio_sid and twilio_token:
-                                client = TwilioClient(twilio_sid, twilio_token)
-                                sms_body = (
-                                    f"[Votre Service] Paiement reçu !\n"
-                                    f"Montant : {payment.amount} FCFA\n"
-                                    f"Demande #{repair_request.id} à Bamako.\n"
-                                    f"Merci pour votre confiance."
-                                )
-                                client.messages.create(
-                                    body=sms_body,
-                                    from_=twilio_from,
-                                    to=payment.customer_phone_number
-                                )
-                                logger.info(f"SMS de confirmation envoyé à {payment.customer_phone_number}")
-                            else:
-                                logger.warning("Twilio non configuré (TWILIO_ACCOUNT_SID/TOKEN)")
-                        else:
-                            logger.warning("TwilioClient non importé (twilio non installé)")
-                    except Exception as e:
-                        logger.error(f"Erreur lors de l'envoi du SMS de confirmation: {e}")
-
-                elif data["status"] == "REFUSED":
-                    payment.status = "failed"
-                    Notification.objects.create(
-                        recipient=payment.user,
-                        title="Paiement échoué",
-                        message="Votre paiement a échoué. Veuillez réessayer.",
-                        type="payment_failed",
-                    )
-
+                    user_id = int(metadata.split("_user_")[1].split("_")[0])
+                except (ValueError, IndexError):
+                    logger.error(f"Impossible d'extraire l'ID utilisateur du metadata: {metadata}")
+                    return Response({"error": "Metadata invalide"}, status=400)
+            
+            if not user_id:
+                logger.error("ID utilisateur non trouvé dans le metadata")
+                return Response({"error": "ID utilisateur manquant"}, status=400)
+            
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                logger.error(f"Utilisateur {user_id} non trouvé")
+                return Response({"error": "Utilisateur non trouvé"}, status=400)
+            
+            # Créer ou mettre à jour le paiement
+            payment, created = CinetPayPayment.objects.get_or_create(
+                transaction_id=transaction_id,
+                defaults={
+                    'amount': amount,
+                    'currency': currency,
+                    'description': f"Abonnement technicien - {customer_name}",
+                    'customer_name': customer_name,
+                    'customer_surname': customer_surname,
+                    'customer_email': customer_email,
+                    'customer_phone_number': customer_phone_number,
+                    'customer_address': customer_address,
+                    'customer_city': customer_city,
+                    'customer_country': customer_country,
+                    'customer_state': customer_state,
+                    'customer_zip_code': customer_zip_code,
+                    'status': status,
+                    'metadata': metadata,
+                    'user': user,
+                    'payment_token': payment_token,
+                    'paid_at': timezone.now() if status == 'success' else None
+                }
+            )
+            
+            if not created:
+                # Mettre à jour le paiement existant
+                payment.status = status
+                payment.paid_at = timezone.now() if status == 'success' else None
                 payment.save()
-
+            
+            # Traiter le paiement seulement si le statut est 'success'
+            if status == 'success':
+                # Récupérer le profil technicien
+                technician = None
+                try:
+                    technician = user.technician_depannage
+                except:
+                    try:
+                        technician = user.technician_profile
+                    except:
+                        pass
+                
+                if not technician:
+                    logger.error(f"Utilisateur {user.username} sans profil technicien")
+                    return Response({"error": "Profil technicien non trouvé"}, status=400)
+                
+                # Extraire la durée depuis le metadata
+                duration_months = 1
+                if "_subscription_" in metadata:
+                    try:
+                        duration_part = metadata.split("_subscription_")[1]
+                        duration_months = int(duration_part.split("months")[0])
+                    except Exception as e:
+                        logger.warning(f"Erreur extraction durée: {e}, utilisation valeur par défaut")
+                        duration_months = 1
+                
+                now = timezone.now()
+                
+                # Vérifier s'il y a déjà un abonnement actif pour éviter les doublons
+                active_subscription = None
+                if hasattr(technician, 'subscriptions'):
+                    # Profil Technician (app depannage)
+                    active_subscription = technician.subscriptions.filter(
+                        end_date__gt=now,
+                        is_active=True
+                    ).order_by('-end_date').first()
+                else:
+                    # Profil TechnicianProfile (app users) - chercher les abonnements liés à l'utilisateur
+                    from .models import TechnicianSubscription
+                    active_subscription = TechnicianSubscription.objects.filter(
+                        technician__user=user,
+                        end_date__gt=now,
+                        is_active=True
+                    ).order_by('-end_date').first()
+                
+                # Vérifier si ce paiement a déjà été utilisé pour un abonnement
+                existing_subscription_with_payment = None
+                if hasattr(technician, 'subscriptions'):
+                    existing_subscription_with_payment = technician.subscriptions.filter(
+                        payment=payment
+                    ).first()
+                else:
+                    existing_subscription_with_payment = TechnicianSubscription.objects.filter(
+                        technician__user=user,
+                        payment=payment
+                    ).first()
+                
+                if existing_subscription_with_payment:
+                    logger.warning(f"Paiement {transaction_id} déjà utilisé pour l'abonnement {existing_subscription_with_payment.id}")
+                    return Response({"success": True, "message": "Paiement déjà utilisé pour un abonnement"})
+                
+                # Créer ou prolonger l'abonnement
+                if active_subscription:
+                    # Prolonger l'abonnement existant
+                    active_subscription.end_date += timedelta(days=30 * duration_months)
+                    active_subscription.payment = payment
+                    active_subscription.save()
+                    sub = active_subscription
+                    logger.info(f"Abonnement prolongé pour {technician.user.username}")
+                else:
+                    # Créer un nouvel abonnement
+                    if hasattr(technician, 'subscriptions'):
+                        # Profil Technician (app depannage)
+                        sub = TechnicianSubscription.objects.create(
+                            technician=technician,
+                            plan_name=f"Standard {duration_months} mois",
+                            start_date=now,
+                            end_date=now + timedelta(days=30 * duration_months),
+                            payment=payment,
+                            is_active=True
+                        )
+                        logger.info(f"Nouvel abonnement créé pour {technician.user.username}")
+                    else:
+                        # Profil TechnicianProfile (app users) - créer un Technician temporaire
+                        from .models import TechnicianSubscription, Technician
+                        
+                        # Créer un Technician temporaire pour l'abonnement
+                        temp_technician, created = Technician.objects.get_or_create(
+                            user=user,
+                            defaults={
+                                'specialty': 'other',
+                                'phone': getattr(technician, 'phone', '+22300000000'),
+                                'is_available': True,
+                                'is_verified': True,
+                                'years_experience': 0,
+                                'experience_level': 'junior',
+                                'hourly_rate': 0,
+                                'badge_level': 'bronze',
+                                'service_radius_km': 10,
+                                'bio': 'Technicien créé automatiquement pour abonnement'
+                            }
+                        )
+                        
+                        # Créer l'abonnement avec le Technician temporaire
+                        sub = TechnicianSubscription.objects.create(
+                            technician=temp_technician,
+                            plan_name=f"Standard {duration_months} mois",
+                            start_date=now,
+                            end_date=now + timedelta(days=30 * duration_months),
+                            payment=payment,
+                            is_active=True
+                        )
+                        logger.info(f"Abonnement créé pour TechnicianProfile {user.username} via Technician temporaire")
+                
+                # Créer une notification pour l'utilisateur
+                try:
+                    Notification.objects.create(
+                        recipient=user,
+                        title="Abonnement activé avec succès !",
+                        message=f"Votre abonnement a été activé pour {duration_months} mois jusqu'au {sub.end_date.strftime('%d/%m/%Y')}. Vous pouvez maintenant recevoir de nouvelles demandes de réparation.",
+                        type="subscription_renewed",
+                    )
+                except Exception as e:
+                    logger.error(f"Erreur création notification: {e}")
+                
+                payment.save()
+                logger.info(f"Paiement {payment.transaction_id} traité avec succès")
                 return Response({"success": True})
             else:
-                logger.error(f"Données de notification invalides: {serializer.errors}")
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+                logger.info(f"Paiement {transaction_id} reçu avec statut: {status}")
+                return Response({"success": True, "message": f"Paiement reçu avec statut: {status}"})
+                
         except Exception as e:
-            logger.error(f"Erreur lors du traitement de la notification: {str(e)}")
-            return Response(
-                {"error": "Erreur interne"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            logger.error(f"Erreur lors du traitement de la notification: {e}")
+            return Response({"error": "Erreur interne"}, status=500)
 
     @action(detail=True, methods=["get"], permission_classes=[IsAuthenticated])
     def check_status(self, request, pk=None):
@@ -621,7 +714,7 @@ class CinetPayViewSet(viewsets.ModelViewSet):
 
         # Vérifier que l'utilisateur est autorisé
         if payment.user != request.user:
-            return Response({"error": "Non autorisé"}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"error": "Non autorisé"}, status=403)
 
         return Response(
             {
@@ -644,7 +737,13 @@ class CinetPayViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-class RepairRequestViewSet(viewsets.ModelViewSet):
+class CsrfExemptMixin(object):
+    @classonlymethod
+    def as_view(cls, *args, **kwargs):
+        view = super().as_view(*args, **kwargs)
+        return csrf_exempt(view)
+
+class RepairRequestViewSet(CsrfExemptMixin, viewsets.ModelViewSet):
     """ViewSet pour gérer les demandes de réparation."""
 
     serializer_class = RepairRequestSerializer
@@ -676,6 +775,7 @@ class RepairRequestViewSet(viewsets.ModelViewSet):
             return RepairRequest.objects.filter(client=client).order_by("-created_at")
 
     def perform_create(self, serializer):
+        technician = None  # Initialisation systématique pour éviter UnboundLocalError
         user = self.request.user
 
         lat = serializer.validated_data.get('latitude')
@@ -704,10 +804,10 @@ class RepairRequestViewSet(viewsets.ModelViewSet):
             data["title"] = f"Demande de {service_name}"
 
         # Nouveau : gestion du statut draft
-        status = data.get('status', RepairRequest.Status.PENDING)
+        request_status = data.get('status', RepairRequest.Status.PENDING)
         repair_request = serializer.save(client=client, **data)
 
-        if status == RepairRequest.Status.DRAFT:
+        if request_status == RepairRequest.Status.DRAFT:
             # Ne pas créer de conversation ni envoyer de notification
             return
 
@@ -791,7 +891,10 @@ class RepairRequestViewSet(viewsets.ModelViewSet):
             is_verified=True,
             current_latitude__isnull=False,
             current_longitude__isnull=False,
-        ).exclude(id=technician.id)
+        )
+        # Exclure le technicien courant seulement si la variable existe
+        if 'technician' in locals() and technician is not None:
+            technicians = technicians.exclude(id=technician.id)
         tech_with_distance = []
         for tech in technicians:
             distance = calculate_distance(lat, lng, tech.current_latitude, tech.current_longitude)
@@ -802,7 +905,7 @@ class RepairRequestViewSet(viewsets.ModelViewSet):
             Notification.objects.create(
                 recipient=other_tech.user,
                 title="Demande déjà acceptée",
-                message=f"La demande #{repair_request.id} a été acceptée par un autre technicien.",
+                message=f"La demande #{repair_request.id} a été acceptée par {technician.user.get_full_name() if 'technician' in locals() and technician is not None else 'un technicien'}.",
                 type="request_taken",
                 request=repair_request,
             )
@@ -811,17 +914,18 @@ class RepairRequestViewSet(viewsets.ModelViewSet):
         from users.models import User
         admin_users = User.objects.filter(is_staff=True, is_active=True)
         for admin in admin_users:
+            tech_name = technician.user.get_full_name() if 'technician' in locals() and technician is not None else "un technicien"
             Notification.objects.create(
                 recipient=admin,
                 title="Demande acceptée par un technicien",
-                message=f"La demande #{repair_request.id} a été acceptée par {technician.user.get_full_name()}",
+                message=f"La demande #{repair_request.id} a été acceptée par {tech_name}",
                 type="request_accepted",
                 request=repair_request,
             )
 
         # Retourne la réponse complète avec l'ID
         response_serializer = RepairRequestSerializer(repair_request, context={'request': self.request})
-        self.response = Response(response_serializer.data, status=status.HTTP_201_CREATED)
+        self.response = Response(response_serializer.data, status=201)
 
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
     def assign_technician(self, request, pk=None):
@@ -836,7 +940,7 @@ class RepairRequestViewSet(viewsets.ModelViewSet):
         if not technician_id:
             logger.error(f"ID du technicien manquant pour la demande {repair_request.id}")
             return Response(
-                {"error": "ID du technicien requis"}, status=status.HTTP_400_BAD_REQUEST
+                {"error": "ID du technicien requis"}, status=400
             )
 
         logger.info(f"Technician ID reçu: {technician_id}")
@@ -853,7 +957,7 @@ class RepairRequestViewSet(viewsets.ModelViewSet):
                     logger.warning(f"Technicien {technician.id} non disponible")
                     return Response(
                         {"error": "Ce technicien n'est pas disponible"},
-                        status=status.HTTP_400_BAD_REQUEST,
+                        status=400,
                     )
                 if technician.specialty != repair_request.specialty_needed:
                     logger.warning(f"Spécialité non correspondante: {technician.specialty} vs {repair_request.specialty_needed}")
@@ -861,7 +965,7 @@ class RepairRequestViewSet(viewsets.ModelViewSet):
                         {
                             "error": "Ce technicien ne correspond pas à la spécialité requise"
                         },
-                        status=status.HTTP_400_BAD_REQUEST,
+                        status=400,
                     )
             # Cas technicien : auto-assignation ou refus
             elif user.user_type == "technician" and technician.user == user:
@@ -870,148 +974,131 @@ class RepairRequestViewSet(viewsets.ModelViewSet):
                     logger.warning(f"Demande non en attente: {repair_request.status}")
                     return Response(
                         {"error": "Seules les demandes en attente peuvent être traitées."},
-                        status=status.HTTP_400_BAD_REQUEST,
+                        status=400,
                     )
                 if technician.specialty != repair_request.specialty_needed:
                     logger.warning(f"Spécialité technicien non correspondante: {technician.specialty} vs {repair_request.specialty_needed}")
                     return Response(
                         {"error": "Vous ne correspondez pas à la spécialité requise."},
-                        status=status.HTTP_400_BAD_REQUEST,
+                        status=400,
                     )
                 if not technician.is_available:
                     logger.warning(f"Technicien {technician.id} non disponible")
                     return Response(
                         {"error": "Vous n'êtes pas disponible."},
-                        status=status.HTTP_400_BAD_REQUEST,
+                        status=400,
                     )
             else:
                 logger.error(f"Non autorisé - User type: {user.user_type}, Technician user: {technician.user.id if technician else 'None'}")
                 return Response(
-                    {"error": "Non autorisé."}, status=status.HTTP_403_FORBIDDEN
+                    {"error": "Non autorisé."}, status=403
                 )
 
-            # Traiter l'action
-            if action == "refuse":
-                # Refuser la demande
-                repair_request.status = "refused"
-                repair_request.save()
-                
-                logger.info(f"Demande {repair_request.id} refusée par le technicien {technician.user.get_full_name()}")
-
-                # Envoyer notification au client
-                Notification.objects.create(
-                    recipient=repair_request.client.user,
-                    title="Demande refusée",
-                    message=f"Votre demande #{repair_request.id} a été refusée par un technicien.",
-                    type="request_refused",
-                )
-
-                # Créer un message automatique
-                conversation = repair_request.conversation
-                Message.objects.create(
-                    conversation=conversation,
-                    sender=user,
-                    content="La demande a été refusée par un technicien",
-                    message_type="system",
-                )
-
+            # Vérifier que le technicien n'a pas déjà une demande en cours
+            from depannage.models import RepairRequest
+            busy_request = RepairRequest.objects.filter(
+                technician=technician,
+                status__in=[RepairRequest.Status.ASSIGNED, RepairRequest.Status.IN_PROGRESS]
+            ).exclude(id=repair_request.id).first()
+            if busy_request:
                 return Response(
-                    {
-                        "success": True,
-                        "message": "Demande refusée avec succès",
-                    }
+                    {"error": "Vous avez déjà une demande en cours. Terminez-la avant d'en accepter une nouvelle."},
+                    status=400,
                 )
-            else:
-                # Accepter la demande (logique existante)
-                repair_request.technician = technician
-                repair_request.status = "assigned"
-                repair_request.assigned_at = timezone.now()
-                repair_request.save()
-                
-                logger.info(f"Technicien {technician.user.get_full_name()} assigné avec succès à la demande {repair_request.id}")
+            # Accepter la demande (logique existante)
+            repair_request.technician = technician
+            repair_request.status = "assigned"
+            repair_request.assigned_at = timezone.now()
+            repair_request.save()
+            
+            logger.info(f"Technicien {technician.user.get_full_name()} assigné avec succès à la demande {repair_request.id}")
 
-                # Marquer comme lues les notifications pour les autres techniciens
-                Notification.objects.filter(
+            # Marquer comme lues les notifications pour les autres techniciens
+            Notification.objects.filter(
+                request=repair_request,
+                type="new_request_technician"
+            ).exclude(recipient=technician.user).delete()
+
+            # Ajouter le technicien à la conversation
+            conversation = repair_request.conversation
+            conversation.participants.add(technician.user)
+
+            # Envoyer notification au technicien
+            Notification.objects.create(
+                recipient=technician.user,
+                title="Nouvelle demande assignée",
+                message=f"Vous avez été assigné à la demande #{repair_request.id}",
+                type="request_assigned",
+            )
+
+            # Envoyer notification au client
+            Notification.objects.create(
+                recipient=repair_request.client.user,
+                title="Technicien assigné",
+                message=f"Un technicien a été assigné à votre demande #{repair_request.id}",
+                type="technician_assigned",
+            )
+
+            # Créer un message automatique
+            Message.objects.create(
+                conversation=conversation,
+                sender=request.user,
+                content=f"Technicien {technician.user.get_full_name()} assigné à cette demande",
+                message_type="system",
+            )
+
+            # Notifier les autres techniciens de la spécialité (parmi les plus proches)
+            lat = repair_request.latitude
+            lng = repair_request.longitude
+            technicians = Technician.objects.filter(
+                specialty=repair_request.specialty_needed,
+                is_available=True,
+                is_verified=True,
+                current_latitude__isnull=False,
+                current_longitude__isnull=False,
+            )
+            # Exclure le technicien courant seulement si la variable existe
+            if 'technician' in locals() and technician is not None:
+                technicians = technicians.exclude(id=technician.id)
+            tech_with_distance = []
+            for tech in technicians:
+                distance = calculate_distance(lat, lng, tech.current_latitude, tech.current_longitude)
+                tech_with_distance.append((tech, distance))
+            tech_with_distance.sort(key=lambda x: x[1])
+            closest_techs = [t[0] for t in tech_with_distance[:10]]
+            for other_tech in closest_techs:
+                Notification.objects.create(
+                    recipient=other_tech.user,
+                    title="Demande déjà acceptée",
+                    message=f"La demande #{repair_request.id} a été acceptée par {technician.user.get_full_name() if 'technician' in locals() and technician is not None else 'un technicien'}.",
+                    type="request_taken",
                     request=repair_request,
-                    type="new_request_technician"
-                ).exclude(recipient=technician.user).delete()
+                )
 
-                # Ajouter le technicien à la conversation
-                conversation = repair_request.conversation
-                conversation.participants.add(technician.user)
-
-                # Envoyer notification au technicien
+            # Notifier les admins
+            from users.models import User
+            admin_users = User.objects.filter(is_staff=True, is_active=True)
+            for admin in admin_users:
+                tech_name = technician.user.get_full_name() if 'technician' in locals() and technician is not None else "un technicien"
                 Notification.objects.create(
-                    recipient=technician.user,
-                    title="Nouvelle demande assignée",
-                    message=f"Vous avez été assigné à la demande #{repair_request.id}",
-                    type="request_assigned",
+                    recipient=admin,
+                    title="Demande acceptée par un technicien",
+                    message=f"La demande #{repair_request.id} a été acceptée par {tech_name}",
+                    type="request_accepted",
+                    request=repair_request,
                 )
 
-                # Envoyer notification au client
-                Notification.objects.create(
-                    recipient=repair_request.client.user,
-                    title="Technicien assigné",
-                    message=f"Un technicien a été assigné à votre demande #{repair_request.id}",
-                    type="technician_assigned",
-                )
-
-                # Créer un message automatique
-                Message.objects.create(
-                    conversation=conversation,
-                    sender=request.user,
-                    content=f"Technicien {technician.user.get_full_name()} assigné à cette demande",
-                    message_type="system",
-                )
-
-                # Notifier les autres techniciens de la spécialité (parmi les plus proches)
-                lat = repair_request.latitude
-                lng = repair_request.longitude
-                technicians = Technician.objects.filter(
-                    specialty=repair_request.specialty_needed,
-                    is_available=True,
-                    is_verified=True,
-                    current_latitude__isnull=False,
-                    current_longitude__isnull=False,
-                ).exclude(id=technician.id)
-                tech_with_distance = []
-                for tech in technicians:
-                    distance = calculate_distance(lat, lng, tech.current_latitude, tech.current_longitude)
-                    tech_with_distance.append((tech, distance))
-                tech_with_distance.sort(key=lambda x: x[1])
-                closest_techs = [t[0] for t in tech_with_distance[:10]]
-                for other_tech in closest_techs:
-                    Notification.objects.create(
-                        recipient=other_tech.user,
-                        title="Demande déjà acceptée",
-                        message=f"La demande #{repair_request.id} a été acceptée par un autre technicien.",
-                        type="request_taken",
-                        request=repair_request,
-                    )
-
-                # Notifier les admins
-                from users.models import User
-                admin_users = User.objects.filter(is_staff=True, is_active=True)
-                for admin in admin_users:
-                    Notification.objects.create(
-                        recipient=admin,
-                        title="Demande acceptée par un technicien",
-                        message=f"La demande #{repair_request.id} a été acceptée par {technician.user.get_full_name()}",
-                        type="request_accepted",
-                        request=repair_request,
-                    )
-
-                return Response(
-                    {
-                        "success": True,
-                        "message": f"Technicien {technician.user.get_full_name()} assigné avec succès",
-                    }
-                )
+            return Response(
+                {
+                    "success": True,
+                    "message": f"Technicien {technician.user.get_full_name()} assigné avec succès",
+                }
+            )
 
         except Technician.DoesNotExist:
             logger.error(f"Technicien avec ID {technician_id} non trouvé")
             return Response(
-                {"error": "Technicien non trouvé"}, status=status.HTTP_404_NOT_FOUND
+                {"error": "Technicien non trouvé"}, status=404
             )
 
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
@@ -1023,7 +1110,7 @@ class RepairRequestViewSet(viewsets.ModelViewSet):
 
         if not new_status:
             return Response(
-                {"error": "Nouveau statut requis"}, status=status.HTTP_400_BAD_REQUEST
+                {"error": "Nouveau statut requis"}, status=400
             )
 
         # Vérifier les permissions
@@ -1037,16 +1124,15 @@ class RepairRequestViewSet(viewsets.ModelViewSet):
                 or (repair_request.status == "pending" and repair_request.specialty_needed == user.technician.specialty)
             )
         ):
-            # Technicien assigné OU technicien de la spécialité sur une demande en attente
             can_update = True
         elif user.user_type == "client" and repair_request.client.user == user:
-            # Les clients peuvent seulement annuler
-            can_update = new_status == "cancelled"
+            can_update = new_status == "cancelled" and repair_request.status == "pending"
+            logger.info(f"Client autorisé à annuler sa demande: {can_update}")
 
         if not can_update:
             return Response(
                 {"error": "Vous n'êtes pas autorisé à modifier cette demande"},
-                status=status.HTTP_403_FORBIDDEN,
+                status=403,
             )
 
         # Mettre à jour le statut
@@ -1186,7 +1272,7 @@ class RepairRequestViewSet(viewsets.ModelViewSet):
         
         if user.user_type != "admin":
             return Response(
-                {"error": "Accès non autorisé"}, status=status.HTTP_403_FORBIDDEN
+                {"error": "Accès non autorisé"}, status=403
             )
 
         from django.utils import timezone
@@ -1407,12 +1493,12 @@ class RepairRequestViewSet(viewsets.ModelViewSet):
 
         if user.user_type != "admin":
             return Response(
-                {"error": "Accès non autorisé"}, status=status.HTTP_403_FORBIDDEN
+                {"error": "Accès non autorisé"}, status=403
             )
 
         if not specialty:
             return Response(
-                {"error": "Spécialité requise"}, status=status.HTTP_400_BAD_REQUEST
+                {"error": "Spécialité requise"}, status=400
             )
 
         technicians = Technician.objects.filter(
@@ -1441,18 +1527,25 @@ class RepairRequestViewSet(viewsets.ModelViewSet):
 
         return Response(technician_data)
 
+    @csrf_exempt
     def create(self, request, *args, **kwargs):
         try:
-            logger.info('[DEBUG] Body reçu pour création RepairRequest: %s', request.data)
-        except Exception as e:
-            logger.error('[DEBUG] Erreur lors du log du body: %s', e)
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        # Sérialiser la demande créée pour la réponse
-        response_serializer = RepairRequestSerializer(serializer.instance, context={'request': request})
-        headers = self.get_success_headers(serializer.data)
-        return Response(response_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+            try:
+                logger.info('[DEBUG] Body reçu pour création RepairRequest: %s', request.data)
+            except Exception as e:
+                logger.error('[DEBUG] Erreur lors du log du body: %s', e)
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            # Sérialiser la demande créée pour la réponse
+            response_serializer = RepairRequestSerializer(serializer.instance, context={'request': request})
+            headers = self.get_success_headers(serializer.data)
+            return Response(response_serializer.data, status=201, headers=headers)
+        except Exception as exc:
+            import traceback
+            tb = traceback.format_exc()
+            logger.error(f'[DEBUG][EXCEPTION] {exc}\n{tb}')
+            return Response({'error': str(exc), 'traceback': tb}, status=500)
 
     def partial_update(self, request, *args, **kwargs):
         """Gère les mises à jour partielles avec vérification des permissions."""
@@ -1480,15 +1573,15 @@ class RepairRequestViewSet(viewsets.ModelViewSet):
             except Technician.DoesNotExist:
                 logger.error(f"Profil technicien non trouvé pour l'utilisateur {user.id}")
         elif user.user_type == "client" and repair_request.client.user == user:
-            # Les clients peuvent seulement annuler
-            can_update = new_status == "cancelled"
+            # Les clients peuvent seulement annuler si la demande n'est pas acceptée
+            can_update = new_status == "cancelled" and repair_request.status == "pending"
             logger.info(f"Client autorisé à annuler sa demande: {can_update}")
 
         if not can_update:
             logger.error(f"Utilisateur {user.id} non autorisé à modifier la demande {repair_request.id}")
             return Response(
                 {"error": "Vous n'êtes pas autorisé à modifier cette demande"},
-                status=status.HTTP_403_FORBIDDEN,
+                status=403,
             )
 
         # Si c'est un changement de statut, utiliser la logique de update_status
@@ -1710,6 +1803,8 @@ class RepairRequestViewSet(viewsets.ModelViewSet):
             return Response({"error": "La mission doit être terminée pour être validée."}, status=400)
         if repair_request.mission_validated:
             return Response({"error": "La mission a déjà été validée."}, status=400)
+        if repair_request.status in [RepairRequest.Status.CANCELLED, RepairRequest.Status.CANCELLED]:
+            return Response({"error": "Impossible de valider une mission annulée ou refusée."}, status=400)
         # Marquer comme validée
         repair_request.mission_validated = True
         repair_request.save()
@@ -1799,43 +1894,57 @@ class TechnicianViewSet(viewsets.ModelViewSet):
     def subscription_status(self, request):
         """Retourne le statut détaillé de l'abonnement du technicien."""
         user = request.user
-        if not hasattr(user, "technician_profile"):
+        
+        # Récupérer le profil technicien
+        technician = None
+        try:
+            technician = user.technician_depannage
+        except:
+            try:
+                technician = user.technician_profile
+            except:
+                pass
+        
+        if not technician:
             return Response({"error": "Vous n'êtes pas un technicien."}, status=403)
         
-        technician = user.technician_profile
-        now = timezone.now()
+        # Vérifier si le technicien a des abonnements (gérer les deux types de profils)
+        if hasattr(technician, 'subscriptions'):
+            # Profil Technician (app depannage)
+            subscriptions = technician.subscriptions
+        else:
+            # Profil TechnicianProfile (app users) - chercher les abonnements liés à l'utilisateur
+            from .models import TechnicianSubscription
+            subscriptions = TechnicianSubscription.objects.filter(
+                technician__user=user
+            )
         
-        # Récupérer l'abonnement actif
-        active_subscription = technician.subscriptions.filter(
+        now = timezone.now()
+        active_subscription = subscriptions.filter(
             end_date__gt=now,
             is_active=True
         ).order_by('-end_date').first()
         
-        # Récupérer l'historique des paiements
         payments = Payment.objects.filter(payer=user).order_by('-created_at')[:10]
-        
-        # Calculer les jours restants
         days_remaining = 0
+        
         if active_subscription:
             days_remaining = (active_subscription.end_date - now).days
         
-        # Déterminer le statut
-        status = 'active'
+        subscription_status = 'active'
         if not active_subscription:
-            status = 'expired'
+            subscription_status = 'expired'
         elif days_remaining <= 7:
-            status = 'warning'
+            subscription_status = 'warning'
         elif days_remaining <= 3:
-            status = 'critical'
+            subscription_status = 'critical'
         
-        # Créer une notification si l'abonnement expire bientôt
         if active_subscription and days_remaining <= 7 and days_remaining > 0:
             existing_notification = Notification.objects.filter(
                 recipient=user,
                 type='subscription_expiry',
                 is_read=False
             ).first()
-            
             if not existing_notification:
                 Notification.objects.create(
                     recipient=user,
@@ -1845,8 +1954,8 @@ class TechnicianViewSet(viewsets.ModelViewSet):
                 )
         
         return Response({
-            'status': status,
-            'subscription': active_subscription,
+            'status': subscription_status,
+            'subscription': active_subscription.id if active_subscription else None,
             'days_remaining': days_remaining,
             'payments': PaymentSerializer(payments, many=True).data,
             'can_receive_requests': active_subscription is not None
@@ -1999,12 +2108,14 @@ class TechnicianViewSet(viewsets.ModelViewSet):
     def me(self, request):
         """Retourne les informations du technicien connecté."""
         user = request.user
-        try:
-            technician = Technician.objects.get(user=user)
-            serializer = self.get_serializer(technician)
-            return Response(serializer.data)
-        except Technician.DoesNotExist:
+        from .models import Technician
+        technician = get_technician_profile(user)
+        if not technician:
+            technician = Technician.objects.filter(user=user).first()
+        if not technician:
             return Response({"error": "Technicien introuvable"}, status=404)
+        serializer = self.get_serializer(technician)
+        return Response(serializer.data)
 
 
 class RequestDocumentViewSet(viewsets.ModelViewSet):
@@ -2026,22 +2137,39 @@ class ReviewViewSet(viewsets.ModelViewSet):
     queryset = Review.objects.all()
     serializer_class = ReviewSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = PageNumberPagination  # Ajout de la pagination
 
     def get_queryset(self):
         if self.request.user.is_staff:
-            return Review.objects.all()
-        return Review.objects.filter(client__user=self.request.user)
+            return Review.objects.all().select_related('technician__user', 'client__user')
+        return Review.objects.filter(client__user=self.request.user).select_related('technician__user', 'client__user')
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def received(self, request):
         """Retourne la liste des avis reçus par le technicien connecté."""
         user = request.user
-        if not hasattr(user, "technician_profile"):
+        from .models import Technician
+        technician = get_technician_profile(user)
+        if not technician or not isinstance(technician, Technician):
+            technician = Technician.objects.filter(user=user).first()
+        if not technician:
             return Response({"error": "Vous n'êtes pas un technicien."}, status=403)
-        technician = user.technician_profile
-        reviews = Review.objects.filter(technician=technician).order_by("-created_at")
-        serializer = self.get_serializer(reviews, many=True)
-        return Response(serializer.data)
+        reviews = Review.objects.filter(technician=technician).select_related('client__user').order_by("-created_at")
+        
+        # Pagination
+        page = request.query_params.get('page', 1)
+        page_size = request.query_params.get('page_size', 20)
+        
+        paginator = Paginator(reviews, page_size)
+        reviews_page = paginator.get_page(page)
+        
+        serializer = self.get_serializer(reviews_page, many=True)
+        return Response({
+            "results": serializer.data,
+            "count": paginator.count,
+            "next": reviews_page.has_next(),
+            "previous": reviews_page.has_previous()
+        })
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def pending_reviews(self, request):
@@ -2057,9 +2185,16 @@ class ReviewViewSet(viewsets.ModelViewSet):
             review__isnull=True
         ).select_related('technician__user').order_by('-completed_at')
         
+        # Pagination
+        page = request.query_params.get('page', 1)
+        page_size = request.query_params.get('page_size', 20)
+        
+        paginator = Paginator(completed_requests, page_size)
+        requests_page = paginator.get_page(page)
+        
         # Sérialiser avec les informations nécessaires pour la page de notation
         data = []
-        for request in completed_requests:
+        for request in requests_page:
             data.append({
                 'id': request.id,
                 'title': request.title,
@@ -2079,18 +2214,23 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 }
             })
         
-        return Response(data)
+        return Response({
+            "results": data,
+            "count": paginator.count,
+            "next": requests_page.has_next(),
+            "previous": requests_page.has_previous()
+        })
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def statistics(self, request):
         """Retourne les statistiques des avis pour l'utilisateur connecté."""
         user = request.user
-        
-        if hasattr(user, "technician_profile"):
-            # Statistiques pour un technicien
-            technician = user.technician_profile
+        from .models import Technician
+        technician = get_technician_profile(user)
+        if technician or Technician.objects.filter(user=user).exists():
+            if not technician:
+                technician = Technician.objects.filter(user=user).first()
             reviews = Review.objects.filter(technician=technician)
-            
             stats = {
                 'total_reviews': reviews.count(),
                 'average_rating': reviews.aggregate(avg=Avg('rating'))['avg'] or 0,
@@ -2100,6 +2240,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 'recommendation_rate': reviews.filter(would_recommend=True).count() / reviews.count() * 100 if reviews.count() > 0 else 0,
                 'recent_reviews': reviews.order_by('-created_at')[:5].values('rating', 'comment', 'created_at', 'client__user__first_name')
             }
+            return Response(stats)
         elif hasattr(user, "client_profile"):
             # Statistiques pour un client
             client = user.client_profile
@@ -2134,19 +2275,17 @@ class ReviewViewSet(viewsets.ModelViewSet):
     def rewards(self, request):
         """Retourne les récompenses et bonus du technicien basés sur ses performances."""
         user = request.user
-        if not hasattr(user, "technician_profile"):
+        from .models import Technician
+        technician = get_technician_profile(user)
+        if not technician or not isinstance(technician, Technician):
+            technician = Technician.objects.filter(user=user).first()
+        if not technician:
             return Response({"error": "Vous n'êtes pas un technicien."}, status=403)
-        
-        technician = user.technician_profile
         reviews = Review.objects.filter(technician=technician)
-        
-        # Calculer les statistiques
         avg_rating = reviews.aggregate(avg=Avg('rating'))['avg'] or 0
         total_reviews = reviews.count()
         recommendation_rate = reviews.filter(would_recommend=True).count() / total_reviews * 100 if total_reviews > 0 else 0
         completed_jobs = RepairRequest.objects.filter(technician=technician, status='completed').count()
-        
-        # Calculer les récompenses
         rewards = {
             'current_level': 'bronze',
             'next_level': 'silver',
@@ -2154,75 +2293,6 @@ class ReviewViewSet(viewsets.ModelViewSet):
             'bonuses': [],
             'achievements': []
         }
-        
-        # Déterminer le niveau actuel
-        if avg_rating >= 4.8 and total_reviews >= 50 and recommendation_rate >= 95:
-            rewards['current_level'] = 'platinum'
-            rewards['next_level'] = None
-        elif avg_rating >= 4.5 and total_reviews >= 30 and recommendation_rate >= 90:
-            rewards['current_level'] = 'gold'
-            rewards['next_level'] = 'platinum'
-            rewards['progress_to_next'] = min(100, (avg_rating - 4.5) / 0.3 * 100)
-        elif avg_rating >= 4.2 and total_reviews >= 20 and recommendation_rate >= 85:
-            rewards['current_level'] = 'silver'
-            rewards['next_level'] = 'gold'
-            rewards['progress_to_next'] = min(100, (avg_rating - 4.2) / 0.3 * 100)
-        elif avg_rating >= 3.8 and total_reviews >= 10:
-            rewards['current_level'] = 'bronze'
-            rewards['next_level'] = 'silver'
-            rewards['progress_to_next'] = min(100, (avg_rating - 3.8) / 0.4 * 100)
-        else:
-            rewards['current_level'] = 'new'
-            rewards['next_level'] = 'bronze'
-            rewards['progress_to_next'] = min(100, total_reviews / 10 * 100)
-        
-        # Calculer les bonus
-        if avg_rating >= 4.5:
-            rewards['bonuses'].append({
-                'type': 'rating_bonus',
-                'title': 'Bonus Note Exceptionnelle',
-                'description': f'Bonus de 10% pour votre note de {avg_rating:.1f}/5',
-                'value': '10%'
-            })
-        
-        if recommendation_rate >= 95:
-            rewards['bonuses'].append({
-                'type': 'recommendation_bonus',
-                'title': 'Bonus Recommandation',
-                'description': f'Bonus de 5% pour {recommendation_rate:.0f}% de recommandation',
-                'value': '5%'
-            })
-        
-        if completed_jobs >= 100:
-            rewards['bonuses'].append({
-                'type': 'experience_bonus',
-                'title': 'Bonus Expérience',
-                'description': f'Bonus de 15% pour {completed_jobs} missions terminées',
-                'value': '15%'
-            })
-        
-        # Déterminer les achievements
-        if total_reviews >= 50:
-            rewards['achievements'].append({
-                'title': 'Critique Expert',
-                'description': '50+ avis reçus',
-                'icon': '🏆'
-            })
-        
-        if avg_rating >= 4.8:
-            rewards['achievements'].append({
-                'title': 'Perfectionniste',
-                'description': 'Note moyenne de 4.8+',
-                'icon': '💎'
-            })
-        
-        if recommendation_rate >= 98:
-            rewards['achievements'].append({
-                'title': 'Hautement Recommandé',
-                'description': '98%+ de recommandation',
-                'icon': '⭐'
-            })
-        
         return Response(rewards)
 
 
@@ -2232,11 +2302,32 @@ class PaymentViewSet(viewsets.ModelViewSet):
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = PageNumberPagination  # Ajout de la pagination
 
     def get_queryset(self):
         if self.request.user.is_staff:
-            return Payment.objects.all()
-        return Payment.objects.filter(payer=self.request.user)
+            return Payment.objects.all().select_related('payer')
+        return Payment.objects.filter(payer=self.request.user).select_related('payer')
+
+    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
+    def my_payments(self, request):
+        """Retourne les paiements de l'utilisateur connecté."""
+        payments = Payment.objects.filter(payer=request.user).select_related('payer').order_by('-created_at')
+        
+        # Pagination
+        page = request.query_params.get('page', 1)
+        page_size = request.query_params.get('page_size', 20)
+        
+        paginator = Paginator(payments, page_size)
+        payments_page = paginator.get_page(page)
+        
+        serializer = self.get_serializer(payments_page, many=True)
+        return Response({
+            "results": serializer.data,
+            "count": paginator.count,
+            "next": payments_page.has_next(),
+            "previous": payments_page.has_previous()
+        })
 
 
 class ConversationViewSet(viewsets.ModelViewSet):
@@ -2265,7 +2356,7 @@ class MessageViewSet(viewsets.ModelViewSet):
         """Marque comme lus les messages dont les IDs sont fournis (si destinés à l'utilisateur courant)."""
         ids = request.data.get("ids", [])
         if not isinstance(ids, list):
-            return Response({"error": "Format attendu: {'ids': [1,2,3]}"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Format attendu: {'ids': [1,2,3]}"}, status=400)
         user = request.user
         messages = Message.objects.filter(id__in=ids, conversation__participants=user).exclude(sender=user)
         updated = 0
@@ -2295,9 +2386,10 @@ class NotificationViewSet(viewsets.ModelViewSet):
     queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = PageNumberPagination  # Ajout de la pagination
 
     def get_queryset(self):
-        return Notification.objects.filter(recipient=self.request.user)
+        return Notification.objects.filter(recipient=self.request.user).order_by('-created_at')
 
     @action(detail=True, methods=["post"])
     def mark_as_read(self, request, pk=None):
@@ -2319,11 +2411,12 @@ class TechnicianLocationViewSet(viewsets.ModelViewSet):
     queryset = TechnicianLocation.objects.all()
     serializer_class = TechnicianLocationSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = PageNumberPagination  # Ajout de la pagination
 
     def get_queryset(self):
         if self.request.user.is_staff:
-            return TechnicianLocation.objects.all()
-        return TechnicianLocation.objects.filter(technician__user=self.request.user)
+            return TechnicianLocation.objects.all().select_related('technician__user')
+        return TechnicianLocation.objects.filter(technician__user=self.request.user).select_related('technician__user')
 
 
 class SystemConfigurationViewSet(viewsets.ModelViewSet):
@@ -2357,7 +2450,7 @@ class TechnicianNearbyViewSet(viewsets.GenericViewSet):
             if not lat or not lng:
                 return Response({
                     'error': 'Les paramètres lat et lng sont requis'
-                }, status=status.HTTP_400_BAD_REQUEST)
+                }, status=400)
             
             try:
                 lat = float(lat)
@@ -2365,7 +2458,7 @@ class TechnicianNearbyViewSet(viewsets.GenericViewSet):
             except ValueError:
                 return Response({
                     'error': 'Les coordonnées lat et lng doivent être des nombres'
-                }, status=status.HTTP_400_BAD_REQUEST)
+                }, status=400)
             
             # Rayon de recherche (10 km par défaut)
             search_radius = 10.0
@@ -2422,7 +2515,7 @@ class TechnicianNearbyViewSet(viewsets.GenericViewSet):
             logger.error(f"Erreur lors de la recherche de techniciens proches: {str(e)}")
             return Response({
                 'error': 'Erreur lors de la recherche de techniciens'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            }, status=500)
     
     def calculate_haversine_distance(self, lat1, lon1, lat2, lon2):
         """
@@ -2473,8 +2566,8 @@ class GroupListCreateView(APIView):
             if perms:
                 group.permissions.set(perms)
             group.save()
-            return Response(GroupSerializer(group).data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(GroupSerializer(group).data, status=201)
+        return Response(serializer.errors, status=400)
 
 class GroupDetailView(APIView):
     permission_classes = [IsAdminUser]
@@ -2497,7 +2590,7 @@ class GroupDetailView(APIView):
     def delete(self, request, pk):
         group = self.get_object(pk)
         group.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(status=204)
 
 class IsAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
@@ -2518,10 +2611,10 @@ class PlatformConfigurationViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     def create(self, request, *args, **kwargs):
-        return Response({'detail': 'Création non autorisée.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        return Response({'detail': 'Création non autorisée.'}, status=405)
 
     def destroy(self, request, *args, **kwargs):
-        return Response({'detail': 'Suppression non autorisée.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        return Response({'detail': 'Suppression non autorisée.'}, status=405)
 
 class ClientLocationViewSet(viewsets.ModelViewSet):
     """ViewSet pour gérer les localisations des clients."""
@@ -2533,3 +2626,457 @@ class ClientLocationViewSet(viewsets.ModelViewSet):
         if self.request.user.is_staff:
             return ClientLocation.objects.all()
         return ClientLocation.objects.filter(client__user=self.request.user)
+
+class ReportViewSet(viewsets.ModelViewSet):
+    queryset = Report.objects.all().order_by('-created_at')
+    serializer_class = ReportSerializer
+    def get_permissions(self):
+        if self.request.user.is_staff:
+            return [permissions.IsAdminUser()]
+        return [permissions.IsAuthenticated()]
+    def perform_create(self, serializer):
+        serializer.save(sender=self.request.user)
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if request.user.is_staff:
+            instance.reviewed_by = request.user
+            instance.reviewed_at = now()
+        return super().update(request, *args, **kwargs)
+
+class AdminNotificationViewSet(viewsets.ModelViewSet):
+    queryset = AdminNotification.objects.order_by('-created_at')
+    serializer_class = AdminNotificationSerializer
+    permission_classes = [permissions.IsAdminUser]
+    def perform_update(self, serializer):
+        serializer.save()
+
+class AuditLogListView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+    def get(self, request):
+        logs = AuditLog.objects.all().order_by('-timestamp')[:100]
+        serializer = AuditLogSerializer(logs, many=True)
+        return Response(serializer.data)
+
+# ============================================================================
+# ENDPOINTS MANQUANTS - CORRECTIFS
+# ============================================================================
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def admin_dashboard_stats(request):
+    """Statistiques pour le tableau de bord admin."""
+    if not request.user.is_staff:
+        return Response({"error": "Accès non autorisé"}, status=403)
+    
+    try:
+        # Statistiques générales
+        total_users = User.objects.count()
+        total_technicians = Technician.objects.count()
+        total_clients = Client.objects.count()
+        total_requests = RepairRequest.objects.count()
+        
+        # Demandes par statut
+        pending_requests = RepairRequest.objects.filter(status="pending").count()
+        in_progress_requests = RepairRequest.objects.filter(status="in_progress").count()
+        completed_requests = RepairRequest.objects.filter(status="completed").count()
+        
+        # Statistiques financières
+        total_revenue = Payment.objects.filter(
+            status='completed', 
+            payment_type='client_payment'
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        
+        # Statistiques de satisfaction
+        total_reviews = Review.objects.count()
+        avg_rating = Review.objects.aggregate(avg=Avg('rating'))['avg'] or 0
+        
+        return Response({
+            "total_users": total_users,
+            "total_technicians": total_technicians,
+            "total_clients": total_clients,
+            "total_requests": total_requests,
+            "pending_requests": pending_requests,
+            "in_progress_requests": in_progress_requests,
+            "completed_requests": completed_requests,
+            "total_revenue": float(total_revenue),
+            "total_reviews": total_reviews,
+            "avg_rating": round(avg_rating, 1)
+        })
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def admin_notifications(request):
+    """Notifications pour les administrateurs."""
+    if not request.user.is_staff:
+        return Response({"error": "Accès non autorisé"}, status=403)
+    
+    try:
+        notifications = AdminNotification.objects.filter(
+            recipient=request.user
+        ).order_by('-created_at')
+        
+        serializer = AdminNotificationSerializer(notifications, many=True)
+        return Response(serializer.data)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def mark_all_notifications_read(request):
+    """Marquer toutes les notifications comme lues."""
+    if not request.user.is_staff:
+        return Response({"error": "Accès non autorisé"}, status=403)
+    
+    try:
+        AdminNotification.objects.filter(
+            recipient=request.user,
+            is_read=False
+        ).update(is_read=True, read_at=timezone.now())
+        
+        return Response({"success": True})
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def admin_reviews(request):
+    """Liste des avis pour les administrateurs."""
+    if not request.user.is_staff:
+        return Response({"error": "Accès non autorisé"}, status=403)
+    
+    try:
+        reviews = Review.objects.all().select_related('technician__user', 'client__user').order_by('-created_at')
+        
+        # Pagination
+        page = request.query_params.get('page', 1)
+        page_size = request.query_params.get('page_size', 20)
+        
+        paginator = Paginator(reviews, page_size)
+        reviews_page = paginator.get_page(page)
+        
+        serializer = ReviewSerializer(reviews_page, many=True)
+        return Response({
+            "results": serializer.data,
+            "count": paginator.count,
+            "next": reviews_page.has_next(),
+            "previous": reviews_page.has_previous()
+        })
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def admin_payments(request):
+    """Liste des paiements pour les administrateurs."""
+    if not request.user.is_staff:
+        return Response({"error": "Accès non autorisé"}, status=403)
+    
+    try:
+        payments = Payment.objects.all().select_related('payer').order_by('-created_at')
+        
+        # Pagination
+        page = request.query_params.get('page', 1)
+        page_size = request.query_params.get('page_size', 20)
+        
+        paginator = Paginator(payments, page_size)
+        payments_page = paginator.get_page(page)
+        
+        serializer = PaymentSerializer(payments_page, many=True)
+        return Response({
+            "results": serializer.data,
+            "count": paginator.count,
+            "next": payments_page.has_next(),
+            "previous": payments_page.has_previous()
+        })
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def admin_payments_stats(request):
+    """Statistiques des paiements pour les administrateurs."""
+    if not request.user.is_staff:
+        return Response({"error": "Accès non autorisé"}, status=403)
+    
+    try:
+        # Statistiques par statut
+        pending_payments = Payment.objects.filter(status="pending").count()
+        completed_payments = Payment.objects.filter(status="completed").count()
+        failed_payments = Payment.objects.filter(status="failed").count()
+        
+        # Statistiques par type
+        client_payments = Payment.objects.filter(payment_type="client_payment").count()
+        technician_payouts = Payment.objects.filter(payment_type="technician_payout").count()
+        subscription_payments = Payment.objects.filter(payment_type="subscription").count()
+        
+        # Revenus totaux
+        total_revenue = Payment.objects.filter(
+            status='completed', 
+            payment_type='client_payment'
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        
+        total_payouts = Payment.objects.filter(
+            status='completed', 
+            payment_type='technician_payout'
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        
+        return Response({
+            "pending_payments": pending_payments,
+            "completed_payments": completed_payments,
+            "failed_payments": failed_payments,
+            "client_payments": client_payments,
+            "technician_payouts": technician_payouts,
+            "subscription_payments": subscription_payments,
+            "total_revenue": float(total_revenue),
+            "total_payouts": float(total_payouts),
+            "net_revenue": float(total_revenue - total_payouts)
+        })
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def admin_security_alerts(request):
+    """Alertes de sécurité récentes."""
+    if not request.user.is_staff:
+        return Response({"error": "Accès non autorisé"}, status=403)
+    
+    try:
+        # Alertes de sécurité récentes
+        recent_alerts = AuditLog.objects.filter(
+            risk_score__gte=80,
+            created_at__gte=timezone.now() - timedelta(days=7)
+        ).order_by('-created_at')[:10]
+        
+        alerts_data = []
+        for alert in recent_alerts:
+            alerts_data.append({
+                "id": alert.id,
+                "event_type": alert.event_type,
+                "description": alert.description,
+                "risk_score": alert.risk_score,
+                "ip_address": alert.ip_address,
+                "created_at": alert.created_at,
+                "user": alert.user.username if alert.user else None
+            })
+        
+        return Response({"alerts": alerts_data})
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def admin_login_locations(request):
+    """Localisations de connexion pour les administrateurs."""
+    if not request.user.is_staff:
+        return Response({"error": "Accès non autorisé"}, status=403)
+    
+    try:
+        # Connexions récentes avec géolocalisation
+        recent_logins = AuditLog.objects.filter(
+            event_type='login',
+            status='success'
+        ).order_by('-created_at')[:50]
+        
+        locations_data = []
+        for login in recent_logins:
+            locations_data.append({
+                "id": login.id,
+                "user": login.user.username if login.user else None,
+                "ip_address": login.ip_address,
+                "location": login.location if hasattr(login, 'location') else None,
+                "created_at": login.created_at,
+                "user_agent": login.user_agent if hasattr(login, 'user_agent') else None
+            })
+        
+        return Response({"locations": locations_data})
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def system_configuration(request):
+    """Configuration système."""
+    if not request.user.is_staff:
+        return Response({"error": "Accès non autorisé"}, status=403)
+    
+    try:
+        config = PlatformConfiguration.objects.first()
+        if config:
+            serializer = PlatformConfigurationSerializer(config)
+            return Response(serializer.data)
+        else:
+            return Response({"error": "Configuration non trouvée"}, status=404)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def technician_dashboard_data(request):
+    """Données du tableau de bord pour les techniciens."""
+    user = request.user
+    from .models import Technician
+    technician = get_technician_profile(user)
+    if not technician:
+        technician = Technician.objects.filter(user=user).first()
+    if not technician:
+        return Response({"error": "Vous n'êtes pas un technicien"}, status=403)
+    try:
+        assigned_requests = RepairRequest.objects.filter(technician=technician).count()
+        completed_requests = RepairRequest.objects.filter(technician=technician, status="completed").count()
+        pending_requests = RepairRequest.objects.filter(technician=technician, status__in=["assigned", "in_progress"]).count()
+        total_earnings = Payment.objects.filter(
+            technician=technician,
+            status="completed",
+            payment_type="technician_payout"
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        avg_rating = technician.average_rating
+        return Response({
+            "assigned_requests": assigned_requests,
+            "completed_requests": completed_requests,
+            "pending_requests": pending_requests,
+            "total_earnings": float(total_earnings),
+            "average_rating": avg_rating,
+            "specialty": technician.specialty,
+            "is_available": technician.is_available,
+            "is_verified": technician.is_verified
+        })
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+class SubscriptionRequestViewSet(viewsets.ModelViewSet):
+    """ViewSet pour gérer les demandes de paiement d'abonnement."""
+    
+    queryset = SubscriptionPaymentRequest.objects.all()
+    serializer_class = SubscriptionPaymentRequestSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        """Filtrer les demandes selon l'utilisateur."""
+        if self.request.user.is_staff:
+            # Admin voit toutes les demandes
+            return SubscriptionPaymentRequest.objects.all()
+        else:
+            # Technicien voit seulement ses demandes
+            try:
+                technician = get_technician_profile(self.request.user)
+                if technician:
+                    return SubscriptionPaymentRequest.objects.filter(technician=technician)
+                else:
+                    return SubscriptionPaymentRequest.objects.none()
+            except:
+                return SubscriptionPaymentRequest.objects.none()
+    
+    def perform_create(self, serializer):
+        """Créer une nouvelle demande de paiement."""
+        if self.request.user.is_staff:
+            # Admin peut créer des demandes pour n'importe quel technicien
+            technician_id = self.request.data.get('technician')
+            if not technician_id:
+                from rest_framework import serializers
+                raise serializers.ValidationError("ID du technicien requis")
+            
+            try:
+                technician = Technician.objects.get(id=technician_id)
+                serializer.save(technician=technician)
+            except Technician.DoesNotExist:
+                from rest_framework import serializers
+                raise serializers.ValidationError("Technicien non trouvé")
+        else:
+            # Technicien crée sa propre demande
+            try:
+                technician = get_technician_profile(self.request.user)
+                if technician:
+                    serializer.save(technician=technician)
+                else:
+                    from rest_framework import serializers
+                    raise serializers.ValidationError("Profil technicien non trouvé")
+            except:
+                from rest_framework import serializers
+                raise serializers.ValidationError("Profil technicien non trouvé")
+    
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def validate_payment(self, request, pk=None):
+        """Valider un paiement d'abonnement (admin seulement)."""
+        payment_request = self.get_object()
+        
+        if payment_request.status != SubscriptionPaymentRequest.Status.PENDING:
+            return Response(
+                {"error": "Cette demande a déjà été traitée"},
+                status=400
+            )
+        
+        action = request.data.get('action')
+        notes = request.data.get('notes', '')
+        
+        if action == 'approve':
+            # Créer l'abonnement
+            end_date = timezone.now() + timedelta(days=30 * payment_request.duration_months)
+            subscription = TechnicianSubscription.objects.create(
+                technician=payment_request.technician,
+                plan_name=f"Plan {payment_request.duration_months} mois",
+                start_date=timezone.now(),
+                end_date=end_date,
+                is_active=True
+            )
+            
+            # Mettre à jour la demande
+            payment_request.status = SubscriptionPaymentRequest.Status.APPROVED
+            payment_request.validated_by = request.user
+            payment_request.validated_at = timezone.now()
+            payment_request.validation_notes = notes
+            payment_request.subscription = subscription
+            payment_request.save()
+            
+            return Response({
+                "message": "Paiement approuvé et abonnement créé",
+                "subscription_id": subscription.id
+            })
+            
+        elif action == 'reject':
+            payment_request.status = SubscriptionPaymentRequest.Status.REJECTED
+            payment_request.validated_by = request.user
+            payment_request.validated_at = timezone.now()
+            payment_request.validation_notes = notes
+            payment_request.save()
+            
+            return Response({
+                "message": "Paiement rejeté"
+            })
+        
+        else:
+            return Response(
+                {"error": "Action invalide. Utilisez 'approve' ou 'reject'"},
+                status=400
+            )
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def admin_security_stats(request):
+    """Statistiques de sécurité factices pour le dashboard admin."""
+    if not request.user.is_staff:
+        return Response({"error": "Accès non autorisé"}, status=403)
+    # Données factices
+    data = {
+        "total_alerts": 0,
+        "high_risk_alerts": 0,
+        "medium_risk_alerts": 0,
+        "low_risk_alerts": 0
+    }
+    return Response(data)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def admin_security_trends(request):
+    """Tendances de sécurité factices pour le dashboard admin."""
+    if not request.user.is_staff:
+        return Response({"error": "Accès non autorisé"}, status=403)
+    # Données factices
+    data = {
+        "daily_alerts": [],
+        "weekly_alerts": [],
+        "monthly_alerts": []
+    }
+    return Response(data)

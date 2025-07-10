@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { MapPin, Upload, Calendar, Clock, Info } from 'lucide-react';
+import { MapPin, Upload, Calendar, Clock, Info, AlertCircle, CheckCircle, X } from 'lucide-react';
 import { Service } from '../types/service';
 import { fetchWithAuth } from '../contexts/fetchWithAuth';
 import { useAuth } from '../contexts/AuthContext';
@@ -365,7 +365,24 @@ const BookingForm: React.FC = () => {
   // Ajout d'un état pour le modal de géolocalisation
   const [showGeoModal, setShowGeoModal] = useState(false);
 
+  // Ajout d'un état pour stocker le draft initial
+  const [draftData, setDraftData] = useState<any>(null);
+
   const { user, profile } = useAuth();
+
+  // Nouveaux états pour la géolocalisation obligatoire
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [locationPermissionRequested, setLocationPermissionRequested] = useState(false);
+  const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+
+  // Vérifier la géolocalisation quand on arrive à l'étape 2
+  useEffect(() => {
+    if (step === 2 && !locationPermissionGranted) {
+      setShowLocationModal(true);
+    }
+  }, [step, locationPermissionGranted]);
 
   // Obtenir la localisation depuis les paramètres URL si disponible
   useEffect(() => {
@@ -388,7 +405,7 @@ const BookingForm: React.FC = () => {
     }
     const fetchRepairRequests = async () => {
       try {
-        const response = await fetchWithAuth('http://127.0.0.1:8000/depannage/api/repair-requests/', {
+        const response = await fetchWithAuth('/depannage/api/repair-requests/', {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -444,6 +461,7 @@ const BookingForm: React.FC = () => {
           });
           if (response.ok) {
             const data = await response.json();
+            setDraftData(data); // On garde le draft original
             setFormData({
               serviceId: data.specialty_needed || '',
               address: data.address || '',
@@ -525,7 +543,7 @@ const BookingForm: React.FC = () => {
       setShowCitySuggestions(false);
       return;
     }
-    const filtered = bamakoCities.filter(city => city.toLowerCase().includes(value.toLowerCase()));
+    const filtered = bamakoCities.filter(city => typeof city === 'string' && city.toLowerCase().includes(value.toLowerCase()));
     setCitySuggestions(filtered);
     setShowCitySuggestions(filtered.length > 0);
   };
@@ -550,8 +568,55 @@ const BookingForm: React.FC = () => {
   }, []);
 
   const handleServiceSelect = (serviceId: string) => {
-    setFormData(prev => ({ ...prev, serviceId }));
-    setStep(2);
+    if (draftData && draftData.specialty_needed) {
+      if (serviceId === draftData.specialty_needed) {
+        // Même spécialité : tout pré-remplir
+        setFormData(prev => ({
+          ...prev,
+          serviceId,
+          address: draftData.address || '',
+          city: draftData.city || '',
+          postalCode: draftData.postalCode || '',
+          description: draftData.description || '',
+          date: draftData.date || '',
+          time: draftData.time || '',
+          isUrgent: draftData.is_urgent || false,
+          phone: draftData.phone || '',
+          photos: [],
+          photosPreviews: [],
+          quartier: draftData.quartier || '',
+          commune: draftData.commune || '',
+        }));
+        if (draftData.latitude && draftData.longitude) {
+          setUserLocation({ lat: draftData.latitude, lng: draftData.longitude });
+        }
+      } else {
+        // Autre spécialité : tout sauf description et photos
+        setFormData(prev => ({
+          ...prev,
+          serviceId,
+          address: draftData.address || '',
+          city: draftData.city || '',
+          postalCode: draftData.postalCode || '',
+          description: '',
+          date: draftData.date || '',
+          time: draftData.time || '',
+          isUrgent: draftData.is_urgent || false,
+          phone: draftData.phone || '',
+          photos: [],
+          photosPreviews: [],
+          quartier: draftData.quartier || '',
+          commune: draftData.commune || '',
+        }));
+        if (draftData.latitude && draftData.longitude) {
+          setUserLocation({ lat: draftData.latitude, lng: draftData.longitude });
+        }
+      }
+      setStep(2);
+    } else {
+      setFormData(prev => ({ ...prev, serviceId }));
+      setStep(2);
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -593,31 +658,91 @@ const BookingForm: React.FC = () => {
   };
 
   const handleGetLocation = () => {
-    if (!navigator.geolocation) {
-      setError('La géolocalisation n\'est pas supportée par votre navigateur.');
+    // Éviter les appels multiples
+    if (isGettingLocation) {
       return;
     }
+
+    if (!navigator.geolocation) {
+      setLocationError('La géolocalisation n\'est pas supportée par votre navigateur.');
+      setShowLocationModal(true);
+      return;
+    }
+
+    setIsGettingLocation(true);
+    setLocationError(null);
+
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setUserLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
-        setError(null);
+        setLocationPermissionGranted(true);
+        setLocationError(null);
+        setIsGettingLocation(false);
+        setShowLocationModal(false);
+
+        // Récupérer l'adresse à partir des coordonnées
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}&addressdetails=1`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.address) {
+              setFormData(prev => ({
+                ...prev,
+                address: data.display_name || '',
+                city: data.address.city || data.address.town || data.address.village || '',
+                postalCode: data.address.postcode || '',
+                quartier: data.address.suburb || data.address.neighbourhood || data.address.quarter || '',
+                commune: data.address.municipality || data.address.county || data.address.state_district || '',
+              }));
+            }
+          })
+          .catch(() => {
+            // En cas d'erreur, on garde les coordonnées GPS
+          });
       },
       (error) => {
-        setError('Impossible de récupérer votre position.');
+        setIsGettingLocation(false);
+        let errorMessage = 'Impossible de récupérer votre position.';
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = 'Vous devez autoriser la géolocalisation pour continuer. Veuillez accepter la demande de permission et réessayer.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = 'Votre position n\'est pas disponible. Veuillez vérifier votre connexion GPS et réessayer.';
+            break;
+          case error.TIMEOUT:
+            errorMessage = 'La demande de géolocalisation a expiré. Veuillez réessayer.';
+            break;
+        }
+        setLocationError(errorMessage);
+        setShowLocationModal(true);
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
     );
   };
 
+  const forceLocationPermission = () => {
+    setLocationPermissionRequested(true);
+    setShowLocationModal(true);
+    handleGetLocation();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    // Vérifier que la géolocalisation a été acceptée
+    if (!locationPermissionGranted || !userLocation) {
+      setShowLocationModal(true);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       let response;
       // Déplacer la déclaration de cleanedPhone ici, avant le if/else
       const rawPhone = formData.phone;
-      const cleanedPhone = rawPhone.replace(/\s+/g, '');
+      // Correction linter : sécuriser l'accès à profile et user
+      const normalizedPhone = (profile && profile.type === 'client' && profile.phone ? profile.phone : (user && user.client && user.client.phone ? user.client.phone : '')).trim().replace(/\s+/g, ' ');
 
       if (draftId) {
         // Mise à jour du brouillon existant
@@ -630,7 +755,7 @@ const BookingForm: React.FC = () => {
           estimated_price: services.find(s => s.id === formData.serviceId)?.startingPrice || 0,
           latitude: userLocation && typeof userLocation.lat === 'number' ? userLocation.lat : null,
           longitude: userLocation && typeof userLocation.lng === 'number' ? userLocation.lng : null,
-          phone: cleanedPhone,
+          phone: normalizedPhone, // Utiliser le numéro de téléphone du profil utilisateur
           status: 'pending',
         };
         response = await fetchWithAuth(`http://127.0.0.1:8000/depannage/api/repair-requests/${draftId}/`, {
@@ -643,12 +768,11 @@ const BookingForm: React.FC = () => {
       } else {
         // Création classique
         // Validation téléphone Mali (accepte espaces, mais exige 8 chiffres après +223)
-        const phoneRegex = /^\+223\d{8}$/;
-        if (!phoneRegex.test(cleanedPhone)) {
-          setPhoneError('Le numéro doit commencer par +223 et contenir 8 chiffres après (espaces autorisés).');
-          setError('Le numéro doit commencer par +223 et contenir 8 chiffres après (espaces autorisés).');
+        const phonePattern = /^(\+223\d{8}|\+223( +\d{2}){4})$/;
+        if (!phonePattern.test(normalizedPhone)) {
+          setPhoneError('Le numéro doit être au format +223XXXXXXXX ou +223 XX XX XX XX (8 chiffres après +223, espaces autorisés).');
+          setError('Le numéro doit être au format +223XXXXXXXX ou +223 XX XX XX XX (8 chiffres après +223, espaces autorisés).');
           setIsSubmitting(false);
-          console.log('[DEBUG] Blocage: téléphone invalide', rawPhone);
           const phoneInput = document.getElementById('phone-input');
           if (phoneInput) phoneInput.focus();
           return;
@@ -682,7 +806,7 @@ const BookingForm: React.FC = () => {
           estimated_price: services.find(s => s.id === formData.serviceId)?.startingPrice || 0,
           latitude: userLocation && typeof userLocation.lat === 'number' ? userLocation.lat : null,
           longitude: userLocation && typeof userLocation.lng === 'number' ? userLocation.lng : null,
-          phone: cleanedPhone,
+          phone: normalizedPhone, // Utiliser le numéro de téléphone du profil utilisateur
         };
 
         console.log('Body envoyé au backend:', repairRequestData);
@@ -733,7 +857,7 @@ const BookingForm: React.FC = () => {
         date: formData.date,
         time: formData.time,
         is_urgent: formData.isUrgent,
-        phone: cleanedPhone,
+        phone: user?.client?.phone || '', // Utiliser le numéro de téléphone du profil utilisateur
       };
 
       console.log('[DEBUG] Redirection vers /payment avec paymentData:', paymentData);
@@ -742,7 +866,7 @@ const BookingForm: React.FC = () => {
 
       // Afficher un message de confirmation à l'utilisateur
       setError(null);
-      alert('Votre demande a bien été envoyée et est en attente de mise en relation avec un technicien. Vous serez notifié dès qu\'un professionnel sera assigné.');
+      alert('Votre demande a bien été envoyée et est en attente de mise en relation avec un technicien. Le paiement sera effectué en main propre au technicien lors de la réalisation de la prestation.');
       navigate('/customer-dashboard');
 
     } catch (error: unknown) {
@@ -765,7 +889,8 @@ const BookingForm: React.FC = () => {
     try {
       // Même logique que handleSubmit mais statut draft
       const rawPhone = formData.phone;
-      const cleanedPhone = rawPhone.replace(/\s+/g, '');
+      // Correction linter : sécuriser l'accès à profile et user
+      const normalizedPhone = (profile && profile.type === 'client' && profile.phone ? profile.phone : (user && user.client && user.client.phone ? user.client.phone : '')).trim().replace(/\s+/g, ' ');
       const repairRequestData = {
         title: `Demande de ${services.find(s => s.id === formData.serviceId)?.name}`,
         description: formData.description,
@@ -775,7 +900,7 @@ const BookingForm: React.FC = () => {
         estimated_price: services.find(s => s.id === formData.serviceId)?.startingPrice || 0,
         latitude: userLocation && typeof userLocation.lat === 'number' ? userLocation.lat : null,
         longitude: userLocation && typeof userLocation.lng === 'number' ? userLocation.lng : null,
-        phone: cleanedPhone,
+        phone: normalizedPhone, // Utiliser le numéro de téléphone du profil utilisateur
         status: 'draft',
       };
       const response = await fetchWithAuth('http://127.0.0.1:8000/depannage/api/repair-requests/', {
@@ -793,8 +918,8 @@ const BookingForm: React.FC = () => {
         throw new Error(errorMsg);
       }
       setError(null);
-      alert('Votre brouillon a bien été sauvegardé. Vous pouvez le retrouver dans votre tableau de bord client.');
-      navigate('/customer-dashboard');
+      alert('Votre brouillon a bien été sauvegardé. Vous allez être redirigé vers le tableau de bord.');
+      navigate('/dashboard');
     } catch (error: unknown) {
       if (error instanceof Error) setError(error.message);
       else setError('Erreur lors de la sauvegarde du brouillon');
@@ -805,10 +930,19 @@ const BookingForm: React.FC = () => {
 
   // Synchronisation du numéro de téléphone du profil utilisateur (client)
   useEffect(() => {
-    if (profile && profile.type === 'client' && profile.phone) {
-      setFormData(prev => ({ ...prev, phone: profile.phone ?? '' }));
-    }
-  }, [profile]);
+    // Priorité au profil, sinon user
+    const newPhone =
+      (profile && profile.type === 'client' && profile.phone)
+        ? profile.phone
+        : (user?.client?.phone ?? '');
+
+    // Ne pas écraser si l'utilisateur a déjà modifié le champ manuellement
+    setFormData(prev => {
+      // Si le champ a été modifié manuellement, ne pas écraser
+      if (prev.phone && prev.phone !== newPhone) return prev;
+      return { ...prev, phone: newPhone };
+    });
+  }, [profile, user]);
 
   const getStepContent = () => {
     switch (step) {
@@ -842,6 +976,9 @@ const BookingForm: React.FC = () => {
       case 2: {
         const selectedService = services.find(s => s.id === formData.serviceId);
 
+        // Vérifier si la géolocalisation a été acceptée
+        // Cette logique est déjà gérée au niveau supérieur du composant
+
         return (
           <form onSubmit={(e) => { e.preventDefault(); setStep(3); }}>
             <h3 className="text-xl font-semibold mb-4">Détails du Service</h3>
@@ -853,6 +990,29 @@ const BookingForm: React.FC = () => {
                 <p className="text-blue-700 font-medium mt-2">Prix de départ: {selectedService.startingPrice.toLocaleString()} FCFA</p>
               </div>
             )}
+
+            {/* Information sur le paiement en main propre */}
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-start">
+                <CheckCircle className="h-6 w-6 text-green-600 mt-1 mr-3 flex-shrink-0" />
+                <div>
+                  <h4 className="font-semibold text-green-900 mb-2">Paiement en main propre</h4>
+                  <p className="text-green-800 mb-3">
+                    Le paiement doit être effectué en main propre au technicien lors de la réalisation de la prestation.
+                    Aucun paiement en ligne n'est requis ni accepté sur la plateforme.
+                  </p>
+                  <div className="bg-white rounded-lg p-3 border border-green-200">
+                    <h5 className="font-semibold text-green-900 mb-2 text-sm">Avantages :</h5>
+                    <ul className="text-sm text-green-800 space-y-1">
+                      <li>• Paiement sécurisé directement au technicien</li>
+                      <li>• Pas de frais de transaction en ligne</li>
+                      <li>• Paiement uniquement après satisfaction du service</li>
+                      <li>• Transparence totale sur le montant</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <div className="space-y-4">
               <div>
@@ -870,7 +1030,24 @@ const BookingForm: React.FC = () => {
                     className="pl-10 w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Adresse de rue"
                     required
+                    readOnly={!locationPermissionGranted}
+                    disabled={!locationPermissionGranted}
                   />
+                  {!locationPermissionGranted && (
+                    <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                      <p className="text-yellow-800 text-sm">
+                        <AlertCircle className="h-4 w-4 inline mr-1" />
+                        Vous devez d'abord autoriser la géolocalisation pour remplir l'adresse automatiquement.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setShowLocationModal(true)}
+                        className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+                      >
+                        Autoriser la géolocalisation
+                      </button>
+                    </div>
+                  )}
                   {/* Suggestions d'adresse */}
                   {showAddressSuggestions && addressSuggestions.length > 0 && (
                     <div ref={addressSuggestionsRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-60 overflow-y-auto">
@@ -902,6 +1079,8 @@ const BookingForm: React.FC = () => {
                     className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Ville"
                     required
+                    readOnly={!locationPermissionGranted}
+                    disabled={!locationPermissionGranted}
                   />
                   {/* Suggestions de ville (Bamako et alentours) */}
                   {showCitySuggestions && citySuggestions.length > 0 && (
@@ -935,6 +1114,8 @@ const BookingForm: React.FC = () => {
                     className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Code postal"
                     required
+                    readOnly={!locationPermissionGranted}
+                    disabled={!locationPermissionGranted}
                   />
                 </div>
               </div>
@@ -961,6 +1142,8 @@ const BookingForm: React.FC = () => {
                     onChange={handleInputChange}
                     className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Quartier"
+                    readOnly={!locationPermissionGranted}
+                    disabled={!locationPermissionGranted}
                   />
                 </div>
                 <div>
@@ -983,6 +1166,8 @@ const BookingForm: React.FC = () => {
                     onChange={handleInputChange}
                     className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Commune"
+                    readOnly={!locationPermissionGranted}
+                    disabled={!locationPermissionGranted}
                   />
                 </div>
               </div>
@@ -1000,9 +1185,9 @@ const BookingForm: React.FC = () => {
                   pattern="\+223 ?\d{2} ?\d{2} ?\d{2} ?\d{2}"
                   placeholder="+223 XX XX XX XX"
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  readOnly={!!(profile && profile.type === 'client')}
+                  value={profile && profile.type === 'client' && profile.phone ? profile.phone : (user && user.client && user.client.phone ? user.client.phone : '')}
+                  readOnly
+                  disabled
                 />
                 {profile && profile.type === 'client' && (
                   <p className="text-blue-600 text-xs mt-1">
@@ -1327,18 +1512,74 @@ const BookingForm: React.FC = () => {
         </div>
       </div>
 
-      {/* Modal de géolocalisation */}
-      {showGeoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full text-center">
-            <h2 className="text-lg font-semibold mb-4 text-red-600">Géolocalisation requise</h2>
-            <p className="mb-6">Vous devez autoriser la géolocalisation et cliquer sur <b>"Obtenir ma position"</b> avant de réserver.</p>
-            <button
-              className="px-6 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 focus:outline-none"
-              onClick={() => setShowGeoModal(false)}
-            >
-              OK
-            </button>
+      {/* Modal de géolocalisation obligatoire */}
+      {showLocationModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center">
+                <AlertCircle className="h-6 w-6 text-red-500 mr-2" />
+                Géolocalisation obligatoire
+              </h2>
+              <button
+                onClick={() => setShowLocationModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {!locationPermissionGranted ? (
+              <div>
+                <p className="text-gray-700 mb-6">
+                  Pour créer une demande de service, vous devez autoriser l'accès à votre position GPS.
+                  Cette information est nécessaire pour que nos techniciens puissent vous localiser.
+                </p>
+
+                {/* Le message d'erreur est déjà affiché dans le formulaire principal */}
+
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={handleGetLocation}
+                    disabled={isGettingLocation}
+                    className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                  >
+                    {isGettingLocation ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Récupération de votre position...
+                      </>
+                    ) : (
+                      <>
+                        <MapPin className="h-4 w-4 mr-2" />
+                        Autoriser la géolocalisation
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => setShowLocationModal(false)}
+                    className="w-full px-4 py-2 text-gray-600 hover:text-gray-800"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center">
+                <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-green-700 mb-2">Position récupérée !</h3>
+                <p className="text-gray-600 mb-4">
+                  Votre position a été enregistrée avec succès. Vous pouvez maintenant continuer.
+                </p>
+                <button
+                  onClick={() => setShowLocationModal(false)}
+                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  Continuer
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

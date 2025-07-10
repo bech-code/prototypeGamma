@@ -7,6 +7,8 @@ import ReputationBadge from '../components/ReputationBadge';
 import RewardsPanel from '../components/RewardsPanel';
 import SubscriptionPanel from '../components/SubscriptionPanel';
 import TechnicianProfile from '../components/TechnicianProfile';
+import LocationTrackingControl from '../components/LocationTrackingControl';
+import LiveLocationMap from '../components/LiveLocationMap';
 import * as XLSX from 'xlsx';
 import { Bar, Pie, Line } from 'react-chartjs-2';
 import {
@@ -23,35 +25,60 @@ import {
   Filler
 } from 'chart.js';
 import jsPDF from 'jspdf';
+import { useNavigate } from 'react-router-dom';
+import ErrorToast from '../components/ErrorToast';
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, PointElement, LineElement, Filler);
 
-interface RepairRequest {
+interface Request {
   id: number;
-  title: string;
-  description: string;
-  specialty_needed: string;
-  status: 'pending' | 'assigned' | 'in_progress' | 'completed' | 'cancelled';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  estimated_cost: number;
-  created_at: string;
-  assigned_at?: string;
-  started_at?: string;
-  completed_at?: string;
+  latitude: number;
+  longitude: number;
+  address: string;
+  city: string;
+  quartier?: string;
   client: {
     id: number;
     user: {
-      username: string;
+      id: number;
+      first_name: string;
+      last_name: string;
       email: string;
+      username: string;
     };
     phone: string;
     address: string;
   };
-  conversation?: {
+  technician?: {
+    id: number;
+    user: {
+      id: number;
+      first_name: string;
+      last_name: string;
+      email: string;
+      username: string;
+    };
+    phone: string;
+    hourly_rate: number;
+    average_rating: number;
+  } | null;
+  conversation: {
     id: number;
     unread_count: number;
   };
-  latitude?: number;
-  longitude?: number;
+  service: {
+    id: number;
+    name: string;
+    description: string;
+    price: number;
+  };
+  status: string;
+  is_urgent?: boolean;
+  description?: string;
+  started_at?: string;
+  specialty_needed?: string;
+  estimated_cost?: number;
+  created_at?: string;
+  // ... autres champs ...
 }
 
 interface DashboardStats {
@@ -122,7 +149,7 @@ function isCoherent(quartier?: string, city?: string) {
   if (!quartier || !city) return true;
   const commune = quartierToCommune[quartier];
   if (!commune) return true;
-  return city.toLowerCase().includes(commune.toLowerCase());
+  return typeof city === 'string' && city.toLowerCase().includes(commune.toLowerCase());
 }
 
 function extractQuartier(address: string) {
@@ -137,13 +164,53 @@ function extractCommune(address: string) {
   return parts[1]?.trim() || '';
 }
 
+// Fonction utilitaire pour normaliser un user partiel en user complet
+function normalizeUser(user: any) {
+  return {
+    id: typeof user?.id === 'number' ? user.id : 0,
+    first_name: typeof user?.first_name === 'string' ? user.first_name : '',
+    last_name: typeof user?.last_name === 'string' ? user.last_name : '',
+    email: typeof user?.email === 'string' ? user.email : '',
+    username: typeof user?.username === 'string' ? user.username : '',
+  };
+}
+
+// Fonction utilitaire pour normaliser un technicien partiel en technicien complet
+function normalizeTechnician(technician: any) {
+  return {
+    id: typeof technician?.id === 'number' ? technician.id : 0,
+    user: normalizeUser(technician?.user),
+    phone: typeof technician?.phone === 'string' ? technician.phone : '',
+    hourly_rate: typeof technician?.hourly_rate === 'number' ? technician.hourly_rate : 0,
+    average_rating: typeof technician?.average_rating === 'number' ? technician.average_rating : 0,
+  };
+}
+
+// Fonction utilitaire pour normaliser une conversation partielle en conversation complète
+function normalizeConversation(conversation: any) {
+  return {
+    id: typeof conversation?.id === 'number' ? conversation.id : 0,
+    unread_count: typeof conversation?.unread_count === 'number' ? conversation.unread_count : 0,
+  };
+}
+
+// Fonction utilitaire pour normaliser un service partiel en service complet
+function normalizeService(service: any) {
+  return {
+    id: typeof service?.id === 'number' ? service.id : 0,
+    name: typeof service?.name === 'string' ? service.name : '',
+    description: typeof service?.description === 'string' ? service.description : '',
+    price: typeof service?.price === 'number' ? service.price : 0,
+  };
+}
+
 const TechnicianDashboard: React.FC = () => {
   const { user, token } = useAuth();
-  const [repairRequests, setRepairRequests] = useState<RepairRequest[]>([]);
+  const [repairRequests, setRepairRequests] = useState<Request[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'requests' | 'notifications' | 'reviews' | 'rewards' | 'subscription' | 'profile'>('requests');
+  const [activeTab, setActiveTab] = useState<'requests' | 'notifications' | 'reviews' | 'rewards' | 'subscription' | 'profile' | 'location'>('requests');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [suggestingRequestId, setSuggestingRequestId] = useState<number | null>(null);
   const [suggestQuartier, setSuggestQuartier] = useState('');
@@ -186,6 +253,9 @@ const TechnicianDashboard: React.FC = () => {
   const trackingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [subscriptionStatus, setSubscriptionStatus] = React.useState<{ status: string; can_receive_requests: boolean } | null>(null);
+  const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -199,7 +269,7 @@ const TechnicianDashboard: React.FC = () => {
       setLoading(true);
 
       // Récupérer les demandes de réparation
-      const requestsResponse = await fetchWithAuth('http://127.0.0.1:8000/depannage/api/repair-requests/', {
+      const requestsResponse = await fetchWithAuth('/depannage/api/repair-requests/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -209,10 +279,17 @@ const TechnicianDashboard: React.FC = () => {
       if (requestsResponse.ok) {
         const data = await requestsResponse.json();
         setRepairRequests(data.results || data || []);
+      } else {
+        let backendMsg = '';
+        try {
+          const data = await requestsResponse.json();
+          backendMsg = data?.detail || data?.message || JSON.stringify(data);
+        } catch { }
+        setError(`Erreur lors du chargement des demandes (code ${requestsResponse.status})${backendMsg ? ': ' + backendMsg : ''}`);
       }
 
       // Récupérer les statistiques
-      const statsResponse = await fetchWithAuth('http://127.0.0.1:8000/depannage/api/repair-requests/dashboard_stats/', {
+      const statsResponse = await fetchWithAuth('/depannage/api/repair-requests/dashboard_stats/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -222,10 +299,17 @@ const TechnicianDashboard: React.FC = () => {
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
         setStats(statsData);
+      } else {
+        let backendMsg = '';
+        try {
+          const statsData = await statsResponse.json();
+          backendMsg = statsData?.detail || statsData?.message || JSON.stringify(statsData);
+        } catch { }
+        setError(`Erreur lors du chargement des statistiques (code ${statsResponse.status})${backendMsg ? ': ' + backendMsg : ''}`);
       }
 
       // Récupérer les notifications
-      const notificationsResponse = await fetchWithAuth('http://127.0.0.1:8000/depannage/api/notifications/', {
+      const notificationsResponse = await fetchWithAuth('/depannage/api/notifications/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -235,6 +319,13 @@ const TechnicianDashboard: React.FC = () => {
       if (notificationsResponse.ok) {
         const notificationsData = await notificationsResponse.json();
         setNotifications(notificationsData.results || notificationsData || []);
+      } else {
+        let backendMsg = '';
+        try {
+          const notificationsData = await notificationsResponse.json();
+          backendMsg = notificationsData?.detail || notificationsData?.message || JSON.stringify(notificationsData);
+        } catch { }
+        setError(`Erreur lors du chargement des notifications (code ${notificationsResponse.status})${backendMsg ? ': ' + backendMsg : ''}`);
       }
 
       // Ajouter une notification de test pour démontrer les nouvelles fonctionnalités
@@ -251,7 +342,7 @@ const TechnicianDashboard: React.FC = () => {
       }
 
     } catch (error) {
-      console.error('Erreur lors du chargement des données:', error);
+      setError('Erreur lors du chargement des données');
     } finally {
       setLoading(false);
     }
@@ -335,7 +426,7 @@ const TechnicianDashboard: React.FC = () => {
       setShowSuggestionsList(false);
       return;
     }
-    const filtered = Object.keys(quartierToCommune).filter(q => q.toLowerCase().includes(value.toLowerCase()));
+    const filtered = Object.keys(quartierToCommune).filter(q => typeof q === 'string' && q.toLowerCase().includes(value.toLowerCase()));
     setSuggestionsList(filtered);
     setShowSuggestionsList(filtered.length > 0);
   };
@@ -360,7 +451,7 @@ const TechnicianDashboard: React.FC = () => {
   // Envoi suggestion
   const handleSendSuggestion = async (requestId: number) => {
     try {
-      await fetchWithAuth(`http://127.0.0.1:8000/depannage/api/repair-requests/${requestId}/suggest_correction/`, {
+      await fetchWithAuth(`/depannage/api/repair-requests/${requestId}/suggest_correction/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ quartier: suggestQuartier, commune: suggestCommune })
@@ -379,7 +470,7 @@ const TechnicianDashboard: React.FC = () => {
   useEffect(() => {
     if (activeTab === 'reviews' && receivedReviews.length === 0 && !loadingReviews) {
       setLoadingReviews(true);
-      fetchWithAuth('http://127.0.0.1:8000/depannage/api/reviews/received/', {
+      fetchWithAuth('/depannage/api/reviews/received/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -542,7 +633,7 @@ const TechnicianDashboard: React.FC = () => {
 
   // Comparatif moyenne plateforme
   useEffect(() => {
-    fetch('http://127.0.0.1:8000/depannage/api/repair-requests/project_statistics/')
+    fetch('/depannage/api/repair-requests/project_statistics/')
       .then(r => r.json())
       .then(data => setGlobalAvg(data?.overview?.avg_rating || null));
   }, []);
@@ -573,7 +664,7 @@ const TechnicianDashboard: React.FC = () => {
     fetchSubscription();
   }, []);
 
-  // Fonction de renouvellement avec paiement CinetPay
+  // Fonction de renouvellement avec CinetPay
   const handleRenewSubscription = async () => {
     setSubLoading(true);
     setSubError(null);
@@ -586,19 +677,25 @@ const TechnicianDashboard: React.FC = () => {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          duration_months: 1, // Par défaut 1 mois
+          amount: 5000, // Montant par défaut
+          description: 'Abonnement technicien - Renouvellement'
+        }),
       });
       if (response.ok) {
         const data = await response.json();
         if (data.payment_url) {
+          // Rediriger vers CinetPay
           window.location.href = data.payment_url;
         } else {
-          setSubError('Erreur lors de la génération du paiement.');
+          setSubError('Erreur: URL de paiement non reçue');
         }
       } else {
-        setSubError('Erreur lors du renouvellement.');
+        setSubError('Erreur lors de l\'initiation du paiement.');
       }
     } catch (e) {
-      setSubError('Erreur lors du renouvellement.');
+      setSubError('Erreur lors de l\'initiation du paiement.');
     } finally {
       setSubLoading(false);
     }
@@ -610,12 +707,15 @@ const TechnicianDashboard: React.FC = () => {
     if (trackingIntervalRef.current) clearInterval(trackingIntervalRef.current);
     // Fonction d'envoi de la position
     const sendPosition = async () => {
-      if (!navigator.geolocation) return;
+      if (!navigator.geolocation) {
+        console.log('Géolocalisation non supportée par le navigateur');
+        return;
+      }
       navigator.geolocation.getCurrentPosition(async (position) => {
         const { latitude, longitude } = position.coords;
         try {
           const token = localStorage.getItem('token');
-          await fetchWithAuth('http://127.0.0.1:8000/depannage/api/technician-locations/', {
+          await fetchWithAuth('/depannage/api/locations/', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -628,8 +728,27 @@ const TechnicianDashboard: React.FC = () => {
             })
           });
         } catch (e) {
-          // ignore
+          console.log('Erreur lors de l\'envoi de la position:', e);
         }
+      }, (error) => {
+        // Gestion des erreurs de géolocalisation
+        let errorMessage = "Erreur de géolocalisation pour le tracking.";
+
+        switch (error.code) {
+          case 1: // PERMISSION_DENIED
+            errorMessage = "Permission de géolocalisation refusée pour le tracking.";
+            break;
+          case 2: // POSITION_UNAVAILABLE
+            errorMessage = "Position non disponible pour le tracking.";
+            break;
+          case 3: // TIMEOUT
+            errorMessage = "Délai d'attente dépassé pour le tracking.";
+            break;
+          default:
+            errorMessage = "Erreur de géolocalisation pour le tracking.";
+        }
+
+        console.log(`Tracking: ${errorMessage} (Code: ${error.code})`);
       });
     };
     sendPosition();
@@ -643,6 +762,53 @@ const TechnicianDashboard: React.FC = () => {
 
   // Calcul du nombre total de messages non lus sur toutes les conversations
   const totalUnreadMessages = repairRequests.reduce((acc, req) => acc + (req.conversation?.unread_count || 0), 0);
+
+  React.useEffect(() => {
+    // Appel API pour récupérer le statut d'abonnement
+    fetch('http://127.0.0.1:8000/depannage/api/technicians/subscription_status/', {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+      },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setSubscriptionStatus(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  // Affichage du modal si abonnement expiré ou inexistant
+  const showSubscriptionModal =
+    !loading && subscriptionStatus && (!subscriptionStatus.can_receive_requests || subscriptionStatus.status === 'expired');
+
+  // Ajout de la redirection automatique vers CinetPay pour le paiement d'abonnement
+  useEffect(() => {
+    if (!loading && subscriptionStatus && (!subscriptionStatus.can_receive_requests || subscriptionStatus.status === 'expired')) {
+      // Initier directement le paiement CinetPay pour l'abonnement
+      fetch('http://127.0.0.1:8000/depannage/api/cinetpay/initiate_subscription_payment/', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          duration_months: 1, // Par défaut 1 mois
+          amount: 5000, // Montant par défaut
+          description: 'Abonnement technicien - Renouvellement automatique'
+        }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.payment_url) {
+            window.location.href = data.payment_url;
+          }
+        })
+        .catch((error) => {
+          console.error('Erreur lors de l\'initiation du paiement:', error);
+        });
+    }
+  }, [loading, subscriptionStatus]);
 
   if (loading) {
     return (
@@ -787,819 +953,961 @@ const TechnicianDashboard: React.FC = () => {
         </div>
       </section>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-0">
-        {/* Onglets */}
-        <div className="bg-white rounded-lg shadow mb-6">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8 px-6" role="tablist">
-              <button
-                onClick={() => setActiveTab('requests')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'requests'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                role="tab"
-                aria-selected={activeTab === 'requests'}
-                tabIndex={0}
-              >
-                Mes demandes ({repairRequests.length})
-              </button>
-              <button
-                onClick={() => setActiveTab('notifications')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm relative ${activeTab === 'notifications'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                role="tab"
-                aria-selected={activeTab === 'notifications'}
-                tabIndex={0}
-                aria-label="Notifications"
-              >
-                Notifications ({notifications.filter(n => !n.is_read).length})
-                {/* Badge global nouveaux messages */}
-                {totalUnreadMessages > 0 && (
-                  <span className="absolute -top-1 -right-4 bg-red-600 text-white text-xs px-2 py-0.5 rounded-full font-bold animate-pulse" title="Nouveaux messages">
-                    {totalUnreadMessages}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setActiveTab('reviews')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'reviews'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                role="tab"
-                aria-selected={activeTab === 'reviews'}
-                tabIndex={0}
-              >
-                Avis reçus
-              </button>
-              <button
-                onClick={() => setActiveTab('rewards')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'rewards'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                role="tab"
-                aria-selected={activeTab === 'rewards'}
-                tabIndex={0}
-              >
-                Récompenses
-              </button>
-              <button
-                onClick={() => setActiveTab('subscription')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'subscription'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                role="tab"
-                aria-selected={activeTab === 'subscription'}
-                tabIndex={0}
-              >
-                Abonnement
-              </button>
-              <button
-                onClick={() => setActiveTab('profile')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'profile'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                role="tab"
-                aria-selected={activeTab === 'profile'}
-                tabIndex={0}
-              >
-                Mon Profil
-              </button>
-            </nav>
+      {/* Modal d'abonnement bloquant */}
+      {showSubscriptionModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: 12,
+            padding: 32,
+            maxWidth: 400,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+            textAlign: 'center',
+          }}>
+            <h2 style={{ marginBottom: 16 }}>Abonnement requis</h2>
+            <p style={{ marginBottom: 24 }}>
+              Votre abonnement est <b>expiré</b> ou inexistant.<br />
+              Pour recevoir de nouvelles demandes, veuillez renouveler votre abonnement.
+            </p>
+            <button
+              style={{
+                background: '#1976d2',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 6,
+                padding: '12px 24px',
+                fontSize: 16,
+                cursor: 'pointer',
+                fontWeight: 600,
+              }}
+              onClick={handleRenewSubscription}
+            >
+              Payer avec CinetPay
+            </button>
           </div>
+        </div>
+      )}
 
-          <div className="p-6">
-            {activeTab === 'requests' && (
-              <div>
-                {/* Filtres */}
-                <div className="mb-6">
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => setFilterStatus('all')}
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'all'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                    >
-                      Toutes
-                    </button>
-                    <button
-                      onClick={() => setFilterStatus('assigned')}
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'assigned'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                    >
-                      Assignées
-                    </button>
-                    <button
-                      onClick={() => setFilterStatus('in_progress')}
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'in_progress'
-                        ? 'bg-orange-100 text-orange-800'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                    >
-                      En cours
-                    </button>
-                    <button
-                      onClick={() => setFilterStatus('completed')}
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'completed'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                    >
-                      Terminées
-                    </button>
-                  </div>
-                </div>
-
-                {/* Carte des interventions (à placer à l'endroit où la carte est affichée) */}
-                <div className="flex items-center mb-2">
-                  <input
-                    type="checkbox"
-                    id="showOnlyIncoherent"
-                    checked={showOnlyIncoherent}
-                    onChange={e => setShowOnlyIncoherent(e.target.checked)}
-                    className="mr-2"
-                  />
-                  <label htmlFor="showOnlyIncoherent" className="text-sm">Afficher uniquement les incohérences</label>
-                </div>
-                <TechnicianRequestsMap
-                  requests={repairRequests
-                    .filter(req => req.latitude !== undefined && req.longitude !== undefined)
-                    .map(req => ({
-                      id: req.id,
-                      latitude: req.latitude!,
-                      longitude: req.longitude!,
-                      address: req.client.address,
-                      city: extractCommune(req.client.address),
-                      quartier: extractQuartier(req.client.address),
-                      client: req.client.user.email,
-                      service: req.title,
-                      status: req.status,
-                      is_urgent: req.priority === 'urgent',
-                    }))}
-                  showOnlyIncoherent={showOnlyIncoherent}
-                />
-
-                {/* Espacement entre la carte et la liste */}
-                <div className="mb-8"></div>
-
-                {/* Liste des demandes */}
-                {filteredRequests.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Wrench className="mx-auto h-12 w-12 text-gray-400" />
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">Aucune demande</h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                      {filterStatus === 'all'
-                        ? 'Vous n\'avez pas encore de demandes assignées.'
-                        : 'Aucune demande avec ce statut.'
-                      }
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {filteredRequests.map((request) => (
-                      <div key={request.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden">
-                        {/* Header de la carte */}
-                        <div className="bg-gradient-to-r from-orange-50 to-orange-100 p-6 border-b border-orange-200">
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center space-x-3">
-                              {/* Avatar client */}
-                              <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                                {request.client.user.username.charAt(0).toUpperCase()}
-                              </div>
-                              <div>
-                                <h3 className="text-lg font-bold text-gray-900 truncate">{request.title}</h3>
-                                <p className="text-sm text-gray-600">Client: {request.client.user.username}</p>
-                              </div>
-                            </div>
-                            <div className="flex flex-col items-end space-y-2">
-                              {/* Badge statut */}
-                              <span className={`px-3 py-1 text-xs font-bold rounded-full shadow-sm ${getStatusColor(request.status)}`}>
-                                {getStatusText(request.status)}
-                              </span>
-                              {/* Badge priorité */}
-                              <div className="flex items-center space-x-1">
-                                <div className={`w-3 h-3 rounded-full ${getPriorityColor(request.priority)} shadow-sm`}></div>
-                                <span className="text-xs text-gray-500 font-medium">
-                                  {request.priority === 'urgent' ? 'Urgent' :
-                                    request.priority === 'high' ? 'Élevée' :
-                                      request.priority === 'medium' ? 'Moyenne' : 'Faible'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Description */}
-                          <p className="text-gray-700 text-sm leading-relaxed mb-4 line-clamp-2">
-                            {request.description}
-                          </p>
-                        </div>
-
-                        {/* Corps de la carte */}
-                        <div className="p-6">
-                          {/* Tags d'informations clés */}
-                          <div className="flex flex-wrap gap-2 mb-4">
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              <Wrench className="w-3 h-3 mr-1" />
-                              {request.specialty_needed}
-                            </span>
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              <span className="font-bold">{request.estimated_cost !== undefined && request.estimated_cost !== null ? request.estimated_cost.toLocaleString() : "N/A"} FCFA</span>
-                            </span>
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                              <Clock className="w-3 h-3 mr-1" />
-                              {formatDate(request.created_at)}
-                            </span>
-                          </div>
-
-                          {/* Informations client stylées */}
-                          <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg p-4 mb-4 border border-gray-200">
-                            <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
-                              <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
-                              Informations client
-                            </h4>
-                            <div className="space-y-2">
-                              <div className="flex items-center space-x-2">
-                                <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                                <span className="text-sm text-gray-700 flex-1">
-                                  {request.client.address}
-                                  {/* Badge incohérence */}
-                                  {!isCoherent(extractQuartier(request.client.address), extractCommune(request.client.address)) && (
-                                    <>
-                                      <span className="inline-block bg-red-600 text-white text-xs font-bold px-2 py-1 rounded ml-2">Incohérence quartier/commune</span>
-                                      <button
-                                        className="ml-2 text-xs text-blue-700 underline hover:text-blue-900 font-medium"
-                                        onClick={() => {
-                                          setSuggestingRequestId(request.id);
-                                          setSuggestQuartier('');
-                                          setSuggestCommune('');
-                                        }}
-                                      >Suggérer correction</button>
-                                      {suggestingRequestId === request.id && (
-                                        <div className="mt-3 bg-blue-50 p-3 rounded-lg border border-blue-200 max-w-xs">
-                                          <label className="text-xs font-semibold text-blue-900">Quartier</label>
-                                          <div className="relative">
-                                            <input
-                                              type="text"
-                                              className="w-full p-2 border border-blue-300 rounded text-sm"
-                                              value={suggestQuartier}
-                                              onChange={handleSuggestQuartierChange}
-                                              placeholder="Quartier correct"
-                                            />
-                                            {showSuggestionsList && suggestionsList.length > 0 && (
-                                              <div ref={suggestionsListRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-40 overflow-y-auto">
-                                                {suggestionsList.map((quartier) => (
-                                                  <div
-                                                    key={quartier}
-                                                    className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
-                                                    onClick={() => handleSuggestListClick(quartier)}
-                                                  >
-                                                    {quartier}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            )}
-                                          </div>
-                                          <label className="text-xs font-semibold text-blue-900 mt-2">Commune</label>
-                                          <input
-                                            type="text"
-                                            className="w-full p-2 border border-blue-300 rounded text-sm"
-                                            value={suggestCommune}
-                                            onChange={e => setSuggestCommune(e.target.value)}
-                                            placeholder="Commune correcte"
-                                          />
-                                          <div className="flex space-x-2 mt-3">
-                                            <button
-                                              className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3 py-2 rounded transition-colors"
-                                              onClick={() => handleSendSuggestion(request.id)}
-                                            >Envoyer</button>
-                                            <button
-                                              className="flex-1 text-xs text-gray-500 underline hover:text-gray-700"
-                                              onClick={() => setSuggestingRequestId(null)}
-                                            >Annuler</button>
-                                          </div>
-                                          {suggestionSent && (
-                                            <div className="text-green-700 text-xs mt-2 text-center">✓ Suggestion envoyée !</div>
-                                          )}
-                                        </div>
-                                      )}
-                                    </>
-                                  )}
-                                </span>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Phone className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                                <span className="text-sm text-gray-700">{request.client.phone}</span>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <span className="text-sm text-gray-700">{request.client.user.email}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Actions */}
-                          <div className="flex flex-wrap gap-3">
-                            {request.conversation?.id ? (
-                              <button
-                                onClick={async () => {
-                                  setChatLoading(true);
-                                  try {
-                                    // Simuler un délai ou une vérification d'accès
-                                    // await someAsyncCheck();
-                                    window.location.href = request.conversation ? `/chat/${request.conversation.id}` : '#';
-                                  } catch (e) {
-                                    setChatError("Impossible d'ouvrir la conversation.");
-                                    setTimeout(() => setChatError(null), 3000);
-                                  } finally {
-                                    setChatLoading(false);
-                                  }
-                                }}
-                                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm relative"
-                                aria-label="Ouvrir la conversation de chat"
-                              >
-                                <MessageSquare className="h-4 w-4 mr-2" />
-                                Messages
-                                {/* Badge nouveaux messages */}
-                                {request.conversation?.unread_count > 0 && (
-                                  <span className="ml-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold animate-pulse">
-                                    {request.conversation.unread_count}
-                                  </span>
-                                )}
-                                {/* Spinner de chargement */}
-                                {chatLoading && (
-                                  <span className="ml-2 animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
-                                )}
-                              </button>
-                            ) : (
-                              <button
-                                disabled
-                                aria-disabled="true"
-                                tabIndex={-1}
-                                className="inline-flex items-center px-4 py-2 bg-gray-300 text-gray-500 text-sm font-medium rounded-lg cursor-not-allowed opacity-60"
-                                title="Aucune conversation disponible pour cette demande"
-                              >
-                                <MessageSquare className="h-4 w-4 mr-2" />
-                                Messages
-                              </button>
-                            )}
-
-                            {/* Actions selon le statut */}
-                            {request.status === 'pending' && (
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    const technicianId = user?.technician?.id;
-                                    if (!technicianId) {
-                                      alert('Erreur: ID du technicien non trouvé');
-                                      return;
-                                    }
-
-                                    console.log('Tentative d\'assignation avec technician_id:', technicianId);
-
-                                    const response = await fetch(`http://127.0.0.1:8000/depannage/api/repair-requests/${request.id}/assign_technician/`, {
-                                      method: 'POST',
-                                      headers: {
-                                        'Authorization': `Bearer ${token}`,
-                                        'Content-Type': 'application/json',
-                                      },
-                                      body: JSON.stringify({ technician_id: technicianId }),
-                                    });
-
-                                    if (response.ok) {
-                                      const result = await response.json();
-                                      console.log('Assignation réussie:', result);
-                                      fetchDashboardData();
-                                    } else {
-                                      let errorData;
-                                      try {
-                                        errorData = await response.json();
-                                      } catch {
-                                        errorData = null;
-                                      }
-                                      console.error('Erreur lors de l\'acceptation:', errorData);
-                                      alert(`Erreur lors de l'acceptation de la demande: ${errorData && errorData.error ? errorData.error : 'Erreur inconnue'}`);
-                                    }
-                                  } catch {
-                                    console.error('Erreur lors de l\'acceptation de la demande');
-                                    alert('Erreur lors de l\'acceptation de la demande');
-                                  }
-                                }}
-                                className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
-                              >
-                                <CheckCircle className="h-4 w-4 mr-2" />
-                                Accepter
-                              </button>
-                            )}
-
-                            {request.status === 'assigned' && trackingRequestId !== request.id && (
-                              <button
-                                onClick={() => updateRequestStatus(request.id, 'in_progress')}
-                                className="inline-flex items-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
-                              >
-                                <CheckCircle className="h-4 w-4 mr-2" />
-                                Commencer
-                              </button>
-                            )}
-
-                            {trackingRequestId === request.id && (
-                              <span className="ml-2 text-green-600 font-semibold animate-pulse">Tracking en cours...</span>
-                            )}
-
-                            {request.status === 'in_progress' && (
-                              <button
-                                onClick={() => updateRequestStatus(request.id, 'completed')}
-                                className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
-                              >
-                                <CheckCircle className="h-4 w-4 mr-2" />
-                                Terminer
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+      {/* Si abonnement inactif, on masque la liste des demandes et la logique de réception */}
+      {!showSubscriptionModal && (
+        <>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-0">
+            {/* Onglets */}
+            <div className="bg-white rounded-lg shadow mb-6">
+              <div className="border-b border-gray-200">
+                <nav className="-mb-px flex space-x-8 px-6" role="tablist">
+                  <button
+                    onClick={() => setActiveTab('requests')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'requests'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    role="tab"
+                    aria-selected={activeTab === 'requests'}
+                    tabIndex={0}
+                  >
+                    Mes demandes ({repairRequests.length})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('notifications')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm relative ${activeTab === 'notifications'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    role="tab"
+                    aria-selected={activeTab === 'notifications'}
+                    tabIndex={0}
+                    aria-label="Notifications"
+                  >
+                    Notifications ({notifications.filter(n => !n.is_read).length})
+                    {/* Badge global nouveaux messages */}
+                    {totalUnreadMessages > 0 && (
+                      <span className="absolute -top-1 -right-4 bg-red-600 text-white text-xs px-2 py-0.5 rounded-full font-bold animate-pulse" title="Nouveaux messages">
+                        {totalUnreadMessages}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('reviews')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'reviews'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    role="tab"
+                    aria-selected={activeTab === 'reviews'}
+                    tabIndex={0}
+                  >
+                    Avis reçus
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('rewards')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'rewards'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    role="tab"
+                    aria-selected={activeTab === 'rewards'}
+                    tabIndex={0}
+                  >
+                    Récompenses
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('subscription')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'subscription'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    role="tab"
+                    aria-selected={activeTab === 'subscription'}
+                    tabIndex={0}
+                  >
+                    Abonnement
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('location')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'location'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    role="tab"
+                    aria-selected={activeTab === 'location'}
+                    tabIndex={0}
+                  >
+                    📍 Géolocalisation
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('profile')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'profile'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    role="tab"
+                    aria-selected={activeTab === 'profile'}
+                    tabIndex={0}
+                  >
+                    Mon Profil
+                  </button>
+                </nav>
               </div>
-            )}
 
-            {activeTab === 'notifications' && (
-              <div>
-                {/* Header avec statistiques */}
-                <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">Centre de Notifications</h3>
-                      <p className="text-sm text-gray-600">
-                        {notifications.filter(n => !n.is_read).length} notification{notifications.filter(n => !n.is_read).length > 1 ? 's' : ''} non lue{notifications.filter(n => !n.is_read).length > 1 ? 's' : ''}
-                      </p>
+              <div className="p-6">
+                {activeTab === 'requests' && (
+                  <div>
+                    {/* Filtres */}
+                    <div className="mb-6">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => setFilterStatus('all')}
+                          className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'all'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                        >
+                          Toutes
+                        </button>
+                        <button
+                          onClick={() => setFilterStatus('assigned')}
+                          className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'assigned'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                        >
+                          Assignées
+                        </button>
+                        <button
+                          onClick={() => setFilterStatus('in_progress')}
+                          className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'in_progress'
+                            ? 'bg-orange-100 text-orange-800'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                        >
+                          En cours
+                        </button>
+                        <button
+                          onClick={() => setFilterStatus('completed')}
+                          className={`px-3 py-1 rounded-full text-sm font-medium ${filterStatus === 'completed'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                        >
+                          Terminées
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => {
-                          // Marquer toutes comme lues
-                          notifications.forEach(n => n.is_read = true);
-                          setNotifications([...notifications]);
-                        }}
-                        className="px-3 py-1 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        Tout marquer comme lu
-                      </button>
+
+                    {/* Carte des interventions (à placer à l'endroit où la carte est affichée) */}
+                    <div className="flex items-center mb-2">
+                      <input
+                        type="checkbox"
+                        id="showOnlyIncoherent"
+                        checked={showOnlyIncoherent}
+                        onChange={e => setShowOnlyIncoherent(e.target.checked)}
+                        className="mr-2"
+                      />
+                      <label htmlFor="showOnlyIncoherent" className="text-sm">Afficher uniquement les incohérences</label>
                     </div>
-                  </div>
-                </div>
+                    <TechnicianRequestsMap
+                      requests={repairRequests
+                        .filter(req => req.latitude !== undefined && req.longitude !== undefined)
+                        .map(req => ({
+                          id: req.id,
+                          latitude: req.latitude!,
+                          longitude: req.longitude!,
+                          address: req.client.address,
+                          city: extractCommune(req.client.address),
+                          quartier: extractQuartier(req.client.address),
+                          client: req.client ? {
+                            ...req.client,
+                            user: normalizeUser(req.client.user)
+                          } : {
+                            id: 0,
+                            user: normalizeUser(undefined),
+                            phone: '',
+                            address: ''
+                          },
+                          service: normalizeService(req.service),
+                          status: req.status,
+                          is_urgent: !!req.is_urgent,
+                        })) as any}
+                      showOnlyIncoherent={showOnlyIncoherent}
+                    />
 
-                {notifications.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <AlertCircle className="h-8 w-8 text-blue-600" />
-                    </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">Aucune notification</h3>
-                    <p className="text-gray-500">
-                      Vous n'avez pas encore de notifications. Elles apparaîtront ici quand vous recevrez des mises à jour.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {notifications.map((notification) => (
-                      <div
-                        key={notification.id}
-                        className={`relative p-6 rounded-xl border transition-all duration-300 hover:shadow-lg ${notification.is_read
-                          ? 'bg-white border-gray-200'
-                          : 'bg-gradient-to-r from-blue-50 to-blue-100 border-blue-300 shadow-md'
-                          }`}
-                      >
-                        {/* Indicateur de lecture */}
-                        {!notification.is_read && (
-                          <div className="absolute top-4 right-4">
-                            <div className="w-3 h-3 bg-blue-600 rounded-full animate-pulse"></div>
-                          </div>
-                        )}
+                    {/* Espacement entre la carte et la liste */}
+                    <div className="mb-8"></div>
 
-                        <div className="flex items-start space-x-4">
-                          {/* Icône selon le type */}
-                          <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${notification.type === 'success' ? 'bg-green-100 text-green-600' :
-                            notification.type === 'warning' ? 'bg-yellow-100 text-yellow-600' :
-                              notification.type === 'error' ? 'bg-red-100 text-red-600' :
-                                'bg-blue-100 text-blue-600'
-                            }`}>
-                            {notification.type === 'success' ? '✓' :
-                              notification.type === 'warning' ? '⚠' :
-                                notification.type === 'error' ? '✗' : 'ℹ'}
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <h4 className={`font-semibold text-lg ${notification.is_read ? 'text-gray-900' : 'text-blue-900'
-                                  }`}>
-                                  {notification.title}
-                                </h4>
-                                <p className={`mt-2 text-sm leading-relaxed ${notification.is_read ? 'text-gray-600' : 'text-blue-700'
-                                  }`}>
-                                  {notification.message}
-                                </p>
-                                <div className="flex items-center mt-3 space-x-4">
-                                  <span className="text-xs text-gray-500 flex items-center">
-                                    <Clock className="w-3 h-3 mr-1" />
-                                    {formatDate(notification.created_at)}
+                    {/* Liste des demandes */}
+                    {filteredRequests.length === 0 ? (
+                      <div className="text-center py-12">
+                        <Wrench className="mx-auto h-12 w-12 text-gray-400" />
+                        <h3 className="mt-2 text-sm font-medium text-gray-900">Aucune demande</h3>
+                        <p className="mt-1 text-sm text-gray-500">
+                          {filterStatus === 'all'
+                            ? 'Vous n\'avez pas encore de demandes assignées.'
+                            : 'Aucune demande avec ce statut.'
+                          }
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {filteredRequests.map((request) => (
+                          <div key={request.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden">
+                            {/* Header de la carte */}
+                            <div className="bg-gradient-to-r from-orange-50 to-orange-100 p-6 border-b border-orange-200">
+                              <div className="flex items-start justify-between mb-4">
+                                <div className="flex items-center space-x-3">
+                                  {/* Avatar client */}
+                                  <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                                    {(typeof request.client.user.username === 'string' && request.client.user.username.length > 0)
+                                      ? request.client.user.username.charAt(0).toUpperCase()
+                                      : '?'}
+                                  </div>
+                                  <div>
+                                    <h3 className="text-lg font-bold text-gray-900 truncate">
+                                      {request.service?.name || 'Service non spécifié'}
+                                    </h3>
+                                    <p className="text-sm text-gray-600">Client: {request.client?.user?.username || 'Client inconnu'}</p>
+                                  </div>
+                                </div>
+                                <div className="flex flex-col items-end space-y-2">
+                                  {/* Badge statut */}
+                                  <span className={`px-3 py-1 text-xs font-bold rounded-full shadow-sm ${getStatusColor(request.status)}`}>
+                                    {getStatusText(request.status)}
                                   </span>
-                                  <span className={`text-xs px-2 py-1 rounded-full ${notification.type === 'success' ? 'bg-green-100 text-green-700' :
-                                    notification.type === 'warning' ? 'bg-yellow-100 text-yellow-700' :
-                                      notification.type === 'error' ? 'bg-red-100 text-red-700' :
-                                        'bg-blue-100 text-blue-700'
-                                    }`}>
-                                    {notification.type === 'success' ? 'Succès' :
-                                      notification.type === 'warning' ? 'Avertissement' :
-                                        notification.type === 'error' ? 'Erreur' : 'Information'}
-                                  </span>
+                                  {/* Badge priorité */}
+                                  <div className="flex items-center space-x-1">
+                                    <div className={`w-3 h-3 rounded-full ${getPriorityColor(request.is_urgent ? 'urgent' : 'normal')} shadow-sm`}></div>
+                                    <span className="text-xs text-gray-500 font-medium">
+                                      {request.is_urgent ? 'Urgent' : 'Normal'}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
+
+                              {/* Description */}
+                              <p className="text-gray-700 text-sm leading-relaxed mb-4 line-clamp-2">
+                                {typeof request.description === 'string' ? request.description : ''}
+                              </p>
+                            </div>
+
+                            {/* Corps de la carte */}
+                            <div className="p-6">
+                              {/* Tags d'informations clés */}
+                              <div className="flex flex-wrap gap-2 mb-4">
+                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  <Wrench className="w-3 h-3 mr-1" />
+                                  {request.specialty_needed}
+                                </span>
+                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  <span className="font-bold">{request.estimated_cost !== undefined && request.estimated_cost !== null ? request.estimated_cost.toLocaleString() : "N/A"} FCFA</span>
+                                </span>
+                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                  <Clock className="w-3 h-3 mr-1" />
+                                  {formatDate(request.created_at || '')}
+                                </span>
+                              </div>
+
+                              {/* Informations client stylées */}
+                              <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg p-4 mb-4 border border-gray-200">
+                                <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                                  <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
+                                  Informations client
+                                </h4>
+                                <div className="space-y-2">
+                                  <div className="flex items-center space-x-2">
+                                    <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                    <span className="text-sm text-gray-700 flex-1">
+                                      {request.client.address}
+                                      {/* Badge incohérence */}
+                                      {!isCoherent(extractQuartier(request.client.address), extractCommune(request.client.address)) && (
+                                        <>
+                                          <span className="inline-block bg-red-600 text-white text-xs font-bold px-2 py-1 rounded ml-2">Incohérence quartier/commune</span>
+                                          <button
+                                            className="ml-2 text-xs text-blue-700 underline hover:text-blue-900 font-medium"
+                                            onClick={() => {
+                                              setSuggestingRequestId(request.id);
+                                              setSuggestQuartier('');
+                                              setSuggestCommune('');
+                                            }}
+                                          >Suggérer correction</button>
+                                          {suggestingRequestId === request.id && (
+                                            <div className="mt-3 bg-blue-50 p-3 rounded-lg border border-blue-200 max-w-xs">
+                                              <label className="text-xs font-semibold text-blue-900">Quartier</label>
+                                              <div className="relative">
+                                                <input
+                                                  type="text"
+                                                  className="w-full p-2 border border-blue-300 rounded text-sm"
+                                                  value={suggestQuartier}
+                                                  onChange={handleSuggestQuartierChange}
+                                                  placeholder="Quartier correct"
+                                                />
+                                                {showSuggestionsList && suggestionsList.length > 0 && (
+                                                  <div ref={suggestionsListRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-40 overflow-y-auto">
+                                                    {suggestionsList.map((quartier) => (
+                                                      <div
+                                                        key={quartier}
+                                                        className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+                                                        onClick={() => handleSuggestListClick(quartier)}
+                                                      >
+                                                        {quartier}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                )}
+                                              </div>
+                                              <label className="text-xs font-semibold text-blue-900 mt-2">Commune</label>
+                                              <input
+                                                type="text"
+                                                className="w-full p-2 border border-blue-300 rounded text-sm"
+                                                value={suggestCommune}
+                                                onChange={e => setSuggestCommune(e.target.value)}
+                                                placeholder="Commune correcte"
+                                              />
+                                              <div className="flex space-x-2 mt-3">
+                                                <button
+                                                  className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3 py-2 rounded transition-colors"
+                                                  onClick={() => handleSendSuggestion(request.id)}
+                                                >Envoyer</button>
+                                                <button
+                                                  className="flex-1 text-xs text-gray-500 underline hover:text-gray-700"
+                                                  onClick={() => setSuggestingRequestId(null)}
+                                                >Annuler</button>
+                                              </div>
+                                              {suggestionSent && (
+                                                <div className="text-green-700 text-xs mt-2 text-center">✓ Suggestion envoyée !</div>
+                                              )}
+                                            </div>
+                                          )}
+                                        </>
+                                      )}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <Phone className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                    <span className="text-sm text-gray-700">{request.client.phone}</span>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-sm text-gray-700">
+                                      {request.client.user && typeof request.client.user.email === 'string' ? request.client.user.email : ''}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Actions */}
+                              <div className="flex flex-wrap gap-3">
+                                {request.conversation?.id ? (
+                                  <button
+                                    onClick={async () => {
+                                      setChatLoading(true);
+                                      try {
+                                        // Simuler un délai ou une vérification d'accès
+                                        // await someAsyncCheck();
+                                        window.location.href = request.conversation ? `/chat/${request.conversation.id}` : '#';
+                                      } catch (e) {
+                                        setChatError("Impossible d'ouvrir la conversation.");
+                                        setTimeout(() => setChatError(null), 3000);
+                                      } finally {
+                                        setChatLoading(false);
+                                      }
+                                    }}
+                                    className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm relative"
+                                    aria-label="Ouvrir la conversation de chat"
+                                  >
+                                    <MessageSquare className="h-4 w-4 mr-2" />
+                                    Messages
+                                    {/* Badge nouveaux messages */}
+                                    {request.conversation?.unread_count > 0 && (
+                                      <span className="ml-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold animate-pulse">
+                                        {request.conversation.unread_count}
+                                      </span>
+                                    )}
+                                    {/* Spinner de chargement */}
+                                    {chatLoading && (
+                                      <span className="ml-2 animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
+                                    )}
+                                  </button>
+                                ) : (
+                                  <button
+                                    disabled
+                                    aria-disabled="true"
+                                    tabIndex={-1}
+                                    className="inline-flex items-center px-4 py-2 bg-gray-300 text-gray-500 text-sm font-medium rounded-lg cursor-not-allowed opacity-60"
+                                    title="Aucune conversation disponible pour cette demande"
+                                  >
+                                    <MessageSquare className="h-4 w-4 mr-2" />
+                                    Messages
+                                  </button>
+                                )}
+
+                                {/* Actions selon le statut */}
+                                {request.status === 'pending' && (
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        const technicianId = user?.technician?.id;
+                                        if (!technicianId) {
+                                          alert('Erreur: ID du technicien non trouvé');
+                                          return;
+                                        }
+
+                                        console.log('Tentative d\'assignation avec technician_id:', technicianId);
+
+                                        const response = await fetch(`http://127.0.0.1:8000/depannage/api/repair-requests/${request.id}/assign_technician/`, {
+                                          method: 'POST',
+                                          headers: {
+                                            'Authorization': `Bearer ${token}`,
+                                            'Content-Type': 'application/json',
+                                          },
+                                          body: JSON.stringify({ technician_id: technicianId }),
+                                        });
+
+                                        if (response.ok) {
+                                          const result = await response.json();
+                                          console.log('Assignation réussie:', result);
+                                          fetchDashboardData();
+                                        } else {
+                                          let errorData;
+                                          try {
+                                            errorData = await response.json();
+                                          } catch {
+                                            errorData = null;
+                                          }
+                                          console.error('Erreur lors de l\'acceptation:', errorData);
+                                          alert(`Erreur lors de l'acceptation de la demande: ${errorData && errorData.error ? errorData.error : 'Erreur inconnue'}`);
+                                        }
+                                      } catch {
+                                        console.error('Erreur lors de l\'acceptation de la demande');
+                                        alert('Erreur lors de l\'acceptation de la demande');
+                                      }
+                                    }}
+                                    className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+                                  >
+                                    <CheckCircle className="h-4 w-4 mr-2" />
+                                    Accepter
+                                  </button>
+                                )}
+
+                                {request.status === 'assigned' && trackingRequestId !== request.id && (
+                                  <button
+                                    onClick={() => updateRequestStatus(request.id, 'in_progress')}
+                                    className="inline-flex items-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+                                  >
+                                    <CheckCircle className="h-4 w-4 mr-2" />
+                                    Commencer
+                                  </button>
+                                )}
+
+                                {trackingRequestId === request.id && (
+                                  <span className="ml-2 text-green-600 font-semibold animate-pulse">Tracking en cours...</span>
+                                )}
+
+                                {request.status === 'in_progress' && (
+                                  <button
+                                    onClick={() => updateRequestStatus(request.id, 'completed')}
+                                    className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+                                  >
+                                    <CheckCircle className="h-4 w-4 mr-2" />
+                                    Terminer
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
-                        {/* Actions */}
-                        <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end space-x-2">
-                          {!notification.is_read && (
-                            <button
-                              onClick={() => {
-                                notification.is_read = true;
-                                setNotifications([...notifications]);
-                              }}
-                              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-                            >
-                              Marquer comme lu
-                            </button>
-                          )}
+                {activeTab === 'notifications' && (
+                  <div>
+                    {/* Header avec statistiques */}
+                    <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900">Centre de Notifications</h3>
+                          <p className="text-sm text-gray-600">
+                            {notifications.filter(n => !n.is_read).length} notification{notifications.filter(n => !n.is_read).length > 1 ? 's' : ''} non lue{notifications.filter(n => !n.is_read).length > 1 ? 's' : ''}
+                          </p>
+                        </div>
+                        <div className="flex space-x-2">
                           <button
                             onClick={() => {
-                              // Supprimer la notification
-                              setNotifications(notifications.filter(n => n.id !== notification.id));
+                              // Marquer toutes comme lues
+                              notifications.forEach(n => n.is_read = true);
+                              setNotifications([...notifications]);
                             }}
-                            className="text-xs text-gray-500 hover:text-red-600 font-medium"
+                            className="px-3 py-1 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                           >
-                            Supprimer
+                            Tout marquer comme lu
                           </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                    </div>
 
-            {activeTab === 'reviews' && (
-              <div>
-                <h2 className="text-xl font-semibold mb-4 text-gray-800">Avis reçus</h2>
-                {/* Filtres synchronisés admin/statistiques */}
-                <div className="flex flex-wrap gap-4 mb-4 items-end">
-                  <input
-                    type="text"
-                    placeholder="Recherche client ou commentaire..."
-                    value={reviewSearch}
-                    onChange={e => { setReviewSearch(e.target.value); setReviewPage(1); }}
-                    className="border rounded px-2 py-1 text-sm"
-                  />
-                  <label className="text-sm">Période
-                    <select
-                      value={reviewPeriod}
-                      onChange={e => { setReviewPeriod(e.target.value as any); setReviewPage(1); }}
-                      className="ml-2 border rounded px-2 py-1 text-sm"
-                    >
-                      <option value="all">Tout</option>
-                      <option value="7d">7 derniers jours</option>
-                      <option value="30d">30 derniers jours</option>
-                    </select>
-                  </label>
-                  <label className="text-sm">Note min.
-                    <select
-                      value={reviewMinRating}
-                      onChange={e => { setReviewMinRating(Number(e.target.value)); setReviewPage(1); }}
-                      className="ml-2 border rounded px-2 py-1 text-sm"
-                    >
-                      {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
-                    </select>
-                  </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={reviewOnlyRecommended}
-                      onChange={e => { setReviewOnlyRecommended(e.target.checked); setReviewPage(1); }}
-                    />
-                    Recommandé uniquement
-                  </label>
-                  <label className="text-sm">Trier par
-                    <select
-                      value={reviewSort}
-                      onChange={e => { setReviewSort(e.target.value as any); setReviewPage(1); }}
-                      className="ml-2 border rounded px-2 py-1 text-sm"
-                    >
-                      <option value="date_desc">Date (plus récent)</option>
-                      <option value="date_asc">Date (plus ancien)</option>
-                      <option value="note_desc">Note (plus haute)</option>
-                      <option value="note_asc">Note (plus basse)</option>
-                    </select>
-                  </label>
-                  <button
-                    onClick={exportReviewsToExcel}
-                    className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
-                  >
-                    Exporter Excel
-                  </button>
-                  <button
-                    onClick={exportReviewsToPDF}
-                    className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
-                  >
-                    Exporter PDF
-                  </button>
-                  <button
-                    onClick={exportReviewsToCSV}
-                    className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
-                  >
-                    Exporter CSV
-                  </button>
-                  <button
-                    onClick={exportReviewsToJSON}
-                    className="bg-gray-700 text-white px-3 py-1 rounded text-sm hover:bg-gray-900"
-                  >
-                    Exporter JSON
-                  </button>
-                </div>
-                {/* Comparatif avec la moyenne plateforme */}
-                <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-white rounded shadow p-4">
-                    <h3 className="font-bold mb-2">Moyenne des notes</h3>
-                    <div className="text-3xl font-bold text-yellow-600">{reviewStats.avg} / 5</div>
-                    {globalAvg && (
-                      <div className="mt-2 text-sm text-gray-500">Plateforme : {globalAvg}/5 ({(Number(reviewStats.avg) - globalAvg >= 0 ? '+' : '') + (Number(reviewStats.avg) - globalAvg).toFixed(2)} vs plateforme)</div>
-                    )}
-                    <div className="mt-2 text-sm text-gray-500">{reviewStats.count} avis</div>
-                  </div>
-                  <div className="bg-white rounded shadow p-4">
-                    <h3 className="font-bold mb-2">Taux de recommandation</h3>
-                    <div className="text-3xl font-bold text-green-600">{reviewStats.recommend} %</div>
-                    <div className="mt-2 text-sm text-gray-500">{reviewStats.count} avis</div>
-                  </div>
-                  {/* Graphique radar par critère */}
-                  <div className="bg-white rounded shadow p-4 col-span-1 md:col-span-2">
-                    <h3 className="font-bold mb-2">Moyenne par critère</h3>
-                    <Bar
-                      data={{
-                        labels: ['Ponctualité', 'Qualité', 'Communication'],
-                        datasets: [{
-                          label: 'Moyenne',
-                          data: [avgPunctuality, avgQuality, avgCommunication],
-                          backgroundColor: ['#fbbf24', '#a3e635', '#22d3ee']
-                        }]
-                      }}
-                      options={{ responsive: true, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 5 } } }}
-                    />
-                    <div className="mt-2 text-sm text-gray-500">Ponctualité : {avgPunctuality.toFixed(2)} / Qualité : {avgQuality.toFixed(2)} / Communication : {avgCommunication.toFixed(2)}</div>
-                  </div>
-                  {/* Top clients */}
-                  <div className="bg-white rounded shadow p-4 col-span-1 md:col-span-2">
-                    <h3 className="font-bold mb-2">Top clients (par nombre d'avis)</h3>
-                    <ul className="list-disc ml-6">
-                      {topClients.length === 0 ? <li className="text-gray-500">Aucun client</li> : topClients.map(([name, count]) => <li key={name}>{name} ({count} avis)</li>)}
-                    </ul>
-                  </div>
-                  {/* Répartition des notes et évolution temporelle : inchangé */}
-                  <div className="bg-white rounded shadow p-4 col-span-1 md:col-span-2">
-                    <h3 className="font-bold mb-2">Répartition des notes</h3>
-                    <Bar
-                      data={{
-                        labels: ['1', '2', '3', '4', '5'],
-                        datasets: [{
-                          label: 'Nombre d\'avis',
-                          data: reviewStats.byNote,
-                          backgroundColor: ['#fbbf24', '#f59e42', '#facc15', '#a3e635', '#22d3ee']
-                        }]
-                      }}
-                      options={{ responsive: true, plugins: { legend: { display: false } } }}
-                    />
-                  </div>
-                  <div className="bg-white rounded shadow p-4 col-span-1 md:col-span-2">
-                    <h3 className="font-bold mb-2">Évolution des avis dans le temps</h3>
-                    <Line
-                      data={{
-                        labels: reviewStats.byDate.map(([date]) => date),
-                        datasets: [{
-                          label: 'Avis reçus',
-                          data: reviewStats.byDate.map(([_, count]) => count),
-                          borderColor: '#2563eb',
-                          backgroundColor: '#93c5fd',
-                          fill: true
-                        }]
-                      }}
-                      options={{ responsive: true, plugins: { legend: { display: false } } }}
-                    />
-                  </div>
-                </div>
-                {/* Liste paginée des avis reçus (inchangée) */}
-                {loadingReviews ? (
-                  <div className="text-center py-8">Chargement des avis...</div>
-                ) : sortedReviews.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">Aucun avis trouvé avec ces critères.</div>
-                ) : (
-                  <>
-                    <ul className="divide-y divide-gray-200">
-                      {paginatedReviews.map((review) => (
-                        <li key={review.id} className="py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                          <div>
-                            <span className="font-medium text-gray-900">{review.client_name || 'Client inconnu'}</span>
-                            <span className="ml-2 text-xs text-gray-500">{review.created_at ? new Date(review.created_at).toLocaleString('fr-FR') : ''}</span>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-yellow-600 font-bold">{review.rating}/5</span>
-                              {review.would_recommend && <span className="text-green-600 text-xs ml-2">Recommandé</span>}
+                    {notifications.length === 0 ? (
+                      <div className="text-center py-12">
+                        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <AlertCircle className="h-8 w-8 text-blue-600" />
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">Aucune notification</h3>
+                        <p className="text-gray-500">
+                          Vous n'avez pas encore de notifications. Elles apparaîtront ici quand vous recevrez des mises à jour.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {notifications.map((notification) => (
+                          <div
+                            key={notification.id}
+                            className={`relative p-6 rounded-xl border transition-all duration-300 hover:shadow-lg ${notification.is_read
+                              ? 'bg-white border-gray-200'
+                              : 'bg-gradient-to-r from-blue-50 to-blue-100 border-blue-300 shadow-md'
+                              }`}
+                          >
+                            {/* Indicateur de lecture */}
+                            {!notification.is_read && (
+                              <div className="absolute top-4 right-4">
+                                <div className="w-3 h-3 bg-blue-600 rounded-full animate-pulse"></div>
+                              </div>
+                            )}
+
+                            <div className="flex items-start space-x-4">
+                              {/* Icône selon le type */}
+                              <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${notification.type === 'success' ? 'bg-green-100 text-green-600' :
+                                notification.type === 'warning' ? 'bg-yellow-100 text-yellow-600' :
+                                  notification.type === 'error' ? 'bg-red-100 text-red-600' :
+                                    'bg-blue-100 text-blue-600'
+                                }`}>
+                                {notification.type === 'success' ? '✓' :
+                                  notification.type === 'warning' ? '⚠' :
+                                    notification.type === 'error' ? '✗' : 'ℹ'}
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <h4 className={`font-semibold text-lg ${notification.is_read ? 'text-gray-900' : 'text-blue-900'
+                                      }`}>
+                                      {notification.title}
+                                    </h4>
+                                    <p className={`mt-2 text-sm leading-relaxed ${notification.is_read ? 'text-gray-600' : 'text-blue-700'
+                                      }`}>
+                                      {notification.message}
+                                    </p>
+                                    <div className="flex items-center mt-3 space-x-4">
+                                      <span className="text-xs text-gray-500 flex items-center">
+                                        <Clock className="w-3 h-3 mr-1" />
+                                        {formatDate(notification.created_at)}
+                                      </span>
+                                      <span className={`text-xs px-2 py-1 rounded-full ${notification.type === 'success' ? 'bg-green-100 text-green-700' :
+                                        notification.type === 'warning' ? 'bg-yellow-100 text-yellow-700' :
+                                          notification.type === 'error' ? 'bg-red-100 text-red-700' :
+                                            'bg-blue-100 text-blue-700'
+                                        }`}>
+                                        {notification.type === 'success' ? 'Succès' :
+                                          notification.type === 'warning' ? 'Avertissement' :
+                                            notification.type === 'error' ? 'Erreur' : 'Information'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex gap-4 text-xs mt-1">
-                              {review.punctuality_rating && <span>Ponctualité: {review.punctuality_rating}/5</span>}
-                              {review.quality_rating && <span>Qualité: {review.quality_rating}/5</span>}
-                              {review.communication_rating && <span>Communication: {review.communication_rating}/5</span>}
+
+                            {/* Actions */}
+                            <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end space-x-2">
+                              {!notification.is_read && (
+                                <button
+                                  onClick={() => {
+                                    notification.is_read = true;
+                                    setNotifications([...notifications]);
+                                  }}
+                                  className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                                >
+                                  Marquer comme lu
+                                </button>
+                              )}
+                              <button
+                                onClick={() => {
+                                  // Supprimer la notification
+                                  setNotifications(notifications.filter(n => n.id !== notification.id));
+                                }}
+                                className="text-xs text-gray-500 hover:text-red-600 font-medium"
+                              >
+                                Supprimer
+                              </button>
                             </div>
-                            {review.comment && <div className="mt-2 text-gray-700 text-sm">"{review.comment}"</div>}
                           </div>
-                          <div className="mt-2 md:mt-0">
-                            <a
-                              href={review.request ? `/admin/requests/${review.request}` : '#'}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 underline text-xs"
-                            >
-                              Voir la demande
-                            </a>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                    {/* Pagination */}
-                    {totalPages > 1 && (
-                      <div className="flex justify-center items-center gap-2 mt-4">
-                        <button
-                          onClick={() => setReviewPage(p => Math.max(1, p - 1))}
-                          disabled={reviewPage === 1}
-                          className="px-2 py-1 border rounded disabled:opacity-50"
-                        >
-                          Précédent
-                        </button>
-                        <span className="text-sm">Page {reviewPage} / {totalPages}</span>
-                        <button
-                          onClick={() => setReviewPage(p => Math.min(totalPages, p + 1))}
-                          disabled={reviewPage === totalPages}
-                          className="px-2 py-1 border rounded disabled:opacity-50"
-                        >
-                          Suivant
-                        </button>
+                        ))}
                       </div>
                     )}
-                  </>
+                  </div>
+                )}
+
+                {activeTab === 'location' && (
+                  <div>
+                    <h2 className="text-xl font-semibold mb-4 text-gray-800">Suivi de Géolocalisation</h2>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Contrôle du tracking */}
+                      <div>
+                        <LocationTrackingControl
+                          userType="technician"
+                          userId={user?.technician?.id || 0}
+                          title="Contrôle de ma position"
+                          description="Activez le suivi pour partager votre position en temps réel avec les clients"
+                          onTrackingStart={() => console.log('📍 Tracking démarré')}
+                          onTrackingStop={() => console.log('🛑 Tracking arrêté')}
+                          onLocationUpdate={(lat, lng) => console.log('📍 Position mise à jour:', lat, lng)}
+                          onError={(error) => console.error('📍 Erreur:', error)}
+                        />
+                      </div>
+
+                      {/* Carte en temps réel */}
+                      <div>
+                        <LiveLocationMap
+                          userType="technician"
+                          userId={user?.technician?.id || 0}
+                          title="Ma position en temps réel"
+                          height="400px"
+                          showGoogleMapsLink={true}
+                          onLocationReceived={(lat, lng) => console.log('🗺️ Position reçue sur carte:', lat, lng)}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Section pour suivre la position d'un client spécifique */}
+                    {repairRequests.filter(req => req.status === 'assigned' || req.status === 'in_progress').length > 0 && (
+                      <div className="mt-8">
+                        <h3 className="text-lg font-semibold mb-4 text-gray-800">Suivi des clients</h3>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          {repairRequests
+                            .filter(req => req.status === 'assigned' || req.status === 'in_progress')
+                            .map(request => (
+                              <div key={request.id} className="bg-white rounded-lg shadow-md p-4">
+                                <h4 className="font-semibold text-gray-900 mb-2">
+                                  Client: {request.client?.user?.username || 'Client inconnu'}
+                                </h4>
+                                <p className="text-sm text-gray-600 mb-4">
+                                  Demande: {request.service?.name || 'Service non spécifié'}
+                                </p>
+
+                                <LiveLocationMap
+                                  userType="client"
+                                  userId={request.client.id}
+                                  title={`Position de ${request.client?.user?.username || 'Client'}`}
+                                  height="300px"
+                                  showGoogleMapsLink={true}
+                                  onLocationReceived={(lat, lng) => {
+                                    console.log(`🗺️ Position client ${request.client?.user?.username || 'Client'}:`, lat, lng);
+                                  }}
+                                />
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === 'reviews' && (
+                  <div>
+                    <h2 className="text-xl font-semibold mb-4 text-gray-800">Avis reçus</h2>
+                    {/* Filtres synchronisés admin/statistiques */}
+                    <div className="flex flex-wrap gap-4 mb-4 items-end">
+                      <input
+                        type="text"
+                        placeholder="Recherche client ou commentaire..."
+                        value={reviewSearch}
+                        onChange={e => { setReviewSearch(e.target.value); setReviewPage(1); }}
+                        className="border rounded px-2 py-1 text-sm"
+                      />
+                      <label className="text-sm">Période
+                        <select
+                          value={reviewPeriod}
+                          onChange={e => { setReviewPeriod(e.target.value as any); setReviewPage(1); }}
+                          className="ml-2 border rounded px-2 py-1 text-sm"
+                        >
+                          <option value="all">Tout</option>
+                          <option value="7d">7 derniers jours</option>
+                          <option value="30d">30 derniers jours</option>
+                        </select>
+                      </label>
+                      <label className="text-sm">Note min.
+                        <select
+                          value={reviewMinRating}
+                          onChange={e => { setReviewMinRating(Number(e.target.value)); setReviewPage(1); }}
+                          className="ml-2 border rounded px-2 py-1 text-sm"
+                        >
+                          {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
+                        </select>
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={reviewOnlyRecommended}
+                          onChange={e => { setReviewOnlyRecommended(e.target.checked); setReviewPage(1); }}
+                        />
+                        Recommandé uniquement
+                      </label>
+                      <label className="text-sm">Trier par
+                        <select
+                          value={reviewSort}
+                          onChange={e => { setReviewSort(e.target.value as any); setReviewPage(1); }}
+                          className="ml-2 border rounded px-2 py-1 text-sm"
+                        >
+                          <option value="date_desc">Date (plus récent)</option>
+                          <option value="date_asc">Date (plus ancien)</option>
+                          <option value="note_desc">Note (plus haute)</option>
+                          <option value="note_asc">Note (plus basse)</option>
+                        </select>
+                      </label>
+                      <button
+                        onClick={exportReviewsToExcel}
+                        className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                      >
+                        Exporter Excel
+                      </button>
+                      <button
+                        onClick={exportReviewsToPDF}
+                        className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                      >
+                        Exporter PDF
+                      </button>
+                      <button
+                        onClick={exportReviewsToCSV}
+                        className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
+                      >
+                        Exporter CSV
+                      </button>
+                      <button
+                        onClick={exportReviewsToJSON}
+                        className="bg-gray-700 text-white px-3 py-1 rounded text-sm hover:bg-gray-900"
+                      >
+                        Exporter JSON
+                      </button>
+                    </div>
+                    {/* Comparatif avec la moyenne plateforme */}
+                    <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-white rounded shadow p-4">
+                        <h3 className="font-bold mb-2">Moyenne des notes</h3>
+                        <div className="text-3xl font-bold text-yellow-600">{reviewStats.avg} / 5</div>
+                        {globalAvg && (
+                          <div className="mt-2 text-sm text-gray-500">Plateforme : {globalAvg}/5 ({(Number(reviewStats.avg) - globalAvg >= 0 ? '+' : '') + (Number(reviewStats.avg) - globalAvg).toFixed(2)} vs plateforme)</div>
+                        )}
+                        <div className="mt-2 text-sm text-gray-500">{reviewStats.count} avis</div>
+                      </div>
+                      <div className="bg-white rounded shadow p-4">
+                        <h3 className="font-bold mb-2">Taux de recommandation</h3>
+                        <div className="text-3xl font-bold text-green-600">{reviewStats.recommend} %</div>
+                        <div className="mt-2 text-sm text-gray-500">{reviewStats.count} avis</div>
+                      </div>
+                      {/* Graphique radar par critère */}
+                      <div className="bg-white rounded shadow p-4 col-span-1 md:col-span-2">
+                        <h3 className="font-bold mb-2">Moyenne par critère</h3>
+                        <Bar
+                          data={{
+                            labels: ['Ponctualité', 'Qualité', 'Communication'],
+                            datasets: [{
+                              label: 'Moyenne',
+                              data: [avgPunctuality, avgQuality, avgCommunication],
+                              backgroundColor: ['#fbbf24', '#a3e635', '#22d3ee']
+                            }]
+                          }}
+                          options={{ responsive: true, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 5 } } }}
+                        />
+                        <div className="mt-2 text-sm text-gray-500">Ponctualité : {avgPunctuality.toFixed(2)} / Qualité : {avgQuality.toFixed(2)} / Communication : {avgCommunication.toFixed(2)}</div>
+                      </div>
+                      {/* Top clients */}
+                      <div className="bg-white rounded shadow p-4 col-span-1 md:col-span-2">
+                        <h3 className="font-bold mb-2">Top clients (par nombre d'avis)</h3>
+                        <ul className="list-disc ml-6">
+                          {topClients.length === 0 ? <li className="text-gray-500">Aucun client</li> : topClients.map(([name, count]) => <li key={name}>{name} ({count} avis)</li>)}
+                        </ul>
+                      </div>
+                      {/* Répartition des notes et évolution temporelle : inchangé */}
+                      <div className="bg-white rounded shadow p-4 col-span-1 md:col-span-2">
+                        <h3 className="font-bold mb-2">Répartition des notes</h3>
+                        <Bar
+                          data={{
+                            labels: ['1', '2', '3', '4', '5'],
+                            datasets: [{
+                              label: 'Nombre d\'avis',
+                              data: reviewStats.byNote,
+                              backgroundColor: ['#fbbf24', '#f59e42', '#facc15', '#a3e635', '#22d3ee']
+                            }]
+                          }}
+                          options={{ responsive: true, plugins: { legend: { display: false } } }}
+                        />
+                      </div>
+                      <div className="bg-white rounded shadow p-4 col-span-1 md:col-span-2">
+                        <h3 className="font-bold mb-2">Évolution des avis dans le temps</h3>
+                        <Line
+                          data={{
+                            labels: reviewStats.byDate.map(([date]) => date),
+                            datasets: [{
+                              label: 'Avis reçus',
+                              data: reviewStats.byDate.map(([_, count]) => count),
+                              borderColor: '#2563eb',
+                              backgroundColor: '#93c5fd',
+                              fill: true
+                            }]
+                          }}
+                          options={{ responsive: true, plugins: { legend: { display: false } } }}
+                        />
+                      </div>
+                    </div>
+                    {/* Liste paginée des avis reçus (inchangée) */}
+                    {loadingReviews ? (
+                      <div className="text-center py-8">Chargement des avis...</div>
+                    ) : sortedReviews.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">Aucun avis trouvé avec ces critères.</div>
+                    ) : (
+                      <>
+                        <ul className="divide-y divide-gray-200">
+                          {paginatedReviews.map((review) => (
+                            <li key={review.id} className="py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                              <div>
+                                <span className="font-medium text-gray-900">{review.client_name || 'Client inconnu'}</span>
+                                <span className="ml-2 text-xs text-gray-500">{new Date((review.created_at ?? '') as string).toLocaleString('fr-FR')}</span>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-yellow-600 font-bold">{review.rating}/5</span>
+                                  {review.would_recommend && <span className="text-green-600 text-xs ml-2">Recommandé</span>}
+                                </div>
+                                <div className="flex gap-4 text-xs mt-1">
+                                  {review.punctuality_rating && <span>Ponctualité: {review.punctuality_rating}/5</span>}
+                                  {review.quality_rating && <span>Qualité: {review.quality_rating}/5</span>}
+                                  {review.communication_rating && <span>Communication: {review.communication_rating}/5</span>}
+                                </div>
+                                {review.comment && <div className="mt-2 text-gray-700 text-sm">"{review.comment}"</div>}
+                              </div>
+                              <div className="mt-2 md:mt-0">
+                                <a
+                                  href={review.request ? `/admin/requests/${review.request}` : '#'}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 underline text-xs"
+                                >
+                                  Voir la demande
+                                </a>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                        {/* Pagination */}
+                        {totalPages > 1 && (
+                          <div className="flex justify-center items-center gap-2 mt-4">
+                            <button
+                              onClick={() => setReviewPage(p => Math.max(1, p - 1))}
+                              disabled={reviewPage === 1}
+                              className="px-2 py-1 border rounded disabled:opacity-50"
+                            >
+                              Précédent
+                            </button>
+                            <span className="text-sm">Page {reviewPage} / {totalPages}</span>
+                            <button
+                              onClick={() => setReviewPage(p => Math.min(totalPages, p + 1))}
+                              disabled={reviewPage === totalPages}
+                              className="px-2 py-1 border rounded disabled:opacity-50"
+                            >
+                              Suivant
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === 'rewards' && (
+                  <div>
+                    <h2 className="text-xl font-semibold mb-4 text-gray-800">Système de Récompenses</h2>
+                    <RewardsPanel technicianId={user?.technician?.id || 0} />
+                  </div>
+                )}
+
+                {activeTab === 'subscription' && (
+                  <div>
+                    <h2 className="text-xl font-semibold mb-4 text-gray-800">Gestion de l'Abonnement</h2>
+                    <SubscriptionPanel technicianId={user?.technician?.id || 0} />
+                  </div>
+                )}
+
+                {activeTab === 'profile' && (
+                  <div>
+                    <h2 className="text-xl font-semibold mb-4 text-gray-800">Gestion du Profil</h2>
+                    <TechnicianProfile technicianId={user?.technician?.id || 0} />
+                  </div>
                 )}
               </div>
-            )}
-
-            {activeTab === 'rewards' && (
-              <div>
-                <h2 className="text-xl font-semibold mb-4 text-gray-800">Système de Récompenses</h2>
-                <RewardsPanel technicianId={user?.technician?.id || 0} />
-              </div>
-            )}
-
-            {activeTab === 'subscription' && (
-              <div>
-                <h2 className="text-xl font-semibold mb-4 text-gray-800">Gestion de l'Abonnement</h2>
-                <SubscriptionPanel technicianId={user?.technician?.id || 0} />
-              </div>
-            )}
-
-            {activeTab === 'profile' && (
-              <div>
-                <h2 className="text-xl font-semibold mb-4 text-gray-800">Gestion du Profil</h2>
-                <TechnicianProfile technicianId={user?.technician?.id || 0} />
-              </div>
-            )}
+            </div>
           </div>
-        </div>
-      </div>
 
-      {chatError && (
-        <div
-          className="fixed top-4 right-4 bg-red-600 text-white px-4 py-2 rounded shadow-lg z-50 animate-fade-in-out"
-          role="alert"
-          tabIndex={-1}
-          ref={el => el && el.focus()}
-          style={{ outline: 'none' }}
-        >
-          {chatError}
-        </div>
+          {chatError && (
+            <div
+              className="fixed top-4 right-4 bg-red-600 text-white px-4 py-2 rounded shadow-lg z-50 animate-fade-in-out"
+              role="alert"
+              tabIndex={-1}
+              ref={el => el && el.focus()}
+              style={{ outline: 'none' }}
+            >
+              {chatError}
+            </div>
+          )}
+          {error && <ErrorToast message={error} onClose={() => setError(null)} type="error" />}
+        </>
       )}
     </div>
   );

@@ -39,12 +39,17 @@ class TokenValidationMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        # Ne pas valider le token sur les endpoints login/refresh
+        if request.path in [
+            '/users/login/',
+            '/users/token/refresh/',
+            '/users/register/',
+        ]:
+            return self.get_response(request)
         # Vérifier le token dans l'en-tête Authorization
         auth_header = request.headers.get('Authorization')
-        
         if auth_header and auth_header.startswith('Bearer '):
             token = auth_header.split(' ')[1]
-            
             try:
                 # Valider le token
                 AccessToken(token)
@@ -66,7 +71,6 @@ class TokenValidationMiddleware:
                     'error': 'Erreur de validation du token',
                     'detail': 'Une erreur est survenue lors de la validation du token'
                 }, status=500)
-        
         return self.get_response(request)
 
 class RateLimitMiddleware:

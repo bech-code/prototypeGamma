@@ -11,6 +11,7 @@ import {
 import AmChartsLine from '../components/AmChartsLine';
 import AmChartsPie from '../components/AmChartsPie';
 import AmChartsBar from '../components/AmChartsBar';
+import ErrorToast from '../components/ErrorToast';
 
 interface Review {
     id: number;
@@ -92,6 +93,17 @@ interface StatisticsData {
     };
 }
 
+// Fonction utilitaire pour normaliser un user partiel en user complet
+function normalizeUser(user: any) {
+    return {
+        id: typeof user?.id === 'number' ? user.id : 0,
+        first_name: typeof user?.first_name === 'string' ? user.first_name : '',
+        last_name: typeof user?.last_name === 'string' ? user.last_name : '',
+        email: typeof user?.email === 'string' ? user.email : '',
+        username: typeof user?.username === 'string' ? user.username : '',
+    };
+}
+
 const Statistics: React.FC = () => {
     const { user, token } = useAuth();
     const [data, setData] = useState<StatisticsData | null>(null);
@@ -131,7 +143,12 @@ const Statistics: React.FC = () => {
                         setData(statisticsData);
                     }
                 } else {
-                    setError('Erreur lors du chargement des statistiques');
+                    let backendMsg = '';
+                    try {
+                        const errData = await response.json();
+                        backendMsg = errData?.detail || errData?.message || JSON.stringify(errData);
+                    } catch { }
+                    setError(`Erreur lors du chargement des statistiques (code ${response.status})${backendMsg ? ': ' + backendMsg : ''}`);
                 }
             } catch (err) {
                 setError('Erreur de connexion');
@@ -507,7 +524,7 @@ const Statistics: React.FC = () => {
                             </div>
                             <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow duration-300">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-6">Répartition par spécialité</h3>
-                                
+
                                 {data.specialties.stats.length === 0 ? (
                                     <div className="text-center text-gray-400 text-sm py-12">Aucune donnée à afficher</div>
                                 ) : (
@@ -515,18 +532,18 @@ const Statistics: React.FC = () => {
                                         {/* Graphique circulaire */}
                                         <div className="flex justify-center">
                                             <div className="w-64 h-64">
-                                <AmChartsPie
-                                    data={data.specialties.stats.map(item => ({ specialty: item.specialty_needed, value: item.count }))}
-                                    categoryField="specialty"
-                                    valueField="value"
+                                                <AmChartsPie
+                                                    data={data.specialties.stats.map(item => ({ specialty: item.specialty_needed, value: item.count }))}
+                                                    categoryField="specialty"
+                                                    valueField="value"
                                                     title=""
                                                     colors={["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#06B6D4", "#84CC16"]}
                                                     height={256}
-                                    aria-label="Graphique de répartition par spécialité"
-                                />
+                                                    aria-label="Graphique de répartition par spécialité"
+                                                />
                                             </div>
                                         </div>
-                                        
+
                                         {/* Légende détaillée */}
                                         <div className="border-t pt-6">
                                             <h4 className="text-sm font-medium text-gray-700 mb-4">Détail par spécialité</h4>
@@ -535,12 +552,12 @@ const Statistics: React.FC = () => {
                                                     const total = data.specialties.stats.reduce((sum, stat) => sum + stat.count, 0);
                                                     const percentage = total > 0 ? ((item.count / total) * 100).toFixed(1) : '0';
                                                     const colors = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#06B6D4", "#84CC16"];
-                                                    
+
                                                     return (
                                                         <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                                                             <div className="flex items-center space-x-3">
-                                                                <div 
-                                                                    className="w-4 h-4 rounded-full" 
+                                                                <div
+                                                                    className="w-4 h-4 rounded-full"
                                                                     style={{ backgroundColor: colors[index % colors.length] }}
                                                                 ></div>
                                                                 <div>
@@ -559,7 +576,7 @@ const Statistics: React.FC = () => {
                                                 })}
                                             </div>
                                         </div>
-                                        
+
                                         {/* Statistiques résumées */}
                                         <div className="border-t pt-6">
                                             <div className="grid grid-cols-3 gap-4 text-center">
@@ -577,7 +594,7 @@ const Statistics: React.FC = () => {
                                                 </div>
                                                 <div>
                                                     <p className="text-2xl font-bold text-purple-600">
-                                                        {data.specialties.stats.length > 0 
+                                                        {data.specialties.stats.length > 0
                                                             ? (data.specialties.stats.reduce((sum, stat) => sum + stat.avg_price, 0) / data.specialties.stats.length).toFixed(0)
                                                             : '0'
                                                         }
@@ -783,9 +800,9 @@ const Statistics: React.FC = () => {
                         </div>
                     )}
             </div>
+            {error && <ErrorToast message={error} onClose={() => setError(null)} type="error" />}
         </div>
     );
 };
 
 export default Statistics;
-            

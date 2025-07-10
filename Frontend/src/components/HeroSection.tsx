@@ -22,6 +22,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onGetLocation, loadingLocatio
   const [foundAddressDetails, setFoundAddressDetails] = useState<any | null>(null);
   const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
   const [loadingRefresh, setLoadingRefresh] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Auto-complétion Nominatim
   const handleLocationChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -120,13 +121,35 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onGetLocation, loadingLocatio
           }
         },
         (error) => {
-          console.error("Error getting location:", error);
-          alert("Unable to retrieve your location. Please enter it manually.");
+          // Gestion spécifique des erreurs de géolocalisation
+          let errorMessage = "Impossible de récupérer votre position.";
+
+          switch (error.code) {
+            case 1: // PERMISSION_DENIED
+              errorMessage = "Permission de géolocalisation refusée. Veuillez autoriser l'accès à votre position dans les paramètres de votre navigateur.";
+              break;
+            case 2: // POSITION_UNAVAILABLE
+              errorMessage = "Position non disponible. Vérifiez que votre GPS est activé et que vous êtes dans une zone avec signal.";
+              break;
+            case 3: // TIMEOUT
+              errorMessage = "Délai d'attente dépassé. Vérifiez votre connexion internet et réessayez.";
+              break;
+            default:
+              errorMessage = "Erreur de géolocalisation. Veuillez entrer votre adresse manuellement.";
+          }
+
+          // Log informatif au lieu d'erreur console
+          console.log(`Géolocalisation: ${errorMessage} (Code: ${error.code})`);
+
+          // Afficher un toast ou une notification plus élégante
+          setError(errorMessage);
+          setTimeout(() => setError(null), 5000); // Effacer l'erreur après 5 secondes
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     } else {
-      alert("Geolocation is not supported by your browser");
+      setError("La géolocalisation n'est pas supportée par votre navigateur. Veuillez entrer votre adresse manuellement.");
+      setTimeout(() => setError(null), 5000);
     }
   };
 
@@ -233,6 +256,18 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onGetLocation, loadingLocatio
               </div>
             </form>
           </div>
+
+          {/* Affichage des erreurs de géolocalisation */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 animate-fade-in">
+              <div className="flex items-center">
+                <svg className="h-5 w-5 text-red-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                <span className="text-red-800 font-medium">{error}</span>
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-white">
             <div className="flex items-center">

@@ -7,9 +7,12 @@ import AnimatedBackground from '../components/AnimatedBackground';
 import customerVideo from '../assets/video/customer1-bg.mp4';
 import { fetchWithAuth } from '../contexts/fetchWithAuth';
 import ReviewReminder from '../components/ReviewReminder';
+import LocationTrackingControl from '../components/LocationTrackingControl';
+import LiveLocationMap from '../components/LiveLocationMap';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import html2pdf from 'html2pdf.js';
+import ErrorToast from '../components/ErrorToast';
 
 interface Review {
   id?: number;
@@ -87,6 +90,7 @@ const CustomerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [showOnlyIncoherent, setShowOnlyIncoherent] = useState(false);
   const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
 
   // Mapping quartiers -> communes (doit être le même que côté admin/technicien)
   const quartierToCommune: Record<string, string> = {
@@ -151,7 +155,7 @@ const CustomerDashboard = () => {
       setShowSuggestionsList(false);
       return;
     }
-    const filtered = Object.keys(quartierToCommune).filter(q => q.toLowerCase().includes(value.toLowerCase()));
+    const filtered = Object.keys(quartierToCommune).filter(q => typeof q === 'string' && q.toLowerCase().includes(value.toLowerCase()));
     setSuggestionsList(filtered);
     setShowSuggestionsList(filtered.length > 0);
   };
@@ -179,7 +183,7 @@ const CustomerDashboard = () => {
   // Envoi suggestion
   const handleSendSuggestion = async (requestId: number) => {
     try {
-      await fetchWithAuth(`http://127.0.0.1:8000/depannage/api/repair-requests/${requestId}/suggest_correction/`, {
+      await fetchWithAuth(`/depannage/api/repair-requests/${requestId}/suggest_correction/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ quartier: suggestQuartier, commune: suggestCommune })
@@ -230,7 +234,7 @@ const CustomerDashboard = () => {
         quality_rating: form.quality_rating,
         communication_rating: form.communication_rating,
       };
-      const res = await fetchWithAuth('http://127.0.0.1:8000/depannage/api/reviews/', {
+      const res = await fetchWithAuth('/depannage/api/reviews/', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -266,29 +270,50 @@ const CustomerDashboard = () => {
       };
 
       // Fetch repair requests
-      const requestsResponse = await fetchWithAuth('http://127.0.0.1:8000/depannage/api/repair-requests/', { headers });
+      const requestsResponse = await fetchWithAuth('/depannage/api/repair-requests/', { headers });
       const requestsData = await requestsResponse.json();
 
       if (requestsResponse.ok) {
         setRepairRequests(requestsData.results || requestsData);
+      } else {
+        let backendMsg = '';
+        try {
+          backendMsg = requestsData?.detail || requestsData?.message || JSON.stringify(requestsData);
+        } catch { }
+        setError(`Erreur lors du chargement des demandes (code ${requestsResponse.status})${backendMsg ? ': ' + backendMsg : ''}`);
       }
 
       // Fetch notifications
-      const notificationsResponse = await fetchWithAuth('http://localhost:8000/depannage/api/notifications/', { headers });
+      const notificationsResponse = await fetchWithAuth('/depannage/api/notifications/', { headers });
       if (notificationsResponse.ok) {
         const notificationsData = await notificationsResponse.json();
         setNotifications(notificationsData.results || notificationsData || []);
+      } else {
+        let backendMsg = '';
+        try {
+          const notificationsData = await notificationsResponse.json();
+          backendMsg = notificationsData?.detail || notificationsData?.message || JSON.stringify(notificationsData);
+        } catch { }
+        setError(`Erreur lors du chargement des notifications (code ${notificationsResponse.status})${backendMsg ? ': ' + backendMsg : ''}`);
       }
 
       // Fetch stats
-      const statsResponse = await fetchWithAuth('http://127.0.0.1:8000/depannage/api/repair-requests/dashboard_stats/', { headers });
+      const statsResponse = await fetchWithAuth('/depannage/api/repair-requests/dashboard_stats/', { headers });
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
         setStats(statsData);
+      } else {
+        let backendMsg = '';
+        try {
+          const statsData = await statsResponse.json();
+          backendMsg = statsData?.detail || statsData?.message || JSON.stringify(statsData);
+        } catch { }
+        setError(`Erreur lors du chargement des statistiques (code ${statsResponse.status})${backendMsg ? ': ' + backendMsg : ''}`);
       }
 
     } catch (error) {
       console.error('Erreur lors du chargement des données:', error);
+      setError('Erreur lors du chargement des données');
     } finally {
       setLoading(false);
     }
@@ -362,7 +387,7 @@ const CustomerDashboard = () => {
       const fetchTechnicianLocation = async () => {
         try {
           const token = localStorage.getItem('token');
-          const res = await fetch(`http://127.0.0.1:8000/depannage/api/technician-locations/?technician=${assignedRequest?.technician?.id}`,
+          const res = await fetch(`/depannage/api/locations/?technician=${assignedRequest?.technician?.id}`,
             { headers: { 'Authorization': `Bearer ${token}` } });
           const data = await res.json();
           if (Array.isArray(data) && data.length > 0) {
@@ -406,6 +431,17 @@ const CustomerDashboard = () => {
   const [receiptData, setReceiptData] = useState<any>(null);
   const [validatingMission, setValidatingMission] = useState(false);
 
+  // Fonction utilitaire pour normaliser un user partiel en user complet
+  function normalizeUser(user: any) {
+    return {
+      id: typeof user?.id === 'number' ? user.id : 0,
+      first_name: typeof user?.first_name === 'string' ? user.first_name : '',
+      last_name: typeof user?.last_name === 'string' ? user.last_name : '',
+      email: typeof user?.email === 'string' ? user.email : '',
+      username: typeof user?.username === 'string' ? user.username : '',
+    };
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -419,6 +455,7 @@ const CustomerDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {error && <ErrorToast message={error} onClose={() => setError(null)} type="error" />}
       {interventionRequest && (
         <div className="sticky top-0 z-50 w-full bg-orange-500 text-white px-4 py-3 flex items-center justify-between shadow-lg animate-pulse border-b border-orange-700">
           <div className="flex items-center gap-3">
@@ -449,7 +486,7 @@ const CustomerDashboard = () => {
                   if (confirm('Êtes-vous sûr de vouloir annuler cette demande ?')) {
                     try {
                       const token = localStorage.getItem('token');
-                      const response = await fetch(`http://127.0.0.1:8000/depannage/api/repair-requests/${assignedRequest.id}/`, {
+                      const response = await fetch(`/depannage/api/repair-requests/${assignedRequest.id}/`, {
                         method: 'PATCH',
                         headers: {
                           'Authorization': `Bearer ${token}`,
@@ -599,6 +636,15 @@ const CustomerDashboard = () => {
                 >
                   Notifications ({notifications.filter(n => !n.is_read).length})
                 </button>
+                <button
+                  onClick={() => setActiveTab('location')}
+                  className={`px-6 py-4 text-sm font-medium whitespace-nowrap ${activeTab === 'location'
+                    ? 'border-b-2 border-blue-600 text-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                  📍 Géolocalisation
+                </button>
               </nav>
             </div>
 
@@ -717,7 +763,7 @@ const CustomerDashboard = () => {
                                       if (confirm('Êtes-vous sûr de vouloir annuler cette demande ?')) {
                                         try {
                                           const token = localStorage.getItem('token');
-                                          const response = await fetch(`http://127.0.0.1:8000/depannage/api/repair-requests/${request.id}/`, {
+                                          const response = await fetch(`/depannage/api/repair-requests/${request.id}/`, {
                                             method: 'PATCH',
                                             headers: {
                                               'Authorization': `Bearer ${token}`,
@@ -741,12 +787,42 @@ const CustomerDashboard = () => {
                                   </button>
                                 )}
                                 {request.status === 'draft' && (
-                                  <button
-                                    onClick={() => navigate(`/booking?draftId=${request.id}`)}
-                                    className="inline-flex items-center px-4 py-2 border border-gray-400 text-gray-700 rounded-full hover:bg-gray-100 transition-colors text-sm font-semibold shadow"
-                                  >
-                                    Reprendre
-                                  </button>
+                                  <>
+                                    <button
+                                      onClick={() => navigate(`/booking?draftId=${request.id}`)}
+                                      className="inline-flex items-center px-4 py-2 border border-gray-400 text-gray-700 rounded-full hover:bg-gray-100 transition-colors text-sm font-semibold shadow"
+                                    >
+                                      Reprendre
+                                    </button>
+                                    <button
+                                      onClick={async () => {
+                                        if (window.confirm('Voulez-vous vraiment supprimer ce brouillon ? Cette action est irréversible.')) {
+                                          try {
+                                            const token = localStorage.getItem('token');
+                                            const response = await fetch(`/depannage/api/repair-requests/${request.id}/`, {
+                                              method: 'DELETE',
+                                              headers: {
+                                                'Authorization': `Bearer ${token}`,
+                                                'Content-Type': 'application/json',
+                                              },
+                                            });
+                                            if (response.ok) {
+                                              setToast('Brouillon supprimé avec succès.');
+                                              fetchData();
+                                              setTimeout(() => setToast(null), 3500);
+                                            } else {
+                                              alert('Erreur lors de la suppression du brouillon.');
+                                            }
+                                          } catch (e) {
+                                            alert('Erreur lors de la suppression du brouillon.');
+                                          }
+                                        }
+                                      }}
+                                      className="inline-flex items-center px-4 py-2 border border-red-600 text-red-600 rounded-full hover:bg-red-50 transition-colors text-sm font-semibold shadow ml-2"
+                                    >
+                                      Supprimer
+                                    </button>
+                                  </>
                                 )}
                               </div>
                             </div>
@@ -768,7 +844,7 @@ const CustomerDashboard = () => {
                                 setValidatingMission(true);
                                 try {
                                   const token = localStorage.getItem('token');
-                                  const res = await fetch(`http://127.0.0.1:8000/depannage/api/repair-requests/${request.id}/validate_mission/`, {
+                                  const res = await fetch(`/depannage/api/repair-requests/${request.id}/validate_mission/`, {
                                     method: 'POST',
                                     headers: { 'Authorization': `Bearer ${token}` }
                                   });
@@ -876,6 +952,72 @@ const CustomerDashboard = () => {
                   )}
                 </div>
               )}
+
+              {activeTab === 'location' && (
+                <div>
+                  <h2 className="text-xl font-semibold mb-4 text-gray-800">Suivi de Géolocalisation</h2>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Contrôle du tracking pour le client */}
+                    <div>
+                      <LocationTrackingControl
+                        userType="client"
+                        userId={user?.client?.id || 0}
+                        title="Contrôle de ma position"
+                        description="Activez le suivi pour partager votre position en temps réel avec les techniciens"
+                        onTrackingStart={() => console.log('📍 Tracking client démarré')}
+                        onTrackingStop={() => console.log('🛑 Tracking client arrêté')}
+                        onLocationUpdate={(lat, lng) => console.log('📍 Position client mise à jour:', lat, lng)}
+                        onError={(error) => console.error('📍 Erreur client:', error)}
+                      />
+                    </div>
+
+                    {/* Carte en temps réel pour le client */}
+                    <div>
+                      <LiveLocationMap
+                        userType="client"
+                        userId={user?.client?.id || 0}
+                        title="Ma position en temps réel"
+                        height="400px"
+                        showGoogleMapsLink={true}
+                        onLocationReceived={(lat, lng) => console.log('🗺️ Position client reçue sur carte:', lat, lng)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Section pour suivre la position des techniciens assignés */}
+                  {repairRequests.filter(req => req.status === 'assigned' || req.status === 'in_progress').length > 0 && (
+                    <div className="mt-8">
+                      <h3 className="text-lg font-semibold mb-4 text-gray-800">Suivi des techniciens</h3>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {repairRequests
+                          .filter(req => req.status === 'assigned' || req.status === 'in_progress')
+                          .map(request => (
+                            <div key={request.id} className="bg-white rounded-lg shadow-md p-4">
+                              <h4 className="font-semibold text-gray-900 mb-2">
+                                Technicien: {request.technician?.user?.first_name} {request.technician?.user?.last_name}
+                              </h4>
+                              <p className="text-sm text-gray-600 mb-4">
+                                Demande: {request.title}
+                              </p>
+
+                              <LiveLocationMap
+                                userType="technician"
+                                userId={request.technician?.id || 0}
+                                title={`Position de ${request.technician?.user?.first_name} ${request.technician?.user?.last_name}`}
+                                height="300px"
+                                showGoogleMapsLink={true}
+                                onLocationReceived={(lat, lng) => {
+                                  console.log(`🗺️ Position technicien ${request.technician?.user?.first_name}:`, lat, lng);
+                                }}
+                              />
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -959,92 +1101,41 @@ const CustomerDashboard = () => {
       </div>
 
       {/* Dans la bannière ou la section de suivi, afficher la carte si technicianLocation */}
-      {assignedRequest && assignedRequest.technician && technicianLocation && (
-        <div className="w-full max-w-2xl mx-auto my-6">
-          <div className="bg-white rounded-lg shadow p-4 border border-blue-100">
-            <h3 className="text-lg font-semibold mb-2 text-blue-900 flex items-center gap-2">
-              <span>🗺</span> Suivi du technicien en temps réel
-            </h3>
-            <div className="w-full h-72 rounded-lg overflow-hidden mb-2">
-              <MapContainer
-                center={[technicianLocation.latitude, technicianLocation.longitude]}
-                zoom={14}
-                style={{ height: '100%', width: '100%' }}
-              >
-                <TileLayer
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  attribution='&copy; OpenStreetMap contributors'
-                />
-                <Marker position={[technicianLocation.latitude, technicianLocation.longitude]} icon={carIcon}>
-                  <Popup>
-                    <div className="text-center">
-                      <div className="font-bold text-blue-700 mb-1">Technicien</div>
-                      <div className="text-sm text-gray-800 mb-1">{assignedRequest?.technician?.user?.first_name} {assignedRequest?.technician?.user?.last_name}</div>
-                      {assignedRequest?.technician?.phone && (
-                        <a href={`tel:${assignedRequest?.technician?.phone}`} className="text-blue-600 underline text-sm block mb-1">{assignedRequest?.technician?.phone}</a>
-                      )}
-                      <div className="text-xs text-blue-700 font-semibold">{eta ? `ETA : ${eta}` : 'Calcul ETA...'}</div>
-                    </div>
-                  </Popup>
-                </Marker>
-                {assignedRequest && assignedRequest.technician && typeof assignedRequest.latitude === 'number' && typeof assignedRequest.longitude === 'number' && (
-                  <Marker position={[assignedRequest.latitude, assignedRequest.longitude]} icon={new L.Icon.Default({ iconUrl: 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/icons/house-door-fill.svg', iconSize: [32, 32], iconAnchor: [16, 32] })}>
-                    <Popup>Votre position</Popup>
+      {assignedRequest && assignedRequest.technician && technicianLocation &&
+        typeof technicianLocation.latitude === 'number' && typeof technicianLocation.longitude === 'number' &&
+        !isNaN(technicianLocation.latitude) && !isNaN(technicianLocation.longitude) && (
+          <div className="w-full max-w-2xl mx-auto my-6">
+            <div className="bg-white rounded-lg shadow p-4 border border-blue-100">
+              <h3 className="text-lg font-semibold mb-2 text-blue-900 flex items-center gap-2">
+                <span>🗺</span> Suivi du technicien en temps réel
+              </h3>
+              <div className="w-full h-72 rounded-lg overflow-hidden mb-2">
+                <MapContainer
+                  center={[technicianLocation.latitude, technicianLocation.longitude]}
+                  zoom={14}
+                  style={{ height: '100%', width: '100%' }}
+                >
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; OpenStreetMap contributors'
+                  />
+                  <Marker position={[technicianLocation.latitude, technicianLocation.longitude]} icon={carIcon}>
+                    <Popup>
+                      <div className="text-center">
+                        <div className="font-bold text-blue-700 mb-1">Technicien</div>
+                        <div className="text-sm text-gray-800 mb-1">{assignedRequest?.technician?.user?.first_name} {assignedRequest?.technician?.user?.last_name}</div>
+                        {assignedRequest?.technician?.phone && (
+                          <a href={`tel:${assignedRequest?.technician?.phone}`} className="text-blue-600 underline text-sm block mb-1">{assignedRequest?.technician?.phone}</a>
+                        )}
+                        <div className="text-xs text-blue-700 font-semibold">{eta ? `ETA : ${eta}` : 'Calcul ETA...'}</div>
+                      </div>
+                    </Popup>
                   </Marker>
-                )}
-                {assignedRequest && assignedRequest.technician && typeof assignedRequest.latitude === 'number' && typeof assignedRequest.longitude === 'number' && (
-                  <Polyline positions={[[technicianLocation.latitude, technicianLocation.longitude], [assignedRequest.latitude, assignedRequest.longitude]]} color="blue" />
-                )}
-              </MapContainer>
-            </div>
-            <div className="flex items-center gap-3 mt-4">
-              <span className="animate-spin inline-block w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full"></span>
-              <span className="inline-block bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-semibold text-base shadow">En déplacement</span>
-              <span className="text-blue-700 text-lg font-semibold">Le technicien est en déplacement...</span>
-            </div>
-            <div className="mt-4 flex flex-col items-center">
-              <button
-                className="px-4 py-2 bg-red-600 text-white rounded font-semibold shadow hover:bg-red-700 transition-colors disabled:opacity-50"
-                disabled={noShowDisabled}
-                onClick={async () => {
-                  if (!window.confirm("Confirmez-vous que le technicien n'est pas venu ?")) return;
-                  setNoShowDisabled(true);
-                  try {
-                    const token = localStorage.getItem('token');
-                    const res = await fetch(`http://127.0.0.1:8000/depannage/api/repair-requests/${assignedRequest.id}/report_no_show/`, {
-                      method: 'POST',
-                      headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    const data = await res.json();
-                    if (res.ok && data.success) {
-                      setNoShowFeedback('Votre demande a bien été prise en compte. Nous sommes désolés pour l\'attente, un administrateur va vous accompagner personnellement.');
-                      setToast('Votre demande a bien été prise en compte. Un administrateur va vous recontacter rapidement.');
-                    } else {
-                      setNoShowFeedback(data.message || 'Erreur lors du signalement.');
-                      setToast(data.message || 'Erreur lors du signalement.');
-                      setNoShowDisabled(false);
-                    }
-                  } catch {
-                    setNoShowFeedback('Erreur réseau.');
-                    setToast('Erreur réseau.');
-                    setNoShowDisabled(false);
-                  }
-                  setTimeout(() => setNoShowFeedback(null), 5000);
-                  setTimeout(() => setToast(null), 5000);
-                }}
-              >
-                Le technicien n'est pas venu
-              </button>
-              {noShowFeedback && <div className="mt-2 text-sm text-blue-700 font-semibold">{noShowFeedback}</div>}
-              {toast && (
-                <div className="fixed top-4 right-4 bg-blue-600 text-white px-4 py-2 rounded shadow-lg z-50 animate-fade-in">
-                  {toast}
-                </div>
-              )}
+                </MapContainer>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {receiptData && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
@@ -1085,7 +1176,7 @@ const CustomerDashboard = () => {
               </button>
               <button
                 onClick={async () => {
-                  const shareText = `Reçu de mission\nRéférence : ${receiptData.reference}\nDate : ${receiptData.date ? new Date(receiptData.date).toLocaleString('fr-FR') : ''}\nTechnicien : ${receiptData.technician}\nService : ${receiptData.service}\nAdresse : ${receiptData.address}\nPaiement : ${receiptData.payment}`;
+                  const shareText = `Reçu de mission\nR\u00e9f\u00e9rence : ${receiptData.reference}\nDate : ${receiptData.date ? new Date(receiptData.date).toLocaleString('fr-FR') : ''}\nTechnicien : ${receiptData.technician}\nService : ${receiptData.service}\nAdresse : ${receiptData.address}\nPaiement : ${receiptData.payment}`;
                   if (navigator.share) {
                     try {
                       await navigator.share({
@@ -1122,6 +1213,6 @@ const CustomerDashboard = () => {
       )}
     </div>
   );
-};
+}
 
 export default CustomerDashboard;

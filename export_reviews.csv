@@ -1,0 +1,16 @@
+id,request_id,technician_id,client_name,technician_name,rating,comment,created_at
+15,583,81,Papou Cisse,Alpha Diallo,5,"Service parfait, merci !",2025-07-10 14:03:11
+14,133,46,Pierre Durand,Tech7 Mechanic,4,C'est bon technicien,2025-07-10 11:41:57
+13,165,1,Pierre Durand,Ahmed Diallo,4,Bon boulot,2025-07-10 03:41:21
+12,166,1,Pierre Durand,Ahmed Diallo,4,il n'est pas mal,2025-07-08 19:46:02
+11,169,1,Pierre Durand,Ahmed Diallo,4,Le techniciens a effectué un très bon boulot. A bientôt,2025-07-08 19:33:06
+10,289,66,,,4,Service informatique à Tombouctou : très satisfait !,2025-07-04 03:59:56
+9,287,66,,,4,Service informatique à Mopti : très satisfait !,2025-07-04 03:59:56
+8,286,66,,,3,Service autre à Bamako : très satisfait !,2025-07-04 03:59:56
+7,284,66,,,4,Service climatisation à Segou : très satisfait !,2025-07-04 03:59:56
+6,280,66,,,5,Service autre à Sikasso : très satisfait !,2025-07-04 03:59:56
+5,278,66,,,4,Service climatisation à Segou : très satisfait !,2025-07-04 03:59:56
+4,275,66,,,5,Service electromenager à Tombouctou : très satisfait !,2025-07-04 03:59:56
+3,273,66,,,5,Service plomberie à Sikasso : très satisfait !,2025-07-04 03:59:56
+2,271,66,,,3,Service autre à Kayes : très satisfait !,2025-07-04 03:59:56
+1,265,66,,,5,Service plomberie à Mopti : très satisfait !,2025-07-04 03:59:56

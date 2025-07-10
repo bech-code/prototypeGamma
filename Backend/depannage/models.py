@@ -202,7 +202,7 @@ class RepairRequest(BaseTimeStampModel):
 
     # Détails de la demande
     title = models.CharField("Titre", max_length=200)
-    description = models.TextField("Description détaillée")
+    description = models.TextField("Description détaillée", blank=True, null=True)
     specialty_needed = models.CharField(
         "Spécialité requise", max_length=50, choices=Technician.Specialty.choices
     )
@@ -851,6 +851,52 @@ class ClientLocation(BaseTimeStampModel):
 
 
 # ============================================================================
+# SIGNALEMENTS ET LITIGES (REPORTS)
+# =========================================================================
+
+from django.conf import settings
+
+class Report(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "En attente"),
+        ("resolved", "Résolu"),
+        ("rejected", "Rejeté"),
+    ]
+    sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="reports_sent")
+    request = models.ForeignKey('RepairRequest', on_delete=models.CASCADE, related_name="reports")
+    subject = models.CharField(max_length=255)
+    message = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="reports_reviewed")
+
+    def __str__(self):
+        return f"Report by {self.sender} on request #{self.request.id} ({self.status})"
+
+# =========================================================================
+# NOTIFICATIONS ADMIN
+# =========================================================================
+
+class AdminNotification(models.Model):
+    SEVERITY_CHOICES = [
+        ("info", "Info"),
+        ("warning", "Avertissement"),
+        ("critical", "Critique"),
+    ]
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    related_request = models.ForeignKey('RepairRequest', on_delete=models.SET_NULL, null=True, blank=True)
+    triggered_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.severity.upper()} - {self.title}"
+
+
+# ============================================================================
 # SYSTÈME DE CONFIGURATION
 # ============================================================================
 
@@ -1033,7 +1079,7 @@ class TechnicianSubscription(models.Model):
     plan_name = models.CharField(max_length=100, default='Standard')
     start_date = models.DateTimeField(default=timezone.now)
     end_date = models.DateTimeField()
-    payment = models.ForeignKey('Payment', on_delete=models.SET_NULL, null=True, blank=True, related_name='subscription_payments')
+    payment = models.ForeignKey('CinetPayPayment', on_delete=models.SET_NULL, null=True, blank=True, related_name='subscription_payments')
     is_active = models.BooleanField(default=True)
 
     def save(self, *args, **kwargs):
@@ -1047,3 +1093,56 @@ class TechnicianSubscription(models.Model):
         verbose_name = "Abonnement technicien"
         verbose_name_plural = "Abonnements techniciens"
         ordering = ['-end_date']
+
+
+class SubscriptionPaymentRequest(BaseTimeStampModel):
+    """Demande de paiement d'abonnement en attente de validation admin."""
+    
+    class Status(models.TextChoices):
+        PENDING = "pending", "En attente de validation"
+        APPROVED = "approved", "Approuvé"
+        REJECTED = "rejected", "Rejeté"
+        CANCELLED = "cancelled", "Annulé"
+    
+    technician = models.ForeignKey(
+        'Technician', 
+        on_delete=models.CASCADE, 
+        related_name='subscription_payment_requests'
+    )
+    amount = models.DecimalField("Montant", max_digits=10, decimal_places=2)
+    duration_months = models.PositiveIntegerField("Durée en mois", default=1)
+    payment_method = models.CharField("Méthode de paiement", max_length=50, default="manual_validation")
+    description = models.TextField("Description", blank=True)
+    status = models.CharField(
+        "Statut", 
+        max_length=20, 
+        choices=Status.choices, 
+        default=Status.PENDING
+    )
+    
+    # Validation admin
+    validated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='validated_subscription_requests'
+    )
+    validated_at = models.DateTimeField("Validé le", null=True, blank=True)
+    validation_notes = models.TextField("Notes de validation", blank=True)
+    
+    # Abonnement créé après validation
+    subscription = models.ForeignKey(
+        'TechnicianSubscription',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='payment_request'
+    )
+    
+    def __str__(self):
+        return f"Demande d'abonnement {self.technician.user.get_full_name()} - {self.amount} FCFA"
+    
+    class Meta:
+        verbose_name = "Demande de paiement d'abonnement"
+        verbose_name_plural = "Demandes de paiement d'abonnement"

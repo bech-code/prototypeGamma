@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { Eye, EyeOff } from 'lucide-react';
 
 const HERO_IMAGE = 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1500&q=80'; // même image que Register
 
@@ -21,6 +22,8 @@ const Login: React.FC = () => {
   const [otp, setOtp] = useState('');
   const [otpError, setOtpError] = useState<string | null>(null);
   const [otpLoading, setOtpLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showRedirectToast, setShowRedirectToast] = useState<string | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -29,12 +32,22 @@ const Login: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Formulaire soumis', formData); // LOG AJOUTÉ POUR DEBUG
+    console.log('Email:', formData.email, 'Password:', formData.password ? '***' : 'VIDE');
+    console.log('Email length:', formData.email.length, 'Password length:', formData.password.length);
+
+    if (!formData.email || !formData.password) {
+      setError('Veuillez remplir tous les champs');
+      return;
+    }
+
     setError(null);
     setIsLoading(true);
     try {
       await login(formData.email, formData.password);
       // La redirection sera gérée par le useEffect ci-dessous
     } catch (err) {
+      console.error('Erreur de login:', err);
       setError(err instanceof Error ? err.message : 'Identifiants invalides');
     } finally {
       setIsLoading(false);
@@ -58,19 +71,30 @@ const Login: React.FC = () => {
   // Gérer la redirection après la connexion
   React.useEffect(() => {
     if (user) {
-      switch (user.user_type) {
+      let destination = '/dashboard';
+      let label = 'Tableau de bord';
+      switch (user?.user_type) {
         case 'admin':
-          navigate('/admin/dashboard');
+          destination = '/admin/dashboard';
+          label = 'Tableau de bord administrateur';
           break;
         case 'technician':
-          navigate('/technician/dashboard');
+          destination = '/technician/dashboard';
+          label = 'Tableau de bord technicien';
           break;
         case 'client':
-          navigate('/dashboard');
+          destination = '/dashboard';
+          label = 'Tableau de bord client';
           break;
         default:
-          navigate(redirectTo);
+          destination = '/dashboard';
+          label = 'Tableau de bord';
       }
+      setShowRedirectToast(`Connexion réussie ! Redirection vers le ${label}...`);
+      setTimeout(() => {
+        setShowRedirectToast(null);
+        navigate(destination);
+      }, 1200);
     }
   }, [user, navigate, redirectTo]);
 
@@ -83,6 +107,11 @@ const Login: React.FC = () => {
         <div className="max-w-md mx-auto bg-white bg-opacity-90 rounded-lg shadow-md overflow-hidden backdrop-blur-md">
           <div className="p-6">
             <h2 className="text-2xl font-bold text-center text-gray-900 mb-6">Connexion</h2>
+            {showRedirectToast && (
+              <div className="mb-4 bg-green-50 border-l-4 border-green-500 p-4 animate-fade-in">
+                <p className="text-green-700 font-semibold">{showRedirectToast}</p>
+              </div>
+            )}
 
             {(error || authError) && (
               <div className="mb-4 bg-red-50 border-l-4 border-red-500 p-4">
@@ -152,16 +181,26 @@ const Login: React.FC = () => {
                       Mot de passe oublié ?
                     </Link>
                   </div>
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="••••••••"
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      id="password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      value={formData.password}
+                      onChange={handleChange}
+                      className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                      placeholder="••••••••"
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 focus:outline-none"
+                      onClick={() => setShowPassword((v) => !v)}
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
                 </div>
 
                 <button

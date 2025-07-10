@@ -4,6 +4,7 @@ from django.contrib.auth.password_validation import validate_password
 from depannage.models import Client, Technician
 from .models import PieceJointe
 from django.utils import timezone
+import re
 
 User = get_user_model()
 
@@ -117,6 +118,14 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
                             'piece_identite' if f == piece_identite else 'certificat_residence': f"Le fichier {label} doit être au format PDF, JPG ou PNG."
                         })
         return attrs
+
+    def validate_phone(self, value):
+        if value:
+            # Normaliser les espaces : un seul espace entre chaque groupe, pas d'espaces en début/fin
+            value = ' '.join(value.strip().split())
+            if not re.match(r'^(\+223\d{8}|\+223( +\d{2}){4})$', value):
+                raise serializers.ValidationError("Le numéro de téléphone doit être au format +223XXXXXXXX ou +223 XX XX XX XX (8 chiffres après +223)")
+        return value
 
     def create(self, validated_data):
         # Extraire les champs du profil technicien

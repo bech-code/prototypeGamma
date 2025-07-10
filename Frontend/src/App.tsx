@@ -24,6 +24,8 @@ import PaymentSuccess from './pages/PaymentSuccess';
 import Profile from './pages/Profile';
 import UserManagement from './pages/UserManagement';
 import AdminConfiguration from './pages/AdminConfiguration';
+import AdminSubscriptionRequests from './pages/AdminSubscriptionRequests';
+import ManualPaymentPage from './pages/ManualPaymentPage';
 import ReviewPage from './pages/ReviewPage';
 import ChatPage from './pages/ChatPage';
 import { useContext } from 'react';
@@ -70,126 +72,141 @@ function App() {
   return (
     <ErrorBoundary>
       <EnvironmentCheck>
-        <AuthProvider>
-          <Routes>
-            <Route path="/" element={<MainLayout />}>
-              <Route index element={<Home />} />
-              <Route path="service/:serviceId" element={<ServiceDetails />} />
-              <Route path="booking" element={<BookingForm />} />
-              <Route path="login" element={<Login />} />
-              <Route path="register" element={<Register />} />
-              <Route path="payment/:transactionId?" element={<PrivateRoute><PaymentPage /></PrivateRoute>} />
-              <Route path="payment/success" element={<PaymentSuccess />} />
+        <Routes>
+          <Route path="/" element={<MainLayout />}>
+            <Route index element={<Home />} />
+            <Route path="service/:serviceId" element={<ServiceDetails />} />
+            <Route path="booking" element={<BookingForm />} />
+            <Route path="login" element={<Login />} />
+            <Route path="register" element={<Register />} />
+            <Route path="payment/:transactionId?" element={<PrivateRoute><PaymentPage /></PrivateRoute>} />
+            <Route path="payment/success" element={<PaymentSuccess />} />
 
-              {/* Routes protégées */}
-              <Route path="dashboard" element={
-                <PrivateRoute>
-                  {({ user }) => {
-                    if (user.is_superuser || user.user_type === 'admin') {
-                      return <Navigate to="/admin/dashboard" replace />;
-                    }
-                    if (user.user_type === 'technician') {
-                      return <Navigate to="/technician/dashboard" replace />;
-                    }
-                    return <CustomerDashboard />;
-                  }}
-                </PrivateRoute>
-              } />
+            {/* Routes protégées */}
+            <Route path="dashboard" element={
+              <PrivateRoute>
+                {({ user }) => {
+                  if (user.is_superuser || user.user_type === 'admin') {
+                    return <Navigate to="/admin/dashboard" replace />;
+                  }
+                  if (user.user_type === 'technician') {
+                    return <Navigate to="/technician/dashboard" replace />;
+                  }
+                  return <CustomerDashboard />;
+                }}
+              </PrivateRoute>
+            } />
 
-              {/* Routes technicien */}
-              <Route path="technician" element={
-                <PrivateRoute userTypeRequired="technician">
-                  <TechnicianHome />
-                </PrivateRoute>
-              } />
-              <Route path="technician/dashboard" element={
-                <PrivateRoute userTypeRequired="technician">
-                  <TechnicianDashboard />
-                </PrivateRoute>
-              } />
+            {/* Routes technicien */}
+            <Route path="technician" element={
+              <PrivateRoute userTypeRequired="technician">
+                <TechnicianHome />
+              </PrivateRoute>
+            } />
+            <Route path="technician/dashboard" element={
+              <PrivateRoute userTypeRequired="technician">
+                <TechnicianDashboard />
+              </PrivateRoute>
+            } />
 
-              {/* Routes admin */}
-              <Route path="admin" element={
-                <PrivateRoute>
-                  {({ user }) => {
-                    if (user.is_superuser || user.user_type === 'admin') {
-                      return <AdminHome />;
-                    }
-                    return <Navigate to="/" replace />;
-                  }}
-                </PrivateRoute>
-              } />
-              <Route path="admin/dashboard" element={
-                <PrivateRoute>
-                  {({ user }) => {
-                    if (user.is_superuser || user.user_type === 'admin') {
-                      return <AdminDashboard />;
-                    }
-                    return <Navigate to="/" replace />;
-                  }}
-                </PrivateRoute>
-              } />
-              <Route path="admin/statistics" element={
-                <PrivateRoute>
-                  {({ user }) => {
-                    if (user.is_superuser || user.user_type === 'admin') {
-                      return <Statistics />;
-                    }
-                    return <Navigate to="/" replace />;
-                  }}
-                </PrivateRoute>
-              } />
-              <Route path="admin/user-management" element={
-                <PrivateRoute>
-                  {({ user }) => {
-                    if (user.is_superuser || user.user_type === 'admin') {
-                      return <UserManagement />;
-                    }
-                    return <Navigate to="/" replace />;
-                  }}
-                </PrivateRoute>
-              } />
-              <Route path="admin/configuration" element={
-                <PrivateRoute>
-                  {({ user }) => {
-                    if (user.is_superuser || user.user_type === 'admin') {
-                      return <AdminConfiguration />;
-                    }
-                    return <Navigate to="/" replace />;
-                  }}
-                </PrivateRoute>
-              } />
-              <Route path="admin/config" element={<ProtectedAdminRoute><AdminConfiguration /></ProtectedAdminRoute>} />
+            {/* Routes admin */}
+            <Route path="admin" element={
+              <PrivateRoute>
+                {({ user }) => {
+                  if (user.is_superuser || user.user_type === 'admin') {
+                    return <AdminHome />;
+                  }
+                  return <Navigate to="/" replace />;
+                }}
+              </PrivateRoute>
+            } />
+            <Route path="admin/dashboard" element={
+              <PrivateRoute>
+                {({ user }) => {
+                  if (user.is_superuser || user.user_type === 'admin') {
+                    return <AdminDashboard />;
+                  }
+                  return <Navigate to="/" replace />;
+                }}
+              </PrivateRoute>
+            } />
+            <Route path="admin/statistics" element={
+              <PrivateRoute>
+                {({ user }) => {
+                  if (user.is_superuser || user.user_type === 'admin') {
+                    return <Statistics />;
+                  }
+                  return <Navigate to="/" replace />;
+                }}
+              </PrivateRoute>
+            } />
+            <Route path="admin/user-management" element={
+              <PrivateRoute>
+                {({ user }) => {
+                  if (user.is_superuser || user.user_type === 'admin') {
+                    return <UserManagement />;
+                  }
+                  return <Navigate to="/" replace />;
+                }}
+              </PrivateRoute>
+            } />
+            <Route path="admin/configuration" element={
+              <PrivateRoute>
+                {({ user }) => {
+                  if (user.is_superuser || user.user_type === 'admin') {
+                    return <AdminConfiguration />;
+                  }
+                  return <Navigate to="/" replace />;
+                }}
+              </PrivateRoute>
+            } />
+            <Route path="admin/subscription-requests" element={
+              <PrivateRoute>
+                {({ user }) => {
+                  if (user.is_superuser || user.user_type === 'admin') {
+                    return <AdminSubscriptionRequests />;
+                  }
+                  return <Navigate to="/" replace />;
+                }}
+              </PrivateRoute>
+            } />
+            <Route path="admin/config" element={<ProtectedAdminRoute><AdminConfiguration /></ProtectedAdminRoute>} />
 
-              <Route path="profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
-              <Route path="review/:requestId" element={<PrivateRoute><ReviewPage /></PrivateRoute>} />
+            <Route path="profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+            <Route path="review/:requestId" element={<PrivateRoute><ReviewPage /></PrivateRoute>} />
 
-              <Route path="forgot-password" element={<ForgotPassword />} />
-              <Route path="reset-password" element={<ResetPassword />} />
+            <Route path="forgot-password" element={<ForgotPassword />} />
+            <Route path="reset-password" element={<ResetPassword />} />
 
-              <Route path="chat/:id" element={<PrivateRoute><ChatPage /></PrivateRoute>} />
+            <Route path="chat/:id" element={<PrivateRoute><ChatPage /></PrivateRoute>} />
 
-              <Route path="*" element={<NotFound />} />
-            </Route>
-          </Routes>
+            {/* Route pour le paiement manuel des techniciens */}
+            <Route path="technician/payment/:requestId" element={
+              <PrivateRoute userTypeRequired="technician">
+                <ManualPaymentPage />
+              </PrivateRoute>
+            } />
 
-          {/* Panneau de diagnostic (visible en mode développement) */}
-          {process.env.NODE_ENV === 'development' && <DiagnosticPanel />}
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Routes>
 
-          {/* Bouton flottant messages non lus */}
-          {unreadMessagesCount > 0 && location.pathname !== '/chat' && (
-            <button
-              onClick={() => navigate('/chat')}
-              className="fixed bottom-6 right-6 z-50 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center w-16 h-16 transition-colors group"
-              title="Voir les messages"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.77 9.77 0 01-4-.8l-4 1 1-4A8.96 8.96 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-              <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full px-2 py-0.5 font-bold animate-bounce">
-                {unreadMessagesCount}
-              </span>
-            </button>
-          )}
-        </AuthProvider>
+        {/* Panneau de diagnostic (visible en mode développement) */}
+        {process.env.NODE_ENV === 'development' && <DiagnosticPanel />}
+
+        {/* Bouton flottant messages non lus */}
+        {unreadMessagesCount > 0 && location.pathname !== '/chat' && (
+          <button
+            onClick={() => navigate('/chat')}
+            className="fixed bottom-6 right-6 z-50 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center w-16 h-16 transition-colors group"
+            title="Voir les messages"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.77 9.77 0 01-4-.8l-4 1 1-4A8.96 8.96 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+            <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full px-2 py-0.5 font-bold animate-bounce">
+              {unreadMessagesCount}
+            </span>
+          </button>
+        )}
       </EnvironmentCheck>
     </ErrorBoundary>
   );

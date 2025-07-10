@@ -16,7 +16,7 @@ function isRecentlyRead(notif: any) {
 }
 
 // Fonction utilitaire pour style et icône timeline
-function getEventStyle(type) {
+function getEventStyle(type: string) {
   switch (type) {
     case 'created': return { color: 'bg-gray-400', icon: <Plus size={14} /> };
     case 'request_assigned': return { color: 'bg-blue-500', icon: <UserPlus size={14} /> };
@@ -29,8 +29,9 @@ function getEventStyle(type) {
 const Header: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const { user, logout, wsNotifications, allNotifications, consumeWsNotification, toast, unreadMessagesCount } = useAuth();
+  const { user, logout, wsNotifications, allNotifications, consumeWsNotification, toast: authToast, unreadMessagesCount } = useAuth();
   const [allNotifs, setAllNotifications] = useState(allNotifications);
+  const [toast, setToast] = useState<string | null>(null); // Ajout du state toast local
   const location = useLocation();
   const [notifOpen, setNotifOpen] = useState(false);
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
@@ -300,7 +301,7 @@ const Header: React.FC = () => {
                   Portail Technicien
                 </Link>
               )}
-              {user.user_type === 'admin' && (
+              {user.user_type === 'admin' && location.pathname !== '/admin/dashboard' && (
                 <Link
                   to="/admin"
                   className={`font-medium transition-colors ${location.pathname === '/admin'
@@ -323,92 +324,6 @@ const Header: React.FC = () => {
                 </Link>
               )}
             </>
-          )}
-
-          {user && (
-            <div className="relative flex items-center space-x-4">
-              {/* Badge messages non lus */}
-              {unreadMessagesCount > 0 && (
-                <Link
-                  to="/chat"
-                  className="relative flex items-center focus:outline-none hover:opacity-80 transition-opacity"
-                  aria-label="Messages non lus"
-                >
-                  <MessageSquare className={isScrolled ? 'text-gray-800' : 'text-white'} />
-                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] flex items-center justify-center">
-                    {unreadMessagesCount}
-                  </span>
-                </Link>
-              )}
-
-              {/* Notifications */}
-              <button
-                ref={bellBtnRef}
-                className={`relative flex items-center focus:outline-none group ${bellAnim ? 'animate-bounce' : ''}`}
-                onClick={openNotifMenu}
-                aria-label="Notifications"
-                tabIndex={0}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') openNotifMenu(); }}
-              >
-                <span className="relative">
-                  <Bell className={`${isScrolled ? 'text-gray-800' : 'text-white'} group-hover:text-orange-500 transition-colors duration-200`} size={26} />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-2 -right-2 flex items-center justify-center w-6 h-6 bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500 text-white text-xs font-bold rounded-full shadow-lg ring-2 ring-white animate-pulse select-none">
-                      {unreadCount}
-                    </span>
-                  )}
-                </span>
-              </button>
-              {notifOpen && notifMenuPos && (
-                <div
-                  ref={notifMenuRef}
-                  className="fixed z-50 w-80 max-w-xs bg-white/80 backdrop-blur-lg rounded-2xl shadow-2xl max-h-96 overflow-y-auto animate-fade-in-up border border-gray-100 ring-1 ring-black/10"
-                  style={{ top: notifMenuPos.top, left: notifMenuPos.left, minWidth: '320px' }}
-                >
-                  <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-lg rounded-t-2xl p-4 border-b font-bold text-gray-700 flex items-center justify-between shadow-sm">
-                    Notifications
-                    <button className="text-xs text-blue-600 hover:underline focus:outline-none" onClick={() => setNotifOpen(false)}>Fermer</button>
-                  </div>
-                  <div className="px-4 py-2 flex items-center gap-2 border-b justify-between bg-white/70 sticky top-[56px] z-10">
-                    <label className="flex items-center text-sm cursor-pointer">
-                      <input type="checkbox" checked={showUnreadOnly} onChange={e => setShowUnreadOnly(e.target.checked)} className="mr-2 focus:ring focus:ring-blue-300" />
-                      Non lues seulement
-                    </label>
-                    <button className="text-xs text-blue-600 hover:underline ml-auto focus:outline-none" onClick={handleMarkAllAsRead} disabled={allNotifications.every(n => n.is_read)}>
-                      Tout marquer comme lu
-                    </button>
-                  </div>
-                  {sortedNotifications.length === 0 ? (
-                    <div className="p-6 text-gray-500 text-sm text-center">Aucune notification</div>
-                  ) : (
-                    <ul className="divide-y divide-gray-100 scrollbar-thin scrollbar-thumb-blue-200 scrollbar-track-transparent">
-                      {(showUnreadOnly
-                        ? sortedNotifications.filter(n => !n.is_read)
-                        : sortedNotifications.filter(isRecentlyRead)
-                      ).map((notif: any, i) => (
-                        <li
-                          key={notif.id || i}
-                          className={`px-5 py-4 flex gap-3 items-start transition-all duration-200 cursor-pointer group bg-white/60 hover:bg-orange-50/80 rounded-xl my-2 shadow-sm hover:shadow-lg ${!notif.is_read ? 'border-l-4 border-blue-500' : ''}`}
-                          onClick={() => setSelectedNotification(notif)}
-                          tabIndex={0}
-                          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setSelectedNotification(notif); }}
-                          aria-label={notif.title}
-                        >
-                          <div className="flex flex-col flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-semibold text-gray-900 text-sm line-clamp-1">{notif.title}</span>
-                              {!notif.is_read && <span className="inline-block w-2.5 h-2.5 bg-blue-600 rounded-full animate-pulse shadow ring-2 ring-blue-200" title="Non lue"></span>}
-                            </div>
-                            <div className="text-gray-700 text-xs line-clamp-2 mb-1">{notif.message}</div>
-                            <div className="text-xs text-gray-400 mt-1">{notif.created_at ? new Date(notif.created_at).toLocaleString('fr-FR') : ''}</div>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-            </div>
           )}
 
           {user ? (

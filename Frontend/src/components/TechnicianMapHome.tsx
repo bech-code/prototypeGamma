@@ -43,7 +43,14 @@ function MapCenter({ lat, lng }: { lat: number; lng: number }) {
   const map = useMap();
 
   useEffect(() => {
-    map.setView([lat, lng], 13);
+    if (!map) return;
+    if (typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng)) {
+      try {
+        map.setView([lat, lng], 13);
+      } catch (e) {
+        // Ignore Leaflet errors
+      }
+    }
   }, [lat, lng, map]);
 
   return null;
@@ -109,8 +116,8 @@ const TechnicianMapHome: React.FC<TechnicianMapHomeProps> = ({
         setError('Session expirée, veuillez vous reconnecter.');
         // Optionnel : rediriger vers /login
         // window.location.href = '/login';
-      return;
-    }
+        return;
+      }
 
       if (!response.ok) {
         throw new Error('Erreur lors de la récupération des techniciens');
@@ -118,12 +125,12 @@ const TechnicianMapHome: React.FC<TechnicianMapHomeProps> = ({
 
       const data = await response.json();
       setTechnicians(data.technicians || []);
-        } catch (err) {
+    } catch (err) {
       console.error('Erreur:', err);
       setError('Erreur lors de la recherche de techniciens');
-        } finally {
-          setLoading(false);
-        }
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -228,16 +235,16 @@ const TechnicianMapHome: React.FC<TechnicianMapHomeProps> = ({
         <div className="lg:col-span-2">
           <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
             <div className="h-[500px] w-full">
-      <MapContainer
+              <MapContainer
                 center={[currentLat, currentLng]}
-        zoom={13}
-        style={{ height: '100%', width: '100%' }}
-      >
+                zoom={13}
+                style={{ height: '100%', width: '100%' }}
+              >
                 <MapCenter lat={currentLat} lng={currentLng} />
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        />
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                />
 
                 {/* Marqueur de la position de l'utilisateur */}
                 {userLat && userLng && (
@@ -250,8 +257,8 @@ const TechnicianMapHome: React.FC<TechnicianMapHomeProps> = ({
                         </div>
                       </div>
                     </Popup>
-          </Marker>
-        )}
+                  </Marker>
+                )}
 
                 {/* Marqueurs des techniciens */}
                 {technicians.map((technician) => (
@@ -259,10 +266,10 @@ const TechnicianMapHome: React.FC<TechnicianMapHomeProps> = ({
                     key={technician.id}
                     position={[currentLat + (Math.random() - 0.5) * 0.01, currentLng + (Math.random() - 0.5) * 0.01]}
                   >
-            <Popup>
+                    <Popup>
                       <div className="min-w-[200px]">
                         <div className="font-semibold text-gray-800">
-                          {technician.user.first_name} {technician.user.last_name}
+                          {technician.user?.first_name || 'Prénom'} {technician.user?.last_name || 'Nom'}
                         </div>
                         <div className="text-sm text-gray-600 mb-2">
                           {getSpecialtyLabel(technician.specialty)}
@@ -278,17 +285,17 @@ const TechnicianMapHome: React.FC<TechnicianMapHomeProps> = ({
                         <div className="text-sm font-semibold text-green-600 mb-2">
                           {technician.hourly_rate} FCFA/h
                         </div>
-                <button
+                        <button
                           onClick={() => handleTechnicianSelect(technician)}
                           className="w-full bg-blue-600 text-white py-1 px-3 rounded text-sm hover:bg-blue-700 transition-colors"
-                >
+                        >
                           Réserver
-                </button>
-              </div>
-            </Popup>
-          </Marker>
+                        </button>
+                      </div>
+                    </Popup>
+                  </Marker>
                 ))}
-      </MapContainer>
+              </MapContainer>
             </div>
           </div>
         </div>
@@ -344,7 +351,7 @@ const TechnicianMapHome: React.FC<TechnicianMapHomeProps> = ({
                     >
                       <div className="flex justify-between items-start mb-2">
                         <h4 className="font-semibold text-gray-800">
-                          {technician.user.first_name} {technician.user.last_name}
+                          {technician.user?.first_name || 'Prénom'} {technician.user?.last_name || 'Nom'}
                         </h4>
                         <span className="text-sm text-green-600 font-medium">
                           {technician.distance} km
@@ -372,16 +379,16 @@ const TechnicianMapHome: React.FC<TechnicianMapHomeProps> = ({
                           )}
                           <button className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors">
                             Réserver
-        </button>
-      </div>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-        </div>
-      )}
+          </div>
+        )}
       </div>
     </div>
   );

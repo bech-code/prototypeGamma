@@ -295,7 +295,7 @@ const TechnicianProfile: React.FC<TechnicianProfileProps> = ({ technicianId }) =
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                     />
                                 ) : (
-                                    <p className="text-gray-900">{profile.user.first_name}</p>
+                                    <p className="text-gray-900">{profile.user?.first_name || 'Prénom non disponible'}</p>
                                 )}
                             </div>
 
@@ -309,7 +309,7 @@ const TechnicianProfile: React.FC<TechnicianProfileProps> = ({ technicianId }) =
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                     />
                                 ) : (
-                                    <p className="text-gray-900">{profile.user.last_name}</p>
+                                    <p className="text-gray-900">{profile.user?.last_name || 'Nom non disponible'}</p>
                                 )}
                             </div>
 
@@ -334,7 +334,7 @@ const TechnicianProfile: React.FC<TechnicianProfileProps> = ({ technicianId }) =
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                                 <p className="text-gray-900 flex items-center">
                                     <Mail className="h-4 w-4 mr-1" />
-                                    {profile.user.email}
+                                    {profile.user?.email || 'Email non disponible'}
                                 </p>
                             </div>
 

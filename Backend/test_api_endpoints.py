@@ -128,7 +128,7 @@ class APITester:
             "min_rating": 4,
             "latitude": 5.345,
             "longitude": -4.012,
-            "estimated_price": "35000.00",
+            "estimated_price": 35000.0,  # Correction ici
             # Champs frontend (seront ignorés côté backend)
             "is_urgent": True,
             "date": "2024-07-01",
@@ -145,12 +145,13 @@ class APITester:
             )
             success = response.status_code in (200, 201)
             if not success:
-                print("--- Réponse brute du backend ---")
+                print(f"--- Réponse brute du backend ---")
+                print(f"Status code: {response.status_code}")
                 try:
                     print(response.json())
                 except Exception:
                     print(response.text)
-                print("-------------------------------")
+                print(f"-------------------------------")
             self.log_test("Create Repair Request (all fields)", success, response)
             # Appel du test de notifications côté technicien pour toutes les spécialités
             if success:

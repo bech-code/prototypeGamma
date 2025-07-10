@@ -77,7 +77,8 @@ const ChatPage: React.FC = () => {
     // WebSocket connection
     useEffect(() => {
         if (!id || !token) return;
-        const ws = new WebSocket(`ws://127.0.0.1:8000/ws/chat/${id}/`);
+        // Correction : ajout du token JWT dans l'URL pour authentification WebSocket
+        const ws = new WebSocket(`ws://127.0.0.1:8000/ws/chat/${id}/?token=${token}`);
         wsRef.current = ws;
         ws.onopen = () => setWsConnected(true);
         ws.onclose = () => {
@@ -122,7 +123,7 @@ const ChatPage: React.FC = () => {
             }
         };
         return () => { ws.close(); if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current); };
-    }, [messages, user?.id]);
+    }, [messages, user?.id, id, token]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

@@ -15,6 +15,9 @@ import random
 from django.db.models import Count
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.pagination import PageNumberPagination
+import re
 
 User = get_user_model()
 
@@ -39,10 +42,237 @@ def calculate_risk_score(request, user=None):
     # (À compléter avec IP inconnue, tentatives échouées, etc.)
     return min(score, 100)
 
+def validate_and_normalize_phone(phone):
+    if phone:
+        normalized = ' '.join(phone.strip().split())
+        if not re.match(r'^(\+223\d{8}|\+223( +\d{2}){4})$', normalized):
+            raise ValueError("Le numéro de téléphone doit être au format +223XXXXXXXX ou +223 XX XX XX XX (8 chiffres après +223, espaces autorisés)")
+        return normalized
+    return phone
+
+# ============================================================================
+# ENDPOINTS MANQUANTS - CORRECTIFS
+# ============================================================================
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def user_me(request):
+    """Récupère les informations de l'utilisateur connecté."""
+    try:
+        user = request.user
+        from .serializers import UserSerializer
+        from .views import UserViewSet
+        serializer = UserSerializer(user)
+        # Utilise la même logique que UserViewSet pour le profil
+        profile = UserViewSet().get_profile_data(user)
+        return Response({
+            'user': serializer.data,
+            'profile': profile
+        })
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def update_user_profile(request):
+    """Met à jour le profil de l'utilisateur connecté."""
+    try:
+        user = request.user
+        data = request.data
+        
+        # Validation des données
+        if "first_name" in data:
+            user.first_name = data["first_name"]
+        if "last_name" in data:
+            user.last_name = data["last_name"]
+        if "email" in data:
+            # Vérifier que l'email n'est pas déjà utilisé
+            if User.objects.filter(email=data["email"]).exclude(id=user.id).exists():
+                return Response({"error": "Cet email est déjà utilisé"}, status=400)
+            user.email = data["email"]
+        
+        if "phone" in data:
+            data["phone"] = validate_and_normalize_phone(data["phone"])
+        
+        user.save()
+        
+        # Mettre à jour le profil spécifique
+        if hasattr(user, "technician_profile") and "technician" in data:
+            technician = user.technician_profile
+            tech_data = data["technician"]
+            
+            if "phone" in tech_data:
+                technician.phone = tech_data["phone"]
+            if "specialty" in tech_data:
+                technician.specialty = tech_data["specialty"]
+            if "years_experience" in tech_data:
+                technician.years_experience = tech_data["years_experience"]
+            if "hourly_rate" in tech_data:
+                technician.hourly_rate = tech_data["hourly_rate"]
+            if "bio" in tech_data:
+                technician.bio = tech_data["bio"]
+            
+            technician.save()
+        
+        if hasattr(user, "client_profile") and "client" in data:
+            client = user.client_profile
+            client_data = data["client"]
+            
+            if "phone" in client_data:
+                client.phone = client_data["phone"]
+            if "address" in client_data:
+                client.address = client_data["address"]
+            
+            client.save()
+        
+        return Response({"success": True, "message": "Profil mis à jour avec succès"})
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def admin_users(request):
+    """Liste des utilisateurs pour les administrateurs."""
+    if not request.user.is_staff:
+        return Response({"error": "Accès non autorisé"}, status=403)
+    
+    try:
+        users = User.objects.all().select_related('technician_profile', 'client_profile').order_by('-date_joined')
+        
+        # Pagination
+        page = request.query_params.get('page', 1)
+        page_size = request.query_params.get('page_size', 20)
+        
+        paginator = PageNumberPagination()
+        paginator.page_size = page_size
+        paginator.page = page
+        
+        users_page = paginator.paginate_queryset(users, request)
+        
+        users_data = []
+        for user in users_page:
+            user_data = {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "user_type": user.user_type,
+                "is_staff": user.is_staff,
+                "is_active": user.is_active,
+                "date_joined": user.date_joined,
+            }
+            
+            if hasattr(user, "technician_profile"):
+                technician = user.technician_profile
+                user_data["technician"] = {
+                    "id": technician.id,
+                    "specialty": technician.specialty,
+                    "is_verified": technician.is_verified,
+                    "is_available": technician.is_available,
+                }
+            
+            if hasattr(user, "client_profile"):
+                client = user.client_profile
+                user_data["client"] = {
+                    "id": client.id,
+                    "phone": client.phone,
+                }
+            
+            users_data.append(user_data)
+        
+        return paginator.get_paginated_response(users_data)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def export_users(request):
+    """Export des utilisateurs pour les administrateurs."""
+    if not request.user.is_staff:
+        return Response({"error": "Accès non autorisé"}, status=403)
+    
+    try:
+        users = User.objects.all().select_related('technician_profile', 'client_profile')
+        
+        # Créer un fichier CSV
+        import csv
+        from django.http import HttpResponse
+        
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="users_export.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow([
+            'ID', 'Username', 'Email', 'Prénom', 'Nom', 'Type', 'Staff', 'Actif', 'Date d\'inscription'
+        ])
+        
+        for user in users:
+            writer.writerow([
+                user.id,
+                user.username,
+                user.email,
+                user.first_name,
+                user.last_name,
+                user.user_type,
+                user.is_staff,
+                user.is_active,
+                user.date_joined.strftime('%Y-%m-%d %H:%M:%S')
+            ])
+        
+        return response
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def admin_login_locations(request):
+    """Localisations de connexion pour les administrateurs."""
+    if not request.user.is_staff:
+        return Response({"error": "Accès non autorisé"}, status=403)
+    
+    try:
+        # Connexions récentes avec géolocalisation
+        recent_logins = AuditLog.objects.filter(
+            event_type='login',
+            status='success'
+        ).order_by('-timestamp')[:100]
+        
+        locations_data = []
+        for login in recent_logins:
+            locations_data.append({
+                "id": login.id,
+                "user": login.user.email if login.user else None,
+                "ip_address": login.ip_address,
+                "location": login.location if hasattr(login, 'location') else None,
+                "timestamp": login.timestamp,
+                "user_agent": login.user_agent if hasattr(login, 'user_agent') else None
+            })
+        
+        return Response({"locations": locations_data})
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+# ============================================================================
+# CORRECTIFS DE SÉCURITÉ
+# ============================================================================
+
+# Correction des permissions pour les endpoints existants
 class UserViewSet(viewsets.ModelViewSet):
+    """ViewSet pour gérer les utilisateurs."""
+    
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]  # Correction: ajout de l'authentification
+    
+    def get_queryset(self):
+        """Filtre les utilisateurs selon les permissions."""
+        if self.request.user.is_staff:
+            return User.objects.all()
+        return User.objects.filter(id=self.request.user.id)
+    
+    # Ajout de la pagination
+    pagination_class = PageNumberPagination
 
     def get_permissions(self):
         if self.action in ['register', 'login', 'refresh_token', 'forgot_password', 'reset_password']:
@@ -51,18 +281,17 @@ class UserViewSet(viewsets.ModelViewSet):
 
     def get_profile_data(self, user):
         if user.user_type == 'client':
-            try:
-                client = user.client_profile
+            client = getattr(user, 'client_profile', None)
+            if client:
                 return {
                     'type': 'client',
                     'address': client.address,
                     'phone': client.phone
                 }
-            except Client.DoesNotExist:
-                return None
+            return None
         elif user.user_type == 'technician':
-            try:
-                technician = user.technician_profile
+            technician = getattr(user, 'technician_profile', None)
+            if technician:
                 return {
                     'type': 'technician',
                     'specialty': technician.specialty,
@@ -70,8 +299,7 @@ class UserViewSet(viewsets.ModelViewSet):
                     'years_experience': technician.years_experience,
                     'address': technician.address,
                 }
-            except Technician.DoesNotExist:
-                return None
+            return None
         return None
 
     @action(detail=False, methods=['post'], parser_classes=[MultiPartParser, FormParser, JSONParser])
@@ -88,7 +316,7 @@ class UserViewSet(viewsets.ModelViewSet):
                 'profile': profile,
                 'refresh': str(refresh),
                 'access': str(refresh.access_token),
-            }, status=status.HTTP_201_CREATED)
+            }, status=201)
         
         # Formater les erreurs pour une meilleure lisibilité
         errors = {}
@@ -101,7 +329,7 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response({
             'error': 'Erreur de validation',
             'details': errors
-        }, status=status.HTTP_400_BAD_REQUEST)
+        }, status=400)
 
     @action(detail=False, methods=['post'])
     def login(self, request):
@@ -119,7 +347,7 @@ class UserViewSet(viewsets.ModelViewSet):
                     'email': "L'email est requis" if not email else None,
                     'password': 'Le mot de passe est requis' if not password else None
                 }
-            }, status=status.HTTP_400_BAD_REQUEST)
+            }, status=400)
         
         try:
             user = User.objects.get(email=email)
@@ -163,13 +391,13 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response({
                 'error': 'Identifiants invalides',
                 'details': {'password': 'Mot de passe incorrect'}
-            }, status=status.HTTP_401_UNAUTHORIZED)
+            }, status=401)
         except User.DoesNotExist:
             log_event(request, 'login', 'failure', risk_score=100, metadata={'reason': 'Email inconnu'})
             return Response({
                 'error': 'Identifiants invalides',
                 'details': {'email': 'Aucun compte associé à cet email'}
-            }, status=status.HTTP_404_NOT_FOUND)
+            }, status=404)
 
     @action(detail=False, methods=['post'])
     def verify_otp(self, request):
@@ -202,7 +430,7 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response({
                 'error': 'Email requis',
                 'details': {'email': 'L\'email est requis'}
-            }, status=status.HTTP_400_BAD_REQUEST)
+            }, status=400)
         
         try:
             user = User.objects.get(email=email)
@@ -252,7 +480,7 @@ L'équipe DepanneTeliman''',
             log_event(request, 'password_reset_requested', 'failure', risk_score=100, metadata={'reason': 'Email inconnu', 'email': email})
             return Response({
                 'error': 'Aucun compte associé à cette adresse email.'
-            }, status=status.HTTP_404_NOT_FOUND)
+            }, status=404)
 
     @action(detail=False, methods=['post'])
     def reset_password(self, request):
@@ -266,7 +494,7 @@ L'équipe DepanneTeliman''',
                     'token': 'Le token est requis' if not token else None,
                     'new_password': 'Le nouveau mot de passe est requis' if not new_password else None
                 }
-            }, status=status.HTTP_400_BAD_REQUEST)
+            }, status=400)
         
         try:
             reset_token = PasswordResetToken.objects.get(token=token, is_used=False)
@@ -285,7 +513,7 @@ L'équipe DepanneTeliman''',
                 return Response({
                     'error': 'Mot de passe invalide',
                     'details': {'new_password': e.messages[0]}
-                }, status=status.HTTP_400_BAD_REQUEST)
+                }, status=400)
             
             # Mettre à jour le mot de passe
             user = reset_token.user
@@ -314,7 +542,7 @@ L'équipe DepanneTeliman''',
             return Response({
                 'error': 'Refresh token requis',
                 'details': {'refresh': 'Le refresh token est requis'}
-            }, status=status.HTTP_400_BAD_REQUEST)
+            }, status=400)
         
         try:
             refresh = RefreshToken(refresh_token)
@@ -326,7 +554,7 @@ L'équipe DepanneTeliman''',
             return Response({
                 'error': 'Token invalide',
                 'details': {'refresh': 'Le refresh token est invalide ou expiré'}
-            }, status=status.HTTP_401_UNAUTHORIZED)
+            }, status=401)
 
     @action(detail=False, methods=['get'])
     def me(self, request):

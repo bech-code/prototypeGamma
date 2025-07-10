@@ -2,10 +2,11 @@ from rest_framework import serializers
 from .models import (
     Client, Technician, RepairRequest, RequestDocument, Review, 
     Payment, Conversation, Message, MessageAttachment, 
-    Notification, TechnicianLocation, SystemConfiguration, CinetPayPayment, PlatformConfiguration, ClientLocation
+    Notification, TechnicianLocation, SystemConfiguration, CinetPayPayment, PlatformConfiguration, ClientLocation, Report, AdminNotification, SubscriptionPaymentRequest, TechnicianSubscription
 )
 from django.conf import settings
 from django.contrib.auth.models import Permission, Group
+from users.models import AuditLog
 
 # Serializers pour les modèles de base
 class ClientUserSerializer(serializers.ModelSerializer):
@@ -30,13 +31,16 @@ class ClientSerializer(serializers.ModelSerializer):
 
 class TechnicianSerializer(serializers.ModelSerializer):
     user = serializers.SerializerMethodField()
+    
     class Meta:
         model = Technician
         fields = [
             'id', 'user', 'specialty', 'years_experience', 'hourly_rate',
-            'is_available', 'is_verified', 'service_radius_km', 'bio', 'created_at'
+            'is_available', 'is_verified', 'service_radius_km', 'bio', 'created_at',
+            'phone'
         ]
         read_only_fields = ['id', 'created_at']
+    
     def get_user(self, obj):
         return {
             'id': obj.user.id,
@@ -45,6 +49,30 @@ class TechnicianSerializer(serializers.ModelSerializer):
             'email': obj.user.email,
             'username': obj.user.username,
         }
+    
+    def validate_hourly_rate(self, value):
+        """Validation du taux horaire."""
+        if value < 0:
+            raise serializers.ValidationError("Le taux horaire ne peut pas être négatif.")
+        if value > 100000:
+            raise serializers.ValidationError("Le taux horaire ne peut pas dépasser 100,000 FCFA.")
+        return value
+    
+    def validate_years_experience(self, value):
+        """Validation des années d'expérience."""
+        if value < 0:
+            raise serializers.ValidationError("Les années d'expérience ne peuvent pas être négatives.")
+        if value > 50:
+            raise serializers.ValidationError("Les années d'expérience ne peuvent pas dépasser 50.")
+        return value
+    
+    def validate_service_radius_km(self, value):
+        """Validation du rayon de service."""
+        if value < 1:
+            raise serializers.ValidationError("Le rayon de service doit être d'au moins 1 km.")
+        if value > 100:
+            raise serializers.ValidationError("Le rayon de service ne peut pas dépasser 100 km.")
+        return value
 
 class ReviewSerializer(serializers.ModelSerializer):
     """Serializer pour les avis."""
@@ -91,8 +119,8 @@ class ReviewSerializer(serializers.ModelSerializer):
         return review
 
 class RepairRequestSerializer(serializers.ModelSerializer):
-    client = ClientSerializer(read_only=True)
-    technician = TechnicianSerializer(read_only=True)
+    client = serializers.SerializerMethodField()
+    technician = serializers.SerializerMethodField()
     payment_status = serializers.SerializerMethodField()
     review = ReviewSerializer(read_only=True, allow_null=True)
     no_show_count = serializers.IntegerField(read_only=True)
@@ -111,12 +139,70 @@ class RepairRequestSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'uuid', 'created_at', 'updated_at', 'assigned_at', 'started_at', 'completed_at']
+        extra_kwargs = {
+            'description': {'required': False, 'allow_blank': True, 'allow_null': True},
+        }
 
+    def get_client(self, obj):
+        if obj.client:
+            return {
+                'id': obj.client.id,
+                'user': {
+                    'id': obj.client.user.id,
+                    'first_name': obj.client.user.first_name,
+                    'last_name': obj.client.user.last_name,
+                    'email': obj.client.user.email,
+                    'username': obj.client.user.username,
+                },
+                'phone': obj.client.phone,
+            }
+        return None
+    
+    def get_technician(self, obj):
+        if obj.technician:
+            return {
+                'id': obj.technician.id,
+                'user': {
+                    'id': obj.technician.user.id,
+                    'first_name': obj.technician.user.first_name,
+                    'last_name': obj.technician.user.last_name,
+                    'email': obj.technician.user.email,
+                },
+                'specialty': obj.technician.specialty,
+                'average_rating': obj.technician.average_rating,
+            }
+        return None
+    
     def get_payment_status(self, obj):
         latest_payment = obj.cinetpay_payments.order_by('-created_at').first()
         if latest_payment:
             return latest_payment.status
         return 'non payé'
+    
+    def validate_title(self, value):
+        """Validation du titre."""
+        if len(value.strip()) < 5:
+            raise serializers.ValidationError("Le titre doit contenir au moins 5 caractères.")
+        if len(value) > 200:
+            raise serializers.ValidationError("Le titre ne peut pas dépasser 200 caractères.")
+        return value.strip()
+    
+    def validate_description(self, value):
+        """Validation de la description."""
+        if len(value.strip()) < 10:
+            raise serializers.ValidationError("La description doit contenir au moins 10 caractères.")
+        if len(value) > 2000:
+            raise serializers.ValidationError("La description ne peut pas dépasser 2000 caractères.")
+        return value.strip()
+    
+    def validate_final_price(self, value):
+        """Validation du prix final."""
+        if value is not None:
+            if value < 0:
+                raise serializers.ValidationError("Le prix ne peut pas être négatif.")
+            if value > 1000000:
+                raise serializers.ValidationError("Le prix ne peut pas dépasser 1,000,000 FCFA.")
+        return value
 
 
 class RequestDocumentSerializer(serializers.ModelSerializer):
@@ -139,6 +225,31 @@ class PaymentSerializer(serializers.ModelSerializer):
             'processed_at', 'notes', 'created_at'
         ]
         read_only_fields = ['id', 'uuid', 'created_at', 'processed_at']
+
+    def get_payer(self, obj):
+        if obj.payer:
+            return {
+                'id': obj.payer.id,
+                'first_name': obj.payer.first_name,
+                'last_name': obj.payer.last_name,
+                'email': obj.payer.email,
+            }
+        return None
+    
+    def validate_amount(self, value):
+        """Validation du montant."""
+        if value <= 0:
+            raise serializers.ValidationError("Le montant doit être positif.")
+        if value > 1000000:
+            raise serializers.ValidationError("Le montant ne peut pas dépasser 1,000,000 FCFA.")
+        return value
+    
+    def validate_payment_method(self, value):
+        """Validation de la méthode de paiement."""
+        valid_methods = ['mobile_money', 'card', 'cash', 'bank_transfer']
+        if value not in valid_methods:
+            raise serializers.ValidationError(f"Méthode de paiement invalide. Options: {', '.join(valid_methods)}")
+        return value
 
 
 class ConversationSerializer(serializers.ModelSerializer):
@@ -235,6 +346,7 @@ class RepairRequestCreateSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'title': {'required': False},
             'specialty_needed': {'required': False},
+            'description': {'required': False, 'allow_blank': True, 'allow_null': True},
         }
     
     def validate(self, data):
@@ -453,4 +565,70 @@ class ClientLocationSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClientLocation
         fields = ['id', 'client', 'latitude', 'longitude', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+# Serializers pour Report et AdminNotification
+class ReportSerializer(serializers.ModelSerializer):
+    sender_name = serializers.ReadOnlyField(source='sender.get_full_name')
+    reviewed_by_name = serializers.ReadOnlyField(source='reviewed_by.get_full_name')
+    class Meta:
+        model = Report
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'reviewed_at', 'reviewed_by']
+
+class AdminNotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdminNotification
+        fields = '__all__'
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    user_email = serializers.ReadOnlyField(source='user.email')
+    class Meta:
+        model = AuditLog
+        fields = '__all__'
+
+
+class SubscriptionPaymentRequestSerializer(serializers.ModelSerializer):
+    """Serializer pour les demandes de paiement d'abonnement."""
+    
+    technician_name = serializers.CharField(source='technician.user.get_full_name', read_only=True)
+    validated_by_name = serializers.CharField(source='validated_by.get_full_name', read_only=True)
+    
+    class Meta:
+        model = SubscriptionPaymentRequest
+        fields = [
+            'id', 'technician', 'technician_name', 'amount', 'duration_months',
+            'payment_method', 'description', 'status', 'validated_by', 'validated_by_name',
+            'validated_at', 'validation_notes', 'subscription', 'created_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'validated_at', 'validated_by', 'subscription']
+    
+    def validate_amount(self, value):
+        """Validation du montant."""
+        if value <= 0:
+            raise serializers.ValidationError("Le montant doit être positif.")
+        if value > 1000000:
+            raise serializers.ValidationError("Le montant ne peut pas dépasser 1,000,000 FCFA.")
+        return value
+    
+    def validate_duration_months(self, value):
+        """Validation de la durée."""
+        if value < 1:
+            raise serializers.ValidationError("La durée doit être d'au moins 1 mois.")
+        if value > 12:
+            raise serializers.ValidationError("La durée ne peut pas dépasser 12 mois.")
+        return value
+
+
+class TechnicianSubscriptionSerializer(serializers.ModelSerializer):
+    """Serializer pour les abonnements techniciens."""
+    
+    technician_name = serializers.CharField(source='technician.user.get_full_name', read_only=True)
+    
+    class Meta:
+        model = TechnicianSubscription
+        fields = [
+            'id', 'technician', 'technician_name', 'plan_name', 'start_date',
+            'end_date', 'is_active', 'created_at'
+        ]
         read_only_fields = ['id', 'created_at']

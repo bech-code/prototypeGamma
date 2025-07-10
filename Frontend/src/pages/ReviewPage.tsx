@@ -128,12 +128,26 @@ const ReviewPage: React.FC = () => {
 
             if (response.ok) {
                 setSuccess(true);
+                setSubmitting(true);
                 setTimeout(() => {
-                    navigate('/customer-dashboard');
+                    navigate('/dashboard');
+                    setSubmitting(false);
                 }, 3000);
             } else {
                 const data = await response.json();
-                setError(data?.detail || 'Erreur lors de l\'envoi de l\'avis.');
+                let errorMsg = '';
+                if (typeof data === 'object' && data !== null) {
+                    if (data.detail) {
+                        errorMsg = data.detail;
+                    } else {
+                        errorMsg = Object.entries(data)
+                            .map(([field, msg]) => `${field}: ${Array.isArray(msg) ? msg.join(' | ') : msg}`)
+                            .join(' | ');
+                    }
+                } else {
+                    errorMsg = 'Erreur lors de l\'envoi de l\'avis.';
+                }
+                setError(errorMsg);
             }
         } catch (err) {
             setError('Erreur réseau lors de l\'envoi de l\'avis.');
@@ -214,7 +228,7 @@ const ReviewPage: React.FC = () => {
                     <h2 className="text-2xl font-bold text-gray-800 mb-2">Avis envoyé !</h2>
                     <p className="text-gray-600 mb-4">Merci pour votre évaluation. Elle aide à améliorer nos services.</p>
                     <div className="animate-pulse">
-                        <p className="text-sm text-gray-500">Redirection vers le tableau de bord...</p>
+                        <p className="text-sm text-gray-500">Redirection vers le tableau de bord client...</p>
                     </div>
                 </div>
             </div>
@@ -269,7 +283,7 @@ const ReviewPage: React.FC = () => {
                             <div className="flex items-center justify-between">
                                 <div>
                                     <h2 className="text-xl font-semibold text-gray-800 mb-2">
-                                        {request.technician.user.first_name} {request.technician.user.last_name}
+                                        {request.technician?.user?.first_name || 'Prénom'} {request.technician?.user?.last_name || 'Nom'}
                                     </h2>
                                     <p className="text-gray-600 mb-2">{request.technician.specialty}</p>
                                     <div className="flex items-center space-x-4 text-sm text-gray-500">
@@ -417,8 +431,8 @@ const ReviewPage: React.FC = () => {
                                             type="button"
                                             onClick={() => setForm(prev => ({ ...prev, would_recommend: true }))}
                                             className={`flex items-center px-4 py-2 rounded-lg transition-colors ${form.would_recommend
-                                                    ? 'bg-green-100 text-green-700 border-2 border-green-300'
-                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                ? 'bg-green-100 text-green-700 border-2 border-green-300'
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                                 }`}
                                         >
                                             <ThumbsUp className="h-4 w-4 mr-2" />
@@ -428,8 +442,8 @@ const ReviewPage: React.FC = () => {
                                             type="button"
                                             onClick={() => setForm(prev => ({ ...prev, would_recommend: false }))}
                                             className={`flex items-center px-4 py-2 rounded-lg transition-colors ${!form.would_recommend
-                                                    ? 'bg-red-100 text-red-700 border-2 border-red-300'
-                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                ? 'bg-red-100 text-red-700 border-2 border-red-300'
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                                 }`}
                                         >
                                             <ThumbsDown className="h-4 w-4 mr-2" />
@@ -474,8 +488,8 @@ const ReviewPage: React.FC = () => {
                                     type="submit"
                                     disabled={submitting || !form.rating || !form.punctuality_rating || !form.quality_rating || !form.communication_rating}
                                     className={`inline-flex items-center px-8 py-4 rounded-xl font-semibold text-lg transition-all transform hover:scale-105 ${submitting || !form.rating || !form.punctuality_rating || !form.quality_rating || !form.communication_rating
-                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                            : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg'
+                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg'
                                         }`}
                                 >
                                     {submitting ? (

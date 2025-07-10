@@ -90,31 +90,17 @@ const TechnicianRequestsMap: React.FC<TechnicianRequestsMapProps> = ({ requests,
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 />
-                {filtered.map((req) => {
-                    const incoherent = !isCoherent(req.quartier, req.city);
-                    return (
-                        <Marker
-                            key={req.id}
-                            position={[req.latitude, req.longitude]}
-                            {...(incoherent ? { icon: alertIcon } : {})}
-                        >
-                            <Popup>
-                                <div>
-                                    <div className="font-bold text-blue-700 mb-1">{req.service}</div>
-                                    <div className="text-sm text-gray-700 mb-1">{req.address}</div>
-                                    <div className="text-xs text-gray-500 mb-1">{req.quartier ? req.quartier + ', ' : ''}{req.city}</div>
-                                    <div className="text-xs text-gray-500 mb-1">Client : {req.client}</div>
-                                    <div className="text-xs mb-1">Statut : <span className="font-semibold">{req.status}</span></div>
-                                    {req.is_urgent && <div className="text-xs text-red-600 font-bold">Urgence</div>}
-                                    {/* Badge incohérence */}
-                                    {incoherent && (
-                                        <div className="inline-block bg-red-600 text-white text-xs font-bold px-2 py-1 rounded mt-2">Incohérence quartier/commune</div>
-                                    )}
-                                </div>
-                            </Popup>
-                        </Marker>
-                    );
-                })}
+                {filtered.filter(req => typeof req.latitude === 'number' && typeof req.longitude === 'number' && !isNaN(req.latitude) && !isNaN(req.longitude)).map(req => (
+                    <Marker key={req.id} position={[req.latitude, req.longitude]} icon={alertIcon}>
+                        <Popup>
+                            <div className="text-center">
+                                <div className="font-bold text-red-700 mb-1">Incohérence</div>
+                                <div className="text-sm text-gray-800 mb-1">{req.address}</div>
+                                <div className="text-xs text-gray-700">{req.city} - {req.quartier}</div>
+                            </div>
+                        </Popup>
+                    </Marker>
+                ))}
             </MapContainer>
         </div>
     );

@@ -4,6 +4,14 @@ from .models import SystemConfiguration
 # Create your tests here.
 
 class SystemConfigurationTestCase(TestCase):
+    def setUp(self):
+        SystemConfiguration.objects.create(
+            key='test_config',
+            value='valeur de test',
+            description='Configuration système de test',
+            is_active=True
+        )
+
     def test_system_configuration_exists(self):
         """Vérifie qu'au moins une configuration système existe dans la base."""
         count = SystemConfiguration.objects.count()

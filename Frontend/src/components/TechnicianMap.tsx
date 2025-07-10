@@ -256,7 +256,7 @@ const TechnicianMap: React.FC<TechnicianMapProps> = ({ showOnlyIncoherent }) => 
         <>
           <div className="w-full h-[400px] rounded-lg overflow-hidden mb-6">
             <MapContainer
-              center={userLocation || [0, 0]}
+              center={userLocation && typeof userLocation[0] === 'number' && typeof userLocation[1] === 'number' && !isNaN(userLocation[0]) && !isNaN(userLocation[1]) ? userLocation : [0, 0]}
               zoom={13}
               style={{ height: '100%', width: '100%' }}
             >
@@ -265,48 +265,20 @@ const TechnicianMap: React.FC<TechnicianMapProps> = ({ showOnlyIncoherent }) => 
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               />
 
-              {userLocation && (
+              {userLocation && typeof userLocation[0] === 'number' && typeof userLocation[1] === 'number' && !isNaN(userLocation[0]) && !isNaN(userLocation[1]) && (
                 <Marker position={userLocation}>
                   <Popup>Votre position</Popup>
                 </Marker>
               )}
 
               {/* Afficher tous les techniciens proches */}
-              {technicians.map((tech) => (
-                <Marker
-                  key={tech.id}
-                  position={[tech.latitude, tech.longitude]}
-                  icon={!isCoherent(tech.quartier, tech.city) ? alertIcon : undefined}
-                >
-                  <Popup>
-                    <div>
-                      <h3 className="font-bold">{tech.name}</h3>
-                      <p>{tech.specialty}</p>
-                      <p>Distance: {Math.round(tech.distance * 10) / 10} km</p>
-                      <p>Expérience: {tech.experience_level}</p>
-                      <p>Note: {tech.average_rating.toFixed(1)}/5</p>
-                      <p>Temps de réponse: {tech.response_time_minutes} min</p>
-                      <p>Badge: Niveau {tech.badge_level}</p>
-                      {tech.is_available_urgent && (
-                        <p className="text-red-500 font-bold">Disponible en urgence</p>
-                      )}
-                      {/* Badge incohérence */}
-                      {!isCoherent(tech.quartier, tech.city) && (
-                        <div className="inline-block bg-red-600 text-white text-xs font-bold px-2 py-1 rounded mt-2">Incohérence quartier/commune</div>
-                      )}
-                      <button
-                        className="mt-2 bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-sm"
-                        onClick={() => {
-                          // Implémenter la logique d'envoi de demande
-                          console.log('Envoi demande au technicien:', tech.id);
-                        }}
-                      >
-                        Envoyer une demande
-                      </button>
-                    </div>
-                  </Popup>
-                </Marker>
-              ))}
+              {technicians.filter(tech => typeof tech.latitude === 'number' && typeof tech.longitude === 'number' && !isNaN(tech.latitude) && !isNaN(tech.longitude)).map(
+                (tech, idx) => (
+                  <Marker key={idx} position={[tech.latitude, tech.longitude]}>
+                    <Popup>{tech.name || 'Technicien'}</Popup>
+                  </Marker>
+                )
+              )}
             </MapContainer>
           </div>
 
