@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { fetchWithAuth } from "../contexts/fetchWithAuth";
-import { CheckCircle, X, AlertTriangle, Eye, RefreshCw, Download, Filter, Search, CreditCard, DollarSign, TrendingUp, Calendar, Info, User, Shield, Clock } from "lucide-react";
+import { CheckCircle, X, AlertTriangle, Eye, RefreshCw, Download, Filter, Search, CreditCard, DollarSign, TrendingUp, Calendar, Info, User, Shield, Clock, FileText } from "lucide-react";
 import ErrorToast from '../components/ErrorToast';
 
 interface Payment {
@@ -21,6 +21,7 @@ interface Payment {
     platform_fee?: number;
     payment_gateway?: string;
     refund_reason?: string;
+    notification_data?: any; // Ajout du champ notification_data
 }
 
 interface PaymentStats {
@@ -672,6 +673,20 @@ function AdminPayments() {
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">Raison du remboursement</label>
                                         <p className="text-sm text-gray-900">{selectedPayment.refund_reason}</p>
+                                    </div>
+                                )}
+
+                                {selectedPayment.notification_data && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 flex items-center">
+                                            <FileText className="h-4 w-4 mr-2 text-blue-600" />
+                                            Notification CinetPay
+                                        </label>
+                                        <div className="mt-2 bg-gray-50 rounded-lg p-3">
+                                            <pre className="text-xs text-gray-800 overflow-x-auto whitespace-pre-wrap max-h-40 overflow-y-auto">
+                                                {JSON.stringify(selectedPayment.notification_data, null, 2)}
+                                            </pre>
+                                        </div>
                                     </div>
                                 )}
 

@@ -6,6 +6,7 @@ import TechnicianRequestsMap from '../components/TechnicianRequestsMap';
 import ReputationBadge from '../components/ReputationBadge';
 import RewardsPanel from '../components/RewardsPanel';
 import SubscriptionPanel from '../components/SubscriptionPanel';
+import SubscriptionStatusWidget from '../components/SubscriptionStatusWidget';
 import TechnicianProfile from '../components/TechnicianProfile';
 import LocationTrackingControl from '../components/LocationTrackingControl';
 import LiveLocationMap from '../components/LiveLocationMap';
@@ -911,9 +912,11 @@ const TechnicianDashboard: React.FC = () => {
                         : 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg'
                         }`}>
                         <span className="mr-2">
-                          {subscription.is_active ? '⭐' : '⚠️'}
+                          {subscription.is_active ? '✅' : '⚠️'}
                         </span>
-                        {subscription.is_active ? 'Abonnement Premium Actif' : 'Abonnement Expiré'}
+                        {subscription.is_active
+                          ? 'Abonnement actif – Merci pour votre confiance !'
+                          : 'Abonnement Expiré'}
                         {subscription.is_active && subscription.expires_at && (
                           <span className="ml-2 text-xs opacity-90">
                             (Expire le {new Date(subscription.expires_at).toLocaleDateString('fr-FR')})
@@ -1881,6 +1884,17 @@ const TechnicianDashboard: React.FC = () => {
                 {activeTab === 'subscription' && (
                   <div>
                     <h2 className="text-xl font-semibold mb-4 text-gray-800">Gestion de l'Abonnement</h2>
+
+                    {/* Widget de statut en temps réel */}
+                    <div className="mb-6">
+                      <SubscriptionStatusWidget
+                        autoRefresh={true}
+                        refreshInterval={30000} // 30 secondes
+                        showDetails={true}
+                      />
+                    </div>
+
+                    {/* Panel de gestion d'abonnement */}
                     <SubscriptionPanel technicianId={user?.technician?.id || 0} />
                   </div>
                 )}

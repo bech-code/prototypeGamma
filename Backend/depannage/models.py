@@ -953,6 +953,7 @@ class CinetPayPayment(models.Model):
     cinetpay_transaction_id = models.CharField(
         "ID Transaction CinetPay", max_length=100, blank=True, null=True
     )
+    notification_data = models.JSONField("Notification brute CinetPay", null=True, blank=True)
 
     # Statut et métadonnées
     status = models.CharField(
@@ -1093,6 +1094,7 @@ class TechnicianSubscription(models.Model):
         verbose_name = "Abonnement technicien"
         verbose_name_plural = "Abonnements techniciens"
         ordering = ['-end_date']
+        unique_together = ('technician', 'start_date', 'end_date')
 
 
 class SubscriptionPaymentRequest(BaseTimeStampModel):

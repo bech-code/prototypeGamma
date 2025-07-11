@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import Group, Permission
+from django.contrib.contenttypes.models import ContentType
 
 TECHNICIEN_PERMS = [
     ("depannage", "repairrequest", "view_repairrequest"),
@@ -27,54 +28,52 @@ TECHNICIEN_PERMS = [
 CLIENT_PERMS = [
     ("depannage", "repairrequest", "add_repairrequest"),
     ("depannage", "repairrequest", "view_repairrequest"),
-    ("depannage", "review", "add_review"),
-    ("depannage", "review", "view_review"),
-    ("depannage", "payment", "add_payment"),
+    ("depannage", "repairrequest", "change_repairrequest"),
+    ("depannage", "repairrequest", "delete_repairrequest"),
+    ("depannage", "client", "view_client"),
+    ("depannage", "client", "change_client"),
+    # ("depannage", "payment", "add_payment"),  # Désactivé côté client
     ("depannage", "payment", "view_payment"),
-    ("depannage", "message", "add_message"),
-    ("depannage", "message", "view_message"),
     ("depannage", "notification", "add_notification"),
     ("depannage", "notification", "view_notification"),
+    ("depannage", "message", "add_message"),
+    ("depannage", "message", "view_message"),
     ("depannage", "messageattachment", "add_messageattachment"),
     ("depannage", "messageattachment", "view_messageattachment"),
     ("depannage", "conversation", "add_conversation"),
     ("depannage", "conversation", "view_conversation"),
-    ("depannage", "client", "view_client"),
-    ("depannage", "client", "change_client"),
+    ("depannage", "review", "add_review"),
+    ("depannage", "review", "view_review"),
     ("depannage", "reward", "view_reward"),
     ("depannage", "rewardclaim", "add_rewardclaim"),
     ("depannage", "loyaltyprogram", "view_loyaltyprogram"),
+    ("users", "user", "change_user"),
 ]
 
-def get_permissions_by_codename(perm_tuples):
-    perms = []
-    for app_label, model, codename in perm_tuples:
-        try:
-            perm = Permission.objects.get(
-                content_type__app_label=app_label,
-                content_type__model=model,
-                codename=codename
-            )
-        except Permission.DoesNotExist:
-            print(f"Permission non trouvée : {app_label} | {model} | {codename}")
-            continue
-        perms.append(perm)
-    return perms
-
 class Command(BaseCommand):
-    help = "Attribue automatiquement les permissions aux groupes Technicien, Client et Admin"
+    help = "Assigne les permissions professionnelles et sécurisées aux groupes Technicien et Client."
 
     def handle(self, *args, **options):
-        technicien_group, _ = Group.objects.get_or_create(name="Technicien")
+        # Technicien
+        tech_group, _ = Group.objects.get_or_create(name="Technicien")
+        tech_group.permissions.clear()
+        for app, model, codename in TECHNICIEN_PERMS:
+            try:
+                ct = ContentType.objects.get(app_label=app, model=model)
+                perm = Permission.objects.get(content_type=ct, codename=codename)
+                tech_group.permissions.add(perm)
+            except Exception as e:
+                self.stdout.write(self.style.WARNING(f"Permission manquante pour Technicien: {app}.{model}.{codename} ({e})"))
+        self.stdout.write(self.style.SUCCESS("Permissions mises à jour pour le groupe Technicien."))
+
+        # Client
         client_group, _ = Group.objects.get_or_create(name="Client")
-        admin_group, _ = Group.objects.get_or_create(name="Admin")
-
-        technicien_perms = get_permissions_by_codename(TECHNICIEN_PERMS)
-        client_perms = get_permissions_by_codename(CLIENT_PERMS)
-        all_perms = Permission.objects.all()
-
-        technicien_group.permissions.set(technicien_perms)
-        client_group.permissions.set(client_perms)
-        admin_group.permissions.set(all_perms)
-
-        self.stdout.write(self.style.SUCCESS("Permissions attribuées avec succès aux groupes Technicien, Client et Admin.")) 
+        client_group.permissions.clear()
+        for app, model, codename in CLIENT_PERMS:
+            try:
+                ct = ContentType.objects.get(app_label=app, model=model)
+                perm = Permission.objects.get(content_type=ct, codename=codename)
+                client_group.permissions.add(perm)
+            except Exception as e:
+                self.stdout.write(self.style.WARNING(f"Permission manquante pour Client: {app}.{model}.{codename} ({e})"))
+        self.stdout.write(self.style.SUCCESS("Permissions mises à jour pour le groupe Client.")) 

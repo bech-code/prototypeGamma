@@ -148,6 +148,17 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.save()
 
+        # Attribution automatique au groupe Django
+        from django.contrib.auth.models import Group
+        group_name = None
+        if user_type == 'client':
+            group_name = 'Client'
+        elif user_type == 'technician':
+            group_name = 'Technicien'
+        if group_name:
+            group, _ = Group.objects.get_or_create(name=group_name)
+            user.groups.add(group)
+
         # Création du profil lié
         if user_type == 'client':
             Client.objects.create(user=user, address=address, phone=phone)
@@ -165,11 +176,25 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
                 address=address
             )
             # 2. Technicien (depannage)
-            DepannageTechnician.objects.create(
+            DepannageTechnician = DepannageTechnician.objects.create(
                 user=user,
                 specialty=specialty,
                 years_experience=years_experience,
-                phone=phone
+                phone=phone,
+                is_available=True,  # Disponible par défaut
+                is_verified=True    # Vérifié par défaut
+            )
+            # 2b. Créer un abonnement actif de 1 mois dès l'inscription
+            from depannage.models import TechnicianSubscription
+            from django.utils import timezone
+            from datetime import timedelta
+            now = timezone.now()
+            TechnicianSubscription.objects.create(
+                technician=DepannageTechnician,
+                plan_name="Abonnement initial offert",
+                start_date=now,
+                end_date=now + timedelta(days=30),
+                is_active=True
             )
             # 3. Pièces jointes
             PieceJointe.objects.create(

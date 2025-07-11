@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Clock, AlertTriangle, CheckCircle, Download, RefreshCw, AlertCircle, Calendar, DollarSign, ExternalLink } from 'lucide-react';
+import { CreditCard, Clock, AlertTriangle, CheckCircle, Download, RefreshCw, AlertCircle, Calendar, DollarSign, ExternalLink, Eye, FileText, X } from 'lucide-react';
 import { fetchWithAuth } from '../contexts/fetchWithAuth';
 
 interface Payment {
@@ -10,6 +10,7 @@ interface Payment {
     created_at: string;
     transaction_id?: string;
     description?: string;
+    notification_data?: any; // Ajout du champ notification_data
 }
 
 interface Subscription {
@@ -39,6 +40,8 @@ const SubscriptionPanel: React.FC<SubscriptionPanelProps> = ({ technicianId }) =
     const [success, setSuccess] = useState<string | null>(null);
     const [selectedDuration, setSelectedDuration] = useState(1);
     const [showRenewModal, setShowRenewModal] = useState(false);
+    const [showNotificationModal, setShowNotificationModal] = useState(false);
+    const [selectedNotification, setSelectedNotification] = useState<any>(null);
 
     // Tarifs clairs : 5000 FCFA/mois
     const durationOptions = [
@@ -117,8 +120,8 @@ const SubscriptionPanel: React.FC<SubscriptionPanelProps> = ({ technicianId }) =
                 const data = await response.json();
 
                 if (data.success && data.payment_url) {
-                    // Redirection vers CinetPay
-                    setSuccess(`Redirection vers CinetPay pour le paiement de ${data.amount} FCFA...`);
+                    // Redirection vers CinetPay (ou page de succès en mode test)
+                    setSuccess(`Redirection vers le paiement de ${data.amount} FCFA...`);
                     setTimeout(() => {
                         window.location.href = data.payment_url;
                     }, 1500);
@@ -127,7 +130,13 @@ const SubscriptionPanel: React.FC<SubscriptionPanelProps> = ({ technicianId }) =
                 }
             } else {
                 const errorData = await response.json();
-                setError(errorData.error || 'Erreur lors de l\'initiation du paiement.');
+
+                // Gestion spécifique des erreurs
+                if (errorData.error && errorData.error.includes("abonnement actif")) {
+                    setError("Vous avez déjà un abonnement actif. Vous ne pouvez pas souscrire à un nouvel abonnement tant que l'actuel est valide.");
+                } else {
+                    setError(errorData.error || 'Erreur lors de l\'initiation du paiement.');
+                }
             }
         } catch (err) {
             console.error('Erreur lors de l\'initiation du paiement:', err);
@@ -158,6 +167,11 @@ const SubscriptionPanel: React.FC<SubscriptionPanelProps> = ({ technicianId }) =
         } catch (err) {
             setError('Erreur réseau lors du téléchargement');
         }
+    };
+
+    const openNotificationModal = (notificationData: any) => {
+        setSelectedNotification(notificationData);
+        setShowNotificationModal(true);
     };
 
     const getStatusColor = (status: string) => {
@@ -418,6 +432,9 @@ const SubscriptionPanel: React.FC<SubscriptionPanelProps> = ({ technicianId }) =
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Transaction
                                     </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Détails
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
@@ -439,6 +456,20 @@ const SubscriptionPanel: React.FC<SubscriptionPanelProps> = ({ technicianId }) =
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             {payment.transaction_id || 'N/A'}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            {payment.notification_data ? (
+                                                <button
+                                                    onClick={() => openNotificationModal(payment.notification_data)}
+                                                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                                                    title="Voir la notification CinetPay"
+                                                >
+                                                    <FileText className="h-3 w-3 mr-1" />
+                                                    Notification
+                                                </button>
+                                            ) : (
+                                                <span className="text-gray-400 text-xs">N/A</span>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}
@@ -544,6 +575,42 @@ const SubscriptionPanel: React.FC<SubscriptionPanelProps> = ({ technicianId }) =
                                         Payer maintenant
                                     </>
                                 )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de notification brute */}
+            {showNotificationModal && selectedNotification && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+                                <FileText className="h-5 w-5 mr-2 text-blue-600" />
+                                Notification CinetPay
+                            </h3>
+                            <button
+                                onClick={() => setShowNotificationModal(false)}
+                                className="text-gray-400 hover:text-gray-600"
+                            >
+                                <X className="h-6 w-6" />
+                            </button>
+                        </div>
+
+                        <div className="bg-gray-50 rounded-lg p-4">
+                            <h4 className="text-sm font-medium text-gray-700 mb-2">Données brutes reçues de CinetPay :</h4>
+                            <pre className="text-xs text-gray-800 overflow-x-auto whitespace-pre-wrap">
+                                {JSON.stringify(selectedNotification, null, 2)}
+                            </pre>
+                        </div>
+
+                        <div className="mt-4 flex justify-end">
+                            <button
+                                onClick={() => setShowNotificationModal(false)}
+                                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                            >
+                                Fermer
                             </button>
                         </div>
                     </div>

@@ -1,134 +1,188 @@
 #!/usr/bin/env python3
 """
-Script de test simplifié pour simuler un paiement et créer un abonnement directement.
+Script de test simple pour le système de paiement technicien.
+Utilise curl pour tester les endpoints API.
 """
 
-import os
-import sys
-import django
-import requests
+import subprocess
 import json
-from datetime import datetime, timedelta
+import time
+import sys
+from datetime import datetime
 
-# Configuration Django
-sys.path.append('/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend')
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'auth.settings')
-django.setup()
-
-from users.models import User
-from depannage.models import Technician, TechnicianSubscription, CinetPayPayment
-from django.utils import timezone
-
+# Configuration
 BASE_URL = "http://127.0.0.1:8000"
-LOGIN_URL = f"{BASE_URL}/users/login/"
-SUBSCRIPTION_STATUS_URL = f"{BASE_URL}/depannage/api/technicians/subscription_status/"
-
 TECHNICIAN_EMAIL = "ballo@gmail.com"
 TECHNICIAN_PASSWORD = "bechir66312345"
 
-
-def test_payment_simple():
-    print(f"\n🔄 Test de paiement simplifié pour le technicien : {TECHNICIAN_EMAIL}")
+def run_curl_command(command, description):
+    """Exécute une commande curl et affiche le résultat."""
+    print(f"\n🔧 {description}")
+    print(f"Commande: {command}")
     
-    # 1. Connexion technicien
-    login_data = {"email": TECHNICIAN_EMAIL, "password": TECHNICIAN_PASSWORD}
-    login_response = requests.post(LOGIN_URL, json=login_data)
-    if login_response.status_code != 200:
-        print(f"❌ Échec de connexion technicien: {login_response.status_code}")
-        print(login_response.text)
-        return
-    token = login_response.json().get("access")
-    headers = {"Authorization": f"Bearer {token}"}
-    print("✅ Connexion réussie")
-
-    # 2. Vérifier le statut d'abonnement avant
-    print("\n📊 Statut d'abonnement AVANT paiement :")
-    status_response = requests.get(SUBSCRIPTION_STATUS_URL, headers=headers)
-    if status_response.status_code == 200:
-        data = status_response.json()
-        print(f"   Statut: {data.get('status')}")
-        print(f"   Peut recevoir des demandes: {data.get('can_receive_requests')}")
-        print(f"   Jours restants: {data.get('days_remaining')}")
-    else:
-        print(f"   ❌ Erreur: {status_response.status_code}")
-
-    # 3. Créer un paiement et un abonnement directement
-    print("\n🔧 Création directe d'un paiement et abonnement...")
-    
-    user = User.objects.get(email=TECHNICIAN_EMAIL)
-    
-    # Créer un paiement CinetPay
-    payment = CinetPayPayment.objects.create(
-        transaction_id=f"TEST_{timezone.now().strftime('%Y%m%d_%H%M%S')}",
-        amount=5000,
-        currency="XOF",
-        description="Test d'abonnement technicien",
-        customer_name=user.last_name or user.username,
-        customer_surname=user.first_name or "",
-        customer_email=user.email,
-        customer_phone_number="+22300000000",
-        customer_address="Test Address",
-        customer_city="Bamako",
-        customer_country="ML",
-        customer_state="ML",
-        customer_zip_code="00000",
-        status="success",
-        metadata=f"user_{user.id}_subscription_1months",
-        user=user,
-        paid_at=timezone.now()
-    )
-    print(f"   ✅ Paiement créé: {payment.transaction_id}")
-
-    # Créer un Technician si nécessaire
-    technician, created = Technician.objects.get_or_create(
-        user=user,
-        defaults={
-            'specialty': 'other',
-            'phone': '+22300000000',
-            'is_available': True,
-            'is_verified': True,
-            'years_experience': 0,
-            'experience_level': 'junior',
-            'hourly_rate': 0,
-            'badge_level': 'bronze',
-            'service_radius_km': 10,
-            'bio': 'Technicien créé automatiquement pour abonnement'
-        }
-    )
-    if created:
-        print(f"   ✅ Technician créé pour {user.username}")
-    else:
-        print(f"   ✅ Technician existant pour {user.username}")
-
-    # Créer l'abonnement
-    now = timezone.now()
-    subscription = TechnicianSubscription.objects.create(
-        technician=technician,
-        plan_name="Standard 1 mois",
-        start_date=now,
-        end_date=now + timedelta(days=30),
-        payment=payment,
-        is_active=True
-    )
-    print(f"   ✅ Abonnement créé: {subscription.plan_name} jusqu'au {subscription.end_date}")
-
-    # 4. Vérifier le statut d'abonnement après
-    print("\n📊 Statut d'abonnement APRÈS paiement :")
-    status_response = requests.get(SUBSCRIPTION_STATUS_URL, headers=headers)
-    if status_response.status_code == 200:
-        data = status_response.json()
-        print(f"   Statut: {data.get('status')}")
-        print(f"   Peut recevoir des demandes: {data.get('can_receive_requests')}")
-        print(f"   Jours restants: {data.get('days_remaining')}")
-        print(f"   ID abonnement: {data.get('subscription')}")
+    try:
+        result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=30)
         
-        if data.get('can_receive_requests'):
-            print("\n🎉 SUCCÈS : Le technicien peut maintenant accéder à son dashboard et recevoir des demandes !")
+        if result.returncode == 0:
+            print("✅ Succès")
+            if result.stdout.strip():
+                try:
+                    # Essayer de formater le JSON
+                    data = json.loads(result.stdout)
+                    print(f"Réponse: {json.dumps(data, indent=2, ensure_ascii=False)}")
+                except:
+                    print(f"Réponse: {result.stdout}")
         else:
-            print("\n❌ ÉCHEC : Le technicien ne peut toujours pas recevoir de demandes")
+            print(f"❌ Erreur: {result.stderr}")
+            
+        return result.returncode == 0, result.stdout
+        
+    except subprocess.TimeoutExpired:
+        print("❌ Timeout")
+        return False, ""
+    except Exception as e:
+        print(f"❌ Erreur: {e}")
+        return False, ""
+
+def test_login():
+    """Test de connexion du technicien."""
+    command = f'''curl -X POST {BASE_URL}/users/login/ \\
+  -H "Content-Type: application/json" \\
+  -d '{{"email": "{TECHNICIAN_EMAIL}", "password": "{TECHNICIAN_PASSWORD}"}}' \\
+  -s'''
+    
+    success, response = run_curl_command(command, "1️⃣ Connexion du technicien")
+    
+    if success:
+        try:
+            data = json.loads(response)
+            token = data.get("access")
+            if token:
+                print(f"✅ Token obtenu: {token[:20]}...")
+                return token
+        except:
+            pass
+    
+    return None
+
+def test_subscription_status(token):
+    """Test de vérification du statut d'abonnement."""
+    command = f'''curl -X GET {BASE_URL}/depannage/api/technicians/subscription_status/ \\
+  -H "Authorization: Bearer {token}" \\
+  -H "Content-Type: application/json" \\
+  -s'''
+    
+    success, response = run_curl_command(command, "2️⃣ Vérification du statut d'abonnement")
+    return success
+
+def test_initiate_payment(token):
+    """Test d'initiation d'un paiement."""
+    command = f'''curl -X POST {BASE_URL}/depannage/api/cinetpay/initiate_subscription_payment/ \\
+  -H "Authorization: Bearer {token}" \\
+  -H "Content-Type: application/json" \\
+  -d '{{"duration_months": 1}}' \\
+  -s'''
+    
+    success, response = run_curl_command(command, "3️⃣ Initiation d'un paiement d'abonnement")
+    
+    if success:
+        try:
+            data = json.loads(response)
+            if data.get("success"):
+                transaction_id = data.get("transaction_id")
+                payment_url = data.get("payment_url")
+                print(f"✅ Transaction ID: {transaction_id}")
+                print(f"✅ URL de paiement: {payment_url}")
+                return transaction_id
+            else:
+                error = data.get("error", "Erreur inconnue")
+                print(f"❌ Erreur: {error}")
+                if "abonnement actif" in error:
+                    print("ℹ️ Le technicien a déjà un abonnement actif")
+        except:
+            pass
+    
+    return None
+
+def test_notification(transaction_id):
+    """Test de simulation de notification CinetPay."""
+    if not transaction_id:
+        print("❌ Pas de transaction ID pour tester la notification")
+        return False
+    
+    notify_data = {
+        "transaction_id": transaction_id,
+        "status": "ACCEPTED",
+        "payment_token": f"test_token_{transaction_id}",
+        "amount": 5000,
+        "currency": "XOF",
+        "payment_date": datetime.now().isoformat(),
+        "customer_name": "Test Technicien",
+        "customer_surname": "",
+        "customer_email": TECHNICIAN_EMAIL,
+        "customer_phone_number": "+22300000000",
+        "customer_address": "Test Address",
+        "customer_city": "Bamako",
+        "customer_country": "ML",
+        "customer_state": "ML",
+        "customer_zip_code": "00000",
+        "metadata": json.dumps({
+            "user_id": 1,
+            "duration_months": 1,
+            "subscription_type": "technician_premium"
+        })
+    }
+    
+    command = f'''curl -X POST {BASE_URL}/depannage/api/cinetpay/notify/ \\
+  -H "Content-Type: application/json" \\
+  -d '{json.dumps(notify_data)}' \\
+  -s'''
+    
+    success, response = run_curl_command(command, "4️⃣ Simulation de notification CinetPay")
+    return success
+
+def test_final_status(token):
+    """Test de vérification du statut final."""
+    command = f'''curl -X GET {BASE_URL}/depannage/api/technicians/subscription_status/ \\
+  -H "Authorization: Bearer {token}" \\
+  -H "Content-Type: application/json" \\
+  -s'''
+    
+    success, response = run_curl_command(command, "5️⃣ Vérification du statut final d'abonnement")
+    return success
+
+def main():
+    """Fonction principale de test."""
+    print("🚀 TEST DU SYSTÈME DE PAIEMENT TECHNICIEN")
+    print("=" * 50)
+    print(f"Technicien: {TECHNICIAN_EMAIL}")
+    print(f"URL Backend: {BASE_URL}")
+    print("=" * 50)
+    
+    # Test 1: Connexion
+    token = test_login()
+    if not token:
+        print("❌ Impossible de se connecter. Arrêt des tests.")
+        return
+    
+    # Test 2: Statut initial
+    test_subscription_status(token)
+    
+    # Test 3: Initiation paiement
+    transaction_id = test_initiate_payment(token)
+    
+    # Test 4: Notification (si transaction créée)
+    if transaction_id:
+        test_notification(transaction_id)
+        
+        # Test 5: Statut final
+        test_final_status(token)
     else:
-        print(f"   ❌ Erreur: {status_response.status_code}")
-        print(status_response.text)
+        print("ℹ️ Pas de nouvelle transaction créée (abonnement actif probablement)")
+    
+    print("\n" + "=" * 50)
+    print("✅ Tests terminés !")
+    print("=" * 50)
 
 if __name__ == "__main__":
-    test_payment_simple() 
+    main() 

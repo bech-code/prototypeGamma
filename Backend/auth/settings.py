@@ -18,8 +18,8 @@ from django.utils import timezone
 
 # Définir le chemin de base du projet
 BASE_DIR = Path(__file__).resolve().parent.parent
-# Charger les variables d'environnement depuis un fichier .env à la racine du Backend
-load_dotenv(dotenv_path=str(BASE_DIR / ".env"), override=True)
+# Charger les variables d'environnement depuis un fichier .env à la racine du projet
+load_dotenv(dotenv_path=str(BASE_DIR.parent / ".env"), override=True)
 
 # Configuration GDAL pour GeoDjango
 GDAL_LIBRARY_PATH = r'C:\OSGeo4W\bin\gdal311.dll'
@@ -181,6 +181,25 @@ X_FRAME_OPTIONS = 'DENY'  # Interdit l'affichage du site dans une iframe
 BASE_URL = os.getenv('BASE_URL', 'http://127.0.0.1:8000')
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://127.0.0.1:5173')
 
+# Configuration CinetPay
+CINETPAY_API_KEY = os.getenv("CINETPAY_API_KEY", "1152009869685a9c56400b55.82198885")
+CINETPAY_SITE_ID = os.getenv("CINETPAY_SITE_ID", "105899471")
+CINETPAY_SECRET_KEY = os.getenv("CINETPAY_SECRET_KEY", "656493989685a9ce7af2bd8.69452364")
+CINETPAY_ENVIRONMENT = os.getenv("CINETPAY_ENVIRONMENT", "TEST")
+CINETPAY_USE_SIMULATOR = os.getenv("CINETPAY_USE_SIMULATOR", "True") == "True"
+
+# Configuration CinetPay pour l'API
+CINETPAY_CONFIG = {
+    "API_KEY": CINETPAY_API_KEY,
+    "SITE_ID": CINETPAY_SITE_ID,
+    "SECRET_KEY": CINETPAY_SECRET_KEY,
+    "ENVIRONMENT": CINETPAY_ENVIRONMENT,
+    "USE_SIMULATOR": CINETPAY_USE_SIMULATOR,
+    "API_URL": "https://api-checkout.cinetpay.com/v2/payment",
+    "CURRENCY": "XOF",
+    "LANG": "fr",
+}
+
 # Utilisation d'un modèle utilisateur personnalisé
 AUTH_USER_MODEL = 'users.User'
 
@@ -227,8 +246,8 @@ SIMPLE_JWT = {
 
 # Configuration pour l'intégration de CinetPay (paiement en ligne)
 CINETPAY_CONFIG = {
-    'API_KEY': os.getenv('CINETPAY_API_KEY', ''),
-    'SITE_ID': os.getenv('CINETPAY_SITE_ID', ''),
+    'API_KEY': os.getenv('CINETPAY_API_KEY', 'test_api_key_123456789'),
+    'SITE_ID': os.getenv('CINETPAY_SITE_ID', 'test_site_id_123456'),
     'API_URL': 'https://api-checkout.cinetpay.com/v2/payment',
     'CURRENCY': 'XOF',
     'LANG': 'fr',

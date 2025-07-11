@@ -1,7 +1,7 @@
 import axios from "axios";
 
 export const fetchAdminStats = async () => {
-    const res = await axios.get("/depannage/api/admin/statistics/", {
+    const res = await axios.get("/depannage/api/dashboard/stats/", {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
     });
     return res.data;

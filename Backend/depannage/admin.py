@@ -1,16 +1,17 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from django.urls import reverse
-from django.utils.safestring import mark_safe
-from django.db.models import Count, Avg, Q
-from django.contrib.admin import SimpleListFilter
 from django.utils import timezone
 from datetime import timedelta
+from django.db.models import Sum, Avg, Count
+from django.urls import reverse
+from django.utils.safestring import mark_safe
+from django.contrib.admin import SimpleListFilter
 
 from .models import (
     Client, Technician, RepairRequest, RequestDocument, Review, 
     Payment, Conversation, Message, MessageAttachment, 
-    Notification, TechnicianLocation, SystemConfiguration, CinetPayPayment, ClientLocation, Report, AdminNotification
+    Notification, TechnicianLocation, SystemConfiguration, CinetPayPayment, ClientLocation, Report, AdminNotification,
+    TechnicianSubscription, SubscriptionPaymentRequest
 )
 
 
@@ -714,7 +715,7 @@ class CinetPayPaymentAdmin(admin.ModelAdmin):
     )
     readonly_fields = (
         'transaction_id', 'payment_token', 'payment_url', 'cinetpay_transaction_id',
-        'created_at', 'updated_at', 'paid_at'
+        'created_at', 'updated_at', 'paid_at', 'notification_data_pretty'
     )
     date_hierarchy = 'created_at'
     
@@ -736,7 +737,7 @@ class CinetPayPaymentAdmin(admin.ModelAdmin):
             'fields': ('request', 'user')
         }),
         ('Métadonnées', {
-            'fields': ('metadata', 'invoice_data'),
+            'fields': ('metadata', 'invoice_data', 'notification_data_pretty'),
             'classes': ('collapse',)
         }),
         ('Timestamps', {
@@ -787,6 +788,15 @@ class CinetPayPaymentAdmin(admin.ModelAdmin):
         return "N/A"
     payment_method_display.short_description = "Méthode de paiement"
 
+    def notification_data_pretty(self, obj):
+        import json
+        if obj.notification_data:
+            return format_html('<pre style="max-width:700px;overflow:auto;">{}</pre>',
+                json.dumps(obj.notification_data, indent=2, ensure_ascii=False)
+            )
+        return mark_safe('<span style="color:#888;">Aucune notification stockée</span>')
+    notification_data_pretty.short_description = "Notification CinetPay (JSON)"
+
 
 @admin.register(ClientLocation)
 class ClientLocationAdmin(admin.ModelAdmin):
@@ -806,3 +816,221 @@ class AdminNotificationAdmin(admin.ModelAdmin):
     list_display = ('id', 'title', 'severity', 'is_read', 'created_at', 'related_request', 'triggered_by')
     list_filter = ('severity', 'is_read', 'created_at')
     search_fields = ('title', 'message')
+
+
+@admin.register(TechnicianSubscription)
+class TechnicianSubscriptionAdmin(admin.ModelAdmin):
+    """Configuration de l'admin pour les abonnements des techniciens."""
+    list_display = (
+        'technician', 'plan_name', 'is_active', 'start_date', 'end_date', 'payment'
+    )
+    list_filter = (
+        'is_active', 'plan_name', 'start_date', 'end_date'
+    )
+    search_fields = (
+        'technician__user__username', 'technician__user__email', 
+        'technician__user__first_name', 'technician__user__last_name'
+    )
+    # Pas de readonly_fields ni de date_hierarchy car non présents dans le modèle
+    # Pas de 'created_at' ni 'updated_at' ni 'days_remaining_display'
+    # Pas de list_filter sur 'created_at'
+    # Pas de date_hierarchy sur 'created_at'
+    
+    fieldsets = (
+        ('Informations', {
+            'fields': ('technician', 'plan_name', 'start_date', 'end_date', 'is_active', 'payment')
+        }),
+    )
+    
+    actions = ['activate_subscriptions', 'deactivate_subscriptions', 'extend_subscriptions']
+    
+    def technician_info(self, obj):
+        return format_html(
+            '<strong>{}</strong><br><span style="color: #666;">{}</span>',
+            obj.technician.user.get_full_name() or obj.technician.user.username,
+            obj.technician.user.email
+        )
+    technician_info.short_description = "Technicien"
+    
+    def status_display(self, obj):
+        if obj.is_active and obj.end_date > timezone.now():
+            return format_html('<span style="color: green;">✓ Actif</span>')
+        elif obj.end_date <= timezone.now():
+            return format_html('<span style="color: red;">✗ Expiré</span>')
+        else:
+            return format_html('<span style="color: orange;">⚠ Inactif</span>')
+    status_display.short_description = "Statut"
+    
+    def days_remaining(self, obj):
+        if obj.end_date > timezone.now():
+            days = (obj.end_date - timezone.now()).days
+            color = "green" if days > 30 else "orange" if days > 7 else "red"
+            return format_html('<span style="color: {};">{} jours</span>', color, days)
+        return "Expiré"
+    days_remaining.short_description = "Jours restants"
+    
+    def payment_info(self, obj):
+        if obj.payment:
+            return format_html(
+                '<span style="color: blue;">{}</span><br><small>{}</small>',
+                obj.payment.transaction_id,
+                obj.payment.status
+            )
+        return "Aucun paiement"
+    payment_info.short_description = "Paiement"
+    
+    def days_remaining_display(self, obj):
+        if obj.end_date > timezone.now():
+            return f"{(obj.end_date - timezone.now()).days} jours restants"
+        return "Expiré"
+    days_remaining_display.short_description = "Jours restants"
+    
+    def activate_subscriptions(self, request, queryset):
+        updated = queryset.update(is_active=True)
+        self.message_user(request, f"{updated} abonnement(s) activé(s).")
+    activate_subscriptions.short_description = "Activer les abonnements sélectionnés"
+    
+    def deactivate_subscriptions(self, request, queryset):
+        updated = queryset.update(is_active=False)
+        self.message_user(request, f"{updated} abonnement(s) désactivé(s).")
+    deactivate_subscriptions.short_description = "Désactiver les abonnements sélectionnés"
+    
+    def extend_subscriptions(self, request, queryset):
+        days = int(request.POST.get('days', 30))
+        for subscription in queryset:
+            subscription.end_date += timedelta(days=days)
+            subscription.save()
+        self.message_user(request, f"{queryset.count()} abonnement(s) prolongé(s) de {days} jours.")
+    extend_subscriptions.short_description = "Prolonger les abonnements sélectionnés"
+
+
+@admin.register(SubscriptionPaymentRequest)
+class SubscriptionPaymentRequestAdmin(admin.ModelAdmin):
+    """Configuration de l'admin pour les demandes de paiement d'abonnement."""
+    list_display = (
+        'technician_info', 'amount_display', 'duration_months', 'payment_method',
+        'status_display', 'created_at', 'validated_info'
+    )
+    list_filter = (
+        'status', 'payment_method', 'duration_months', 'created_at', 'validated_at'
+    )
+    search_fields = (
+        'technician__user__username', 'technician__user__email',
+        'technician__user__first_name', 'technician__user__last_name',
+        'description'
+    )
+    readonly_fields = (
+        'created_at', 'updated_at', 'validated_at', 'validated_by'
+    )
+    date_hierarchy = 'created_at'
+    
+    fieldsets = (
+        ('Informations technicien', {
+            'fields': ('technician',)
+        }),
+        ('Détails paiement', {
+            'fields': ('amount', 'duration_months', 'payment_method', 'description')
+        }),
+        ('Statut', {
+            'fields': ('status',)
+        }),
+        ('Validation', {
+            'fields': ('validated_by', 'validated_at', 'validation_notes'),
+            'classes': ('collapse',)
+        }),
+        ('Abonnement créé', {
+            'fields': ('subscription',),
+            'classes': ('collapse',)
+        }),
+        ('Métadonnées', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    actions = ['approve_requests', 'reject_requests', 'cancel_requests']
+    
+    def technician_info(self, obj):
+        return format_html(
+            '<strong>{}</strong><br><span style="color: #666;">{}</span>',
+            obj.technician.user.get_full_name() or obj.technician.user.username,
+            obj.technician.user.email
+        )
+    technician_info.short_description = "Technicien"
+    
+    def amount_display(self, obj):
+        return format_html('<strong>{:,} FCFA</strong>', obj.amount)
+    amount_display.short_description = "Montant"
+    
+    def status_display(self, obj):
+        status_colors = {
+            'pending': '#ffa500',
+            'approved': '#008000',
+            'rejected': '#cc0000',
+            'cancelled': '#666'
+        }
+        color = status_colors.get(obj.status, '#666')
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">●</span> {}',
+            color, obj.get_status_display()
+        )
+    status_display.short_description = "Statut"
+    
+    def validated_info(self, obj):
+        if obj.validated_by:
+            return format_html(
+                '<span style="color: blue;">{}</span><br><small>{}</small>',
+                obj.validated_by.get_full_name() or obj.validated_by.username,
+                obj.validated_at.strftime('%d/%m/%Y %H:%M') if obj.validated_at else ''
+            )
+        return "Non validé"
+    validated_info.short_description = "Validé par"
+    
+    def approve_requests(self, request, queryset):
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        approved_count = 0
+        for payment_request in queryset.filter(status='pending'):
+            try:
+                # Créer l'abonnement
+                end_date = timezone.now() + timedelta(days=30 * payment_request.duration_months)
+                subscription = TechnicianSubscription.objects.create(
+                    technician=payment_request.technician,
+                    plan_name=f"Plan {payment_request.duration_months} mois",
+                    start_date=timezone.now(),
+                    end_date=end_date,
+                    is_active=True
+                )
+                
+                # Mettre à jour la demande
+                payment_request.status = 'approved'
+                payment_request.validated_by = request.user
+                payment_request.validated_at = timezone.now()
+                payment_request.subscription = subscription
+                payment_request.save()
+                
+                approved_count += 1
+            except Exception as e:
+                self.message_user(request, f"Erreur lors de l'approbation: {e}", level='ERROR')
+        
+        self.message_user(request, f"{approved_count} demande(s) approuvée(s).")
+    approve_requests.short_description = "Approuver les demandes sélectionnées"
+    
+    def reject_requests(self, request, queryset):
+        updated = queryset.filter(status='pending').update(
+            status='rejected',
+            validated_by=request.user,
+            validated_at=timezone.now()
+        )
+        self.message_user(request, f"{updated} demande(s) rejetée(s).")
+    reject_requests.short_description = "Rejeter les demandes sélectionnées"
+    
+    def cancel_requests(self, request, queryset):
+        updated = queryset.filter(status='pending').update(
+            status='cancelled',
+            validated_by=request.user,
+            validated_at=timezone.now()
+        )
+        self.message_user(request, f"{updated} demande(s) annulée(s).")
+    cancel_requests.short_description = "Annuler les demandes sélectionnées"

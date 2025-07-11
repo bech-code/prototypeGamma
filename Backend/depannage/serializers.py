@@ -7,6 +7,7 @@ from .models import (
 from django.conf import settings
 from django.contrib.auth.models import Permission, Group
 from users.models import AuditLog
+from django.utils import timezone
 
 # Serializers pour les modèles de base
 class ClientUserSerializer(serializers.ModelSerializer):
@@ -370,7 +371,6 @@ class RepairRequestCreateSerializer(serializers.ModelSerializer):
             data['address'] = ', '.join(address_parts)
         # Combiner date et time en preferred_date
         if data.get('date') and data.get('time'):
-            from django.utils import timezone
             import datetime
             combined_datetime = datetime.datetime.combine(data['date'], data['time'])
             data['preferred_date'] = timezone.make_aware(combined_datetime)
@@ -423,12 +423,12 @@ class CinetPayPaymentSerializer(serializers.ModelSerializer):
             'id', 'transaction_id', 'amount', 'currency', 'description',
             'customer_name', 'customer_surname', 'customer_email', 'customer_phone_number',
             'customer_address', 'customer_city', 'customer_country', 'customer_state', 'customer_zip_code',
-            'payment_token', 'payment_url', 'status', 'metadata', 'invoice_data',
+            'payment_token', 'payment_url', 'status', 'metadata', 'invoice_data', 'notification_data',
             'request', 'user', 'created_at', 'updated_at', 'paid_at'
         ]
         read_only_fields = [
             'id', 'transaction_id', 'payment_token', 'payment_url', 'status',
-            'created_at', 'updated_at', 'paid_at'
+            'created_at', 'updated_at', 'paid_at', 'notification_data'
         ]
     
     def validate_amount(self, value):
@@ -472,19 +472,25 @@ class CinetPayNotificationSerializer(serializers.Serializer):
     transaction_id = serializers.CharField(max_length=100)
     payment_token = serializers.CharField(max_length=255)
     amount = serializers.DecimalField(max_digits=10, decimal_places=2)
-    currency = serializers.CharField(max_length=3)
+    currency = serializers.CharField(max_length=3, required=False, default='XOF')
     status = serializers.CharField(max_length=20)
-    payment_date = serializers.DateTimeField()
-    payment_method = serializers.CharField(max_length=50, required=False)
-    operator = serializers.CharField(max_length=50, required=False)
+    payment_date = serializers.DateTimeField(required=False)
+    payment_method = serializers.CharField(max_length=50, required=False, default='MOBILE_MONEY')
+    operator = serializers.CharField(max_length=50, required=False, default='ORANGE')
     
     def validate_status(self, value):
         """Valide le statut du paiement."""
         valid_statuses = ['ACCEPTED', 'REFUSED', 'PENDING', 'CANCELLED']
         if value not in valid_statuses:
             raise serializers.ValidationError(f"Statut invalide. Valeurs acceptées: {', '.join(valid_statuses)}")
-        return value 
+        return value
     
+    def validate_payment_date(self, value):
+        """Valide la date de paiement."""
+        if value is None:
+            return timezone.now()
+        return value
+
 
 class TechnicianNearbySerializer(serializers.ModelSerializer):
     """Serializer pour les techniciens proches avec calcul de distance."""

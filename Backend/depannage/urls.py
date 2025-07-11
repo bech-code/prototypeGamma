@@ -39,6 +39,7 @@ from .views import (
     technician_dashboard_data,
     admin_security_stats,
     admin_security_trends,
+    CinetPayNotificationAPIView,
 )
 from .export_statistics import export_statistics_excel
 from .export_statistics_pdf import export_statistics_pdf
@@ -65,6 +66,9 @@ router.register(r'admin-notifications', AdminNotificationViewSet, basename='admi
 router.register(r'subscription-requests', SubscriptionRequestViewSet, basename='subscription-request')
 
 urlpatterns = [
+    # Endpoint de notification CinetPay (doit être AVANT le routeur pour avoir la priorité)
+    path("api/cinetpay/notify/", CinetPayNotificationAPIView.as_view(), name='cinetpay-notify'),
+    
     path("api/", include(router.urls)),
     
     # Endpoints publics de test
@@ -84,6 +88,11 @@ urlpatterns = [
     path("api/permissions/", list_permissions, name="list_permissions"),
     path("api/groups/", GroupListCreateView.as_view(), name="group_list_create"),
     path("api/groups/<int:pk>/", GroupDetailView.as_view(), name="group_detail"),
+    
+    # Endpoints manquants pour corriger les erreurs 404
+    path("api/dashboard/stats/", RepairRequestViewSet.as_view({"get": "dashboard_stats"}), name="dashboard_stats"),
+    path("api/repair-requests/dashboard_stats/", RepairRequestViewSet.as_view({"get": "dashboard_stats"}), name="repair_requests_dashboard_stats"),
+    path("api/technician-subscriptions/<int:pk>/", TechnicianViewSet.as_view({"get": "subscription_status"}), name="technician_subscription_detail"),
     
     # Nouveaux endpoints manquants
     path("api/admin/dashboard/stats/", admin_dashboard_stats, name="admin_dashboard_stats"),
@@ -117,6 +126,11 @@ urlpatterns = [
     # Endpoints pour les demandes d'abonnement
     path("api/subscription-requests/<int:pk>/validate/", SubscriptionRequestViewSet.as_view({"post": "validate_payment"}), name="subscription_request_validate"),
     
+    # Endpoints pour les demandes d'abonnement (actions personnalisées)
+    path("api/subscription-requests/recent_requests/", SubscriptionRequestViewSet.as_view({"get": "recent_requests"}), name="subscription_requests_recent"),
+    path("api/subscription-requests/technician_payments/", SubscriptionRequestViewSet.as_view({"get": "technician_payments"}), name="subscription_requests_technician_payments"),
+    path("api/subscription-requests/dashboard_stats/", SubscriptionRequestViewSet.as_view({"get": "dashboard_stats"}), name="subscription_requests_dashboard_stats"),
+
     # Endpoint de test général
-    path("api/test/", PublicTestViewSet.as_view({"get": "health_check"}), name="test_api_info"),
+    path("api/test/", PublicTestViewSet.as_view({"get": "health_check"}), name="test_api_info")
 ]

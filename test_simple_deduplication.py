@@ -49,7 +49,7 @@ def test_simple_deduplication():
         "payment_token": f"token_{transaction_id}",
         "amount": 5000,
         "currency": "XOF",
-        "payment_date": timezone.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "payment_date": datetime.now().isoformat(),
         "customer_name": "ballo",
         "customer_surname": "",
         "customer_email": TECHNICIAN_EMAIL,
