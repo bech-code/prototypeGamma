@@ -1148,3 +1148,91 @@ class SubscriptionPaymentRequest(BaseTimeStampModel):
     class Meta:
         verbose_name = "Demande de paiement d'abonnement"
         verbose_name_plural = "Demandes de paiement d'abonnement"
+
+
+@receiver(post_save, sender=Technician)
+def handle_specialty_change(sender, instance, created, **kwargs):
+    if created:
+        instance._old_specialty = instance.specialty
+        return
+    # On récupère l'ancienne valeur de la spécialité
+    try:
+        old_instance = sender.objects.get(pk=instance.pk)
+        old_specialty = old_instance.specialty
+    except sender.DoesNotExist:
+        old_specialty = instance.specialty
+    # Si la spécialité a changé
+    if old_specialty != instance.specialty:
+        from depannage.models import RepairRequest
+        from depannage.views import calculate_distance
+        from depannage.models import Notification
+        from django.utils import timezone
+        # Trouver toutes les demandes en cours assignées à ce technicien pour l'ancienne spécialité
+        requests = RepairRequest.objects.filter(
+            technician=instance,
+            status__in=[RepairRequest.Status.ASSIGNED, RepairRequest.Status.IN_PROGRESS],
+            specialty_needed=old_specialty
+        )
+        for req in requests:
+            # Chercher un autre technicien libre de la même spécialité
+            candidates = sender.objects.filter(
+                specialty=old_specialty,
+                is_available=True,
+                is_verified=True,
+                current_latitude__isnull=False,
+                current_longitude__isnull=False,
+            ).exclude(id=instance.id)
+            # Filtrer sur abonnement actif
+            candidates = [t for t in candidates if t.has_active_subscription]
+            # Exclure ceux qui ont déjà une demande en cours
+            busy_tech_ids = set(
+                RepairRequest.objects.filter(
+                    status__in=[RepairRequest.Status.ASSIGNED, RepairRequest.Status.IN_PROGRESS]
+                ).values_list('technician_id', flat=True)
+            )
+            candidates = [t for t in candidates if t.id not in busy_tech_ids]
+            # Filtrer sur note minimale
+            MIN_RATING = 3.5
+            candidates = [t for t in candidates if t.average_rating >= MIN_RATING]
+            # Filtrer sur rayon d'intervention
+            tech_with_distance = []
+            lat, lng = req.latitude, req.longitude
+            for tech in candidates:
+                distance = calculate_distance(lat, lng, tech.current_latitude, tech.current_longitude)
+                if distance <= tech.service_radius_km:
+                    tech_with_distance.append((tech, distance))
+            tech_with_distance.sort(key=lambda x: x[1])
+            if tech_with_distance:
+                new_tech = tech_with_distance[0][0]
+                req.technician = new_tech
+                req.status = RepairRequest.Status.ASSIGNED
+                req.assigned_at = timezone.now()
+                req.save()
+                # Notifier le nouveau technicien
+                Notification.objects.create(
+                    recipient=new_tech.user,
+                    title="Nouvelle demande réassignée",
+                    message=f"Vous avez été réassigné à la demande #{req.id} (suite à un changement de spécialité d'un autre technicien)",
+                    type="new_request_technician",
+                    request=req,
+                )
+                # Notifier le client
+                Notification.objects.create(
+                    recipient=req.client.user,
+                    title="Nouveau technicien en route",
+                    message=f"Votre demande #{req.id} a été réassignée à un nouveau technicien.",
+                    type="technician_assigned",
+                    request=req,
+                )
+            else:
+                # Aucun technicien dispo, désassigner la demande
+                req.technician = None
+                req.status = RepairRequest.Status.PENDING
+                req.save()
+                Notification.objects.create(
+                    recipient=req.client.user,
+                    title="Demande en attente",
+                    message=f"Votre demande #{req.id} est de nouveau en attente, aucun technicien n'est disponible pour le moment.",
+                    type="no_technician_available",
+                    request=req,
+                )

@@ -126,6 +126,7 @@ class RepairRequestSerializer(serializers.ModelSerializer):
     review = ReviewSerializer(read_only=True, allow_null=True)
     no_show_count = serializers.IntegerField(read_only=True)
     mission_validated = serializers.BooleanField(read_only=True)
+    conversation = serializers.SerializerMethodField()
     
     class Meta:
         model = RepairRequest
@@ -179,6 +180,17 @@ class RepairRequestSerializer(serializers.ModelSerializer):
         if latest_payment:
             return latest_payment.status
         return 'non payé'
+    
+    def get_conversation(self, obj):
+        request = self.context.get('request', None)
+        user = request.user if request else None
+        if hasattr(obj, 'conversation') and obj.conversation:
+            unread = obj.conversation.unread_count_for_user(user) if user else 0
+            return {
+                'id': obj.conversation.id,
+                'unread_count': unread
+            }
+        return None
     
     def validate_title(self, value):
         """Validation du titre."""
@@ -303,7 +315,7 @@ class TechnicianLocationSerializer(serializers.ModelSerializer):
     class Meta:
         model = TechnicianLocation
         fields = [
-            'id', 'technician', 'latitude', 'longitude', 'accuracy', 'is_active', 'created_at'
+            'id', 'technician', 'latitude', 'longitude', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
 

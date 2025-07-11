@@ -908,6 +908,21 @@ class RepairRequestViewSet(CsrfExemptMixin, viewsets.ModelViewSet):
                     request=repair_request,
                 )
 
+            # Retirer l'ancien technicien des participants si différent du nouveau
+            old_technician = None
+            if repair_request.conversation.participants.count() > 1:
+                for participant in repair_request.conversation.participants.all():
+                    if hasattr(participant, 'technician_depannage') and participant != technician.user:
+                        old_technician = participant
+                        break
+            if old_technician:
+                repair_request.conversation.participants.remove(old_technician)
+            # Ajouter le nouveau technicien
+            repair_request.conversation.participants.add(technician.user)
+
+            # Ajouter le client aux participants
+            repair_request.conversation.participants.add(repair_request.client.user)
+
             return Response(
                 {
                     "success": True,
@@ -1592,6 +1607,21 @@ class RepairRequestViewSet(CsrfExemptMixin, viewsets.ModelViewSet):
                 type="technician_assigned",
                 request=repair_request,
             )
+            # Retirer l'ancien technicien des participants si différent du nouveau
+            old_technician = None
+            if repair_request.conversation.participants.count() > 1:
+                for participant in repair_request.conversation.participants.all():
+                    if hasattr(participant, 'technician_depannage') and participant != new_technician.user:
+                        old_technician = participant
+                        break
+            if old_technician:
+                repair_request.conversation.participants.remove(old_technician)
+            # Ajouter le nouveau technicien
+            repair_request.conversation.participants.add(new_technician.user)
+
+            # Ajouter le client aux participants
+            repair_request.conversation.participants.add(repair_request.client.user)
+
             return Response({"success": True, "message": f"Demande réassignée à {new_technician.user.get_full_name() or new_technician.user.username}."})
         else:
             # Aucun technicien dispo
@@ -2186,6 +2216,13 @@ class ConversationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Conversation.objects.filter(participants=self.request.user)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAdminUser])
+    def clear_messages(self, request, pk=None):
+        """Supprime tous les messages d'une conversation (sauf éventuellement les messages système)."""
+        conversation = self.get_object()
+        deleted, _ = conversation.messages.exclude(message_type="system").delete()
+        return Response({"success": True, "deleted": deleted})
 
 
 class MessageViewSet(viewsets.ModelViewSet):

@@ -3,6 +3,7 @@ import hashlib
 import hmac
 from django.conf import settings
 from datetime import datetime
+from math import radians, sin, cos, sqrt, atan2
 
 
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
