@@ -366,7 +366,7 @@ class UserViewSet(viewsets.ModelViewSet):
                         [user.email],
                         fail_silently=False,
                     )
-                    log_event(request, 'otp_sent', 'success', risk_score=risk_score, metadata={'session_uuid': str(otp.session_uuid)})
+                    log_event(request, 'otp_sent', 'success', risk_score=risk_score, metadata={'session_uuid': str(otp.session_uuid)}, user=user)
                     if risk_score > 80 and user:
                         send_security_notification(
                             user,
@@ -379,7 +379,7 @@ class UserViewSet(viewsets.ModelViewSet):
                         'session_uuid': str(otp.session_uuid),
                         'message': 'Un code de vérification a été envoyé à votre email.'
                     }, status=200)
-                log_event(request, 'login', 'success', risk_score=risk_score, metadata={})
+                log_event(request, 'login', 'success', risk_score=risk_score, metadata={}, user=user)
                 refresh = RefreshToken.for_user(user)
                 return Response({
                     'user': UserSerializer(user).data,

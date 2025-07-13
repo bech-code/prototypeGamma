@@ -15,15 +15,17 @@ function isRecentlyRead(notif: any) {
   return diffMs < 5 * 60 * 1000; // 5 minutes en ms
 }
 
-// Fonction utilitaire pour style et icône timeline
 function getEventStyle(type: string) {
-  switch (type) {
-    case 'created': return { color: 'bg-gray-400', icon: <Plus size={14} /> };
-    case 'request_assigned': return { color: 'bg-blue-500', icon: <UserPlus size={14} /> };
-    case 'request_accepted': return { color: 'bg-green-500', icon: <Check size={14} /> };
-    case 'closed': return { color: 'bg-red-500', icon: <X size={14} /> };
-    default: return { color: 'bg-gray-300', icon: <Dot size={14} /> };
-  }
+  const styles: { [key: string]: string } = {
+    'request_accepted': 'bg-green-100 text-green-800 border-green-200',
+    'request_assigned': 'bg-blue-100 text-blue-800 border-blue-200',
+    'technician_assigned': 'bg-blue-100 text-blue-800 border-blue-200',
+    'new_request': 'bg-orange-100 text-orange-800 border-orange-200',
+    'payment_received': 'bg-green-100 text-green-800 border-green-200',
+    'review_received': 'bg-purple-100 text-purple-800 border-purple-200',
+    'system': 'bg-gray-100 text-gray-800 border-gray-200',
+  };
+  return styles[type] || 'bg-gray-100 text-gray-800 border-gray-200';
 }
 
 const Header: React.FC = () => {
@@ -186,14 +188,9 @@ const Header: React.FC = () => {
   };
 
   const handleDeleteNotification = async (notif: any) => {
-    console.log('Tentative de suppression de notification:', notif);
-    // Si pas d'ID, c'est une notification WebSocket - on la supprime juste localement
     if (!notif.id) {
-      console.log('Notification WebSocket détectée (pas d\'ID)');
-      if (!window.confirm('Supprimer cette notification ?')) return;
-      setAllNotifications(prev => prev.filter(n =>
-        !(n.title === notif.title && n.message === notif.message && !n.id)
-      ));
+      console.log('Notification sans ID, suppression locale uniquement');
+      setAllNotifications(prev => prev.filter(n => !(n.title === notif.title && n.message === notif.message)));
       setToast('Notification supprimée.');
       setTimeout(() => setToast(null), 2000);
       return;
@@ -327,30 +324,161 @@ const Header: React.FC = () => {
           )}
 
           {user ? (
-            <div className="relative group">
-              <button className={`flex items-center font-medium transition-colors ${isScrolled ? 'text-gray-800' : 'text-white'
-                }`}>
-                <User className="w-4 h-4 mr-1" />
-                {user.username || 'Compte'}
-              </button>
-              <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-md shadow-lg overflow-hidden scale-0 group-hover:scale-100 transition-transform origin-top-right z-50">
-                <Link to={user.user_type === 'technician' ? '/technician/dashboard' : user.user_type === 'admin' ? '/admin/dashboard' : '/dashboard'} className="block px-4 py-2 text-gray-800 hover:bg-gray-100">Tableau de Bord</Link>
-                <Link to="/profile" className="block px-4 py-2 text-gray-800 hover:bg-gray-100">Profil</Link>
-                {user.user_type === 'technician' &&
-                  <Link to="/technician" className="block px-4 py-2 text-gray-800 hover:bg-gray-100">Portail Technicien</Link>
-                }
-                {user.user_type === 'admin' &&
-                  <Link to="/admin" className="block px-4 py-2 text-gray-800 hover:bg-gray-100">Portail Admin</Link>
-                }
-                {user.user_type === 'admin' &&
-                  <Link to="/admin/statistics" className="block px-4 py-2 text-gray-800 hover:bg-gray-100">Voir les statistiques</Link>
-                }
+            <div className="flex items-center space-x-4">
+              {/* Cloche de notifications */}
+              <div className="relative">
                 <button
-                  onClick={logout}
-                  className="w-full text-left block px-4 py-2 text-red-600 hover:bg-gray-100"
+                  ref={bellBtnRef}
+                  onClick={openNotifMenu}
+                  className={`relative p-2 rounded-full transition-all duration-200 ${isScrolled ? 'text-gray-800 hover:bg-gray-100' : 'text-white hover:bg-white/20'} ${bellAnim ? 'animate-bounce' : ''}`}
+                  title="Notifications"
                 >
-                  Déconnexion
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
                 </button>
+
+                {/* Menu des notifications */}
+                {notifOpen && notifMenuPos && (
+                  <div
+                    ref={notifMenuRef}
+                    className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-96 overflow-hidden"
+                    style={{
+                      top: `${notifMenuPos.top}px`,
+                      left: `${notifMenuPos.left}px`,
+                    }}
+                  >
+                    <div className="p-4 border-b border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-gray-900">Notifications</h3>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => setShowUnreadOnly(!showUnreadOnly)}
+                            className={`text-xs px-2 py-1 rounded ${showUnreadOnly ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}
+                          >
+                            {showUnreadOnly ? 'Tout voir' : 'Non lues'}
+                          </button>
+                          {unreadCount > 0 && (
+                            <button
+                              onClick={handleMarkAllAsRead}
+                              className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200"
+                            >
+                              Tout marquer lu
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="max-h-64 overflow-y-auto">
+                      {sortedNotifications
+                        .filter(notif => !showUnreadOnly || !notif.is_read)
+                        .slice(0, 10)
+                        .map((notif, index) => (
+                          <div
+                            key={notif.id || index}
+                            className={`p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${!notif.is_read ? 'bg-blue-50' : ''}`}
+                            onClick={() => setSelectedNotification(notif)}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center space-x-2 mb-1">
+                                  <div className={`w-2 h-2 rounded-full ${notif.is_read ? 'bg-gray-300' : 'bg-blue-500'}`}></div>
+                                  <span className="text-sm font-medium text-gray-900 truncate">
+                                    {notif.title}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-600 line-clamp-2">{notif.message}</p>
+                                <div className="flex items-center justify-between mt-2">
+                                  <span className="text-xs text-gray-400">
+                                    {notif.created_at ? new Date(notif.created_at).toLocaleString('fr-FR', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    }) : ''}
+                                  </span>
+                                  <div className="flex items-center space-x-1">
+                                    {!notif.is_read && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleMarkAsRead(notif);
+                                        }}
+                                        className="text-xs text-blue-600 hover:text-blue-800"
+                                      >
+                                        Marquer lu
+                                      </button>
+                                    )}
+                                    {notif.id && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteNotification(notif);
+                                        }}
+                                        className="text-xs text-red-600 hover:text-red-800"
+                                        disabled={deletingNotifications.has(notif.id)}
+                                      >
+                                        {deletingNotifications.has(notif.id) ? '...' : 'Supprimer'}
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+
+                    {sortedNotifications.length === 0 && (
+                      <div className="p-4 text-center text-gray-500">
+                        Aucune notification
+                      </div>
+                    )}
+
+                    {sortedNotifications.length > 10 && (
+                      <div className="p-3 border-t border-gray-200 text-center">
+                        <button
+                          onClick={() => setNotifOpen(false)}
+                          className="text-sm text-blue-600 hover:text-blue-800"
+                        >
+                          Voir toutes les notifications
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Menu utilisateur */}
+              <div className="relative group">
+                <button className={`flex items-center font-medium transition-colors ${isScrolled ? 'text-gray-800' : 'text-white'
+                  }`}>
+                  <User className="w-4 h-4 mr-1" />
+                  {user.username || 'Compte'}
+                </button>
+                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-md shadow-lg overflow-hidden scale-0 group-hover:scale-100 transition-transform origin-top-right z-50">
+                  <Link to={user.user_type === 'technician' ? '/technician/dashboard' : user.user_type === 'admin' ? '/admin/dashboard' : '/dashboard'} className="block px-4 py-2 text-gray-800 hover:bg-gray-100">Tableau de Bord</Link>
+                  <Link to="/profile" className="block px-4 py-2 text-gray-800 hover:bg-gray-100">Profil</Link>
+                  {user.user_type === 'technician' &&
+                    <Link to="/technician" className="block px-4 py-2 text-gray-800 hover:bg-gray-100">Portail Technicien</Link>
+                  }
+                  {user.user_type === 'admin' &&
+                    <Link to="/admin" className="block px-4 py-2 text-gray-800 hover:bg-gray-100">Portail Admin</Link>
+                  }
+                  {user.user_type === 'admin' &&
+                    <Link to="/admin/statistics" className="block px-4 py-2 text-gray-800 hover:bg-gray-100">Voir les statistiques</Link>
+                  }
+                  <button
+                    onClick={logout}
+                    className="w-full text-left block px-4 py-2 text-red-600 hover:bg-gray-100"
+                  >
+                    Déconnexion
+                  </button>
+                </div>
               </div>
             </div>
           ) : (

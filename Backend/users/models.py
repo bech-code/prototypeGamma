@@ -78,6 +78,7 @@ class AuditLog(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
     geo_country = models.CharField(max_length=64, blank=True)
     geo_city = models.CharField(max_length=64, blank=True)
+    location = models.CharField(max_length=255, blank=True, null=True)
     risk_score = models.PositiveSmallIntegerField(default=0)
     metadata = models.JSONField(blank=True, default=dict)
 

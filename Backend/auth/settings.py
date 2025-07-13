@@ -185,8 +185,8 @@ FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://127.0.0.1:5173')
 CINETPAY_API_KEY = os.getenv("CINETPAY_API_KEY", "1152009869685a9c56400b55.82198885")
 CINETPAY_SITE_ID = os.getenv("CINETPAY_SITE_ID", "105899471")
 CINETPAY_SECRET_KEY = os.getenv("CINETPAY_SECRET_KEY", "656493989685a9ce7af2bd8.69452364")
-CINETPAY_ENVIRONMENT = os.getenv("CINETPAY_ENVIRONMENT", "TEST")
-CINETPAY_USE_SIMULATOR = os.getenv("CINETPAY_USE_SIMULATOR", "True") == "True"
+CINETPAY_ENVIRONMENT = os.getenv("CINETPAY_ENVIRONMENT", "PRODUCTION")
+CINETPAY_USE_SIMULATOR = os.getenv("CINETPAY_USE_SIMULATOR", "False") == "True"
 
 # Configuration CinetPay pour l'API
 CINETPAY_CONFIG = {
@@ -198,6 +198,7 @@ CINETPAY_CONFIG = {
     "API_URL": "https://api-checkout.cinetpay.com/v2/payment",
     "CURRENCY": "XOF",
     "LANG": "fr",
+    "MODE": "PRODUCTION",
 }
 
 # Utilisation d'un modèle utilisateur personnalisé
@@ -244,15 +245,7 @@ SIMPLE_JWT = {
     'LEEWAY': 0,
 }
 
-# Configuration pour l'intégration de CinetPay (paiement en ligne)
-CINETPAY_CONFIG = {
-    'API_KEY': os.getenv('CINETPAY_API_KEY', 'test_api_key_123456789'),
-    'SITE_ID': os.getenv('CINETPAY_SITE_ID', 'test_site_id_123456'),
-    'API_URL': 'https://api-checkout.cinetpay.com/v2/payment',
-    'CURRENCY': 'XOF',
-    'LANG': 'fr',
-    'MODE': os.getenv('CINETPAY_MODE', 'TEST'),
-}
+# Configuration pour l'intégration de CinetPay (paiement en ligne) - UNIFIÉE CI-DESSUS
 
 # ============================================================================
 # CONFIGURATION DE SÉCURITÉ - CORRECTIFS

@@ -388,9 +388,7 @@ const AdminDashboard: React.FC = () => {
     navigate('/admin/configuration');
   };
 
-  const handleSubscriptionRequests = () => {
-    navigate('/admin/subscription-requests');
-  };
+
 
   // Fonction pour exporter les données
   const handleExportData = () => {
@@ -655,12 +653,7 @@ const AdminDashboard: React.FC = () => {
             >
               Configuration
             </button>
-            <button
-              onClick={handleSubscriptionRequests}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              Abonnements
-            </button>
+
             {activeTab === 'requests' && (
               <button
                 onClick={handleExportData}
@@ -725,11 +718,7 @@ const AdminDashboard: React.FC = () => {
           {activeTab === 'notifications' && (
             <div className="p-6">
               <h2 className="text-xl font-semibold mb-6">Notifications</h2>
-              <div className="text-center py-12">
-                <Bell className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">Notifications</h3>
-                <p className="mt-1 text-sm text-gray-500">Interface de gestion des notifications à venir.</p>
-              </div>
+              <AdminAlerts />
             </div>
           )}
 
@@ -857,14 +846,13 @@ const AdminDashboard: React.FC = () => {
               <h2 className="text-xl font-semibold mb-6">Demandes d'abonnement</h2>
               <div className="text-center py-12">
                 <CreditCard className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">Gestion des abonnements</h3>
-                <p className="mt-1 text-sm text-gray-500">Interface de gestion des demandes d'abonnement.</p>
-                <button
-                  onClick={handleSubscriptionRequests}
-                  className="mt-4 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition-colors"
-                >
-                  Accéder aux demandes d'abonnement
-                </button>
+                <h3 className="mt-2 text-sm font-medium text-gray-900">Plateforme Gratuite</h3>
+                <p className="mt-1 text-sm text-gray-500">Les abonnements ont été supprimés - tous les techniciens ont un accès gratuit.</p>
+                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-green-800 text-sm">
+                    ✅ La plateforme est maintenant entièrement gratuite pour tous les techniciens.
+                  </p>
+                </div>
               </div>
             </div>
           )}

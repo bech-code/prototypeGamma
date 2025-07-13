@@ -639,7 +639,7 @@ const TechnicianDashboard: React.FC = () => {
       .then(data => setGlobalAvg(data?.overview?.avg_rating || null));
   }, []);
 
-  // Charger l'abonnement à l'arrivée
+  // Charger l'abonnement à l'arrivée - maintenant gratuit
   useEffect(() => {
     const fetchSubscription = async () => {
       setSubLoading(true);
@@ -665,41 +665,10 @@ const TechnicianDashboard: React.FC = () => {
     fetchSubscription();
   }, []);
 
-  // Fonction de renouvellement avec CinetPay
+  // Fonction de renouvellement supprimée - plus de paiements
   const handleRenewSubscription = async () => {
-    setSubLoading(true);
-    setSubError(null);
-    setSubSuccess(null);
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://127.0.0.1:8000/depannage/api/cinetpay/initiate_subscription_payment/', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          duration_months: 1, // Par défaut 1 mois
-          amount: 5000, // Montant par défaut
-          description: 'Abonnement technicien - Renouvellement'
-        }),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        if (data.payment_url) {
-          // Rediriger vers CinetPay
-          window.location.href = data.payment_url;
-        } else {
-          setSubError('Erreur: URL de paiement non reçue');
-        }
-      } else {
-        setSubError('Erreur lors de l\'initiation du paiement.');
-      }
-    } catch (e) {
-      setSubError('Erreur lors de l\'initiation du paiement.');
-    } finally {
-      setSubLoading(false);
-    }
+    // Fonction supprimée - tous les techniciens sont maintenant gratuits
+    console.log('Tous les techniciens ont maintenant un accès gratuit illimité');
   };
 
   // Fonction pour démarrer le tracking
@@ -783,32 +752,10 @@ const TechnicianDashboard: React.FC = () => {
   const showSubscriptionModal =
     !loading && subscriptionStatus && (!subscriptionStatus.can_receive_requests || subscriptionStatus.status === 'expired');
 
-  // Ajout de la redirection automatique vers CinetPay pour le paiement d'abonnement
+  // Redirection automatique supprimée - plus de paiements automatiques
   useEffect(() => {
-    if (!loading && subscriptionStatus && (!subscriptionStatus.can_receive_requests || subscriptionStatus.status === 'expired')) {
-      // Initier directement le paiement CinetPay pour l'abonnement
-      fetch('http://127.0.0.1:8000/depannage/api/cinetpay/initiate_subscription_payment/', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          duration_months: 1, // Par défaut 1 mois
-          amount: 5000, // Montant par défaut
-          description: 'Abonnement technicien - Renouvellement automatique'
-        }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.payment_url) {
-            window.location.href = data.payment_url;
-          }
-        })
-        .catch((error) => {
-          console.error('Erreur lors de l\'initiation du paiement:', error);
-        });
-    }
+    // Tous les techniciens ont maintenant un accès gratuit illimité
+    console.log('Accès gratuit activé pour tous les techniciens');
   }, [loading, subscriptionStatus]);
 
   if (loading) {
@@ -957,50 +904,7 @@ const TechnicianDashboard: React.FC = () => {
       </section>
 
       {/* Modal d'abonnement bloquant */}
-      {showSubscriptionModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          background: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-        }}>
-          <div style={{
-            background: '#fff',
-            borderRadius: 12,
-            padding: 32,
-            maxWidth: 400,
-            boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
-            textAlign: 'center',
-          }}>
-            <h2 style={{ marginBottom: 16 }}>Abonnement requis</h2>
-            <p style={{ marginBottom: 24 }}>
-              Votre abonnement est <b>expiré</b> ou inexistant.<br />
-              Pour recevoir de nouvelles demandes, veuillez renouveler votre abonnement.
-            </p>
-            <button
-              style={{
-                background: '#1976d2',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 6,
-                padding: '12px 24px',
-                fontSize: 16,
-                cursor: 'pointer',
-                fontWeight: 600,
-              }}
-              onClick={handleRenewSubscription}
-            >
-              Payer avec CinetPay
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Modal d'abonnement supprimé - plus de paiements */}
 
       {/* Si abonnement inactif, on masque la liste des demandes et la logique de réception */}
       {!showSubscriptionModal && (

@@ -67,6 +67,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.utils.decorators import classonlymethod
 from .cinetpay import init_cinetpay_payment
+from django.http import HttpResponse
+import csv
+import openpyxl
 
 logger = logging.getLogger(__name__)
 
@@ -181,380 +184,6 @@ class PublicTestViewSet(viewsets.ViewSet):
 # ============================================================================
 # VIEWSETS EXISTANTES
 # ============================================================================
-
-
-class CinetPayViewSet(viewsets.ModelViewSet):
-    """ViewSet pour gérer les paiements CinetPay."""
-
-    queryset = CinetPayPayment.objects.all()
-    serializer_class = CinetPayPaymentSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_permissions(self):
-        print(f"[DEBUG] get_permissions: self.action = {getattr(self, 'action', None)}")
-        # Autoriser l'accès public à l'endpoint de notification
-        if getattr(self, 'action', None) == 'notify':
-            from rest_framework.permissions import AllowAny
-            return [AllowAny()]
-        return super().get_permissions()
-
-    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
-    def initiate_payment(self, request):
-        """Initialise un nouveau paiement CinetPay."""
-        serializer = CinetPayInitiationSerializer(data=request.data)
-        if serializer.is_valid():
-            try:
-                # Récupérer la demande de réparation
-                repair_request = get_object_or_404(
-                    RepairRequest, id=serializer.validated_data["request_id"]
-                )
-
-                # Vérifier que l'utilisateur est le propriétaire de la demande
-                if repair_request.client.user != request.user:
-                    return Response(
-                        {"error": "Vous n'êtes pas autorisé à payer cette demande."},
-                        status=403,
-                    )
-
-                # Calculer le montant total
-                amount = serializer.validated_data["amount"]
-                if repair_request.is_urgent:
-                    amount += 25000  # Frais d'urgence
-
-                # Récupérer le numéro de téléphone du client (User ou Client ou body)
-                phone = (
-                    serializer.validated_data.get('phone')
-                    or getattr(request.user, 'phone', None)
-                    or getattr(request.user, 'phone_number', None)
-                    or '+22300000000'
-                )
-
-                # Créer le paiement
-                payment_data = {
-                    "amount": amount,
-                    "currency": "XOF",
-                    "description": serializer.validated_data["description"],
-                    "customer_name": request.user.last_name,
-                    "customer_surname": request.user.first_name,
-                    "customer_email": request.user.email,
-                    "customer_phone_number": phone,  # Numéro dynamique ou défaut Mali
-                    "customer_address": repair_request.address,
-                    "customer_city": "Bamako",  # Ville du Mali
-                    "customer_country": "ML",    # Code ISO du Mali
-                    "customer_state": "ML",      # Code ISO du Mali
-                    "customer_zip_code": "00000",
-                    "request": repair_request.id,  # Passer l'ID
-                    "user": request.user.id,        # Passer l'ID
-                    "metadata": f"user_{request.user.id}_request_{repair_request.id}",
-                    "invoice_data": {
-                        "Service": repair_request.specialty_needed,
-                        "Demande": f"#{repair_request.id}",
-                        "Urgence": "Oui" if repair_request.is_urgent else "Non",
-                    },
-                }
-
-                payment_serializer = CinetPayPaymentSerializer(data=payment_data)
-                if payment_serializer.is_valid():
-                    payment = payment_serializer.save()
-
-                    # Initialiser le paiement avec CinetPay
-                    cinetpay_response = self._initiate_cinetpay_payment(payment)
-
-                    if cinetpay_response.get("success"):
-                        return Response(
-                            {
-                                "success": True,
-                                "payment_url": cinetpay_response["payment_url"],
-                                "transaction_id": payment.transaction_id,
-                                "amount": payment.amount,
-                                "message": "Paiement initialisé avec succès",
-                            }
-                        )
-                    else:
-                        return Response(
-                            {
-                                "success": False,
-                                "error": cinetpay_response.get(
-                                    "error",
-                                    "Erreur lors de l'initialisation du paiement",
-                                ),
-                            },
-                            status=400,
-                        )
-                else:
-                    return Response(
-                        payment_serializer.errors, status=400
-                    )
-
-            except Exception as e:
-                logger.error(f"Erreur lors de l'initialisation du paiement: {str(e)}")
-                return Response(
-                    {"success": False, "error": "Erreur interne du serveur"},
-                    status=500,
-                )
-        else:
-            return Response(serializer.errors, status=400)
-
-    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated], url_path="initiate_subscription_payment")
-    def initiate_subscription_payment(self, request):
-        """Initialise un paiement CinetPay pour l'abonnement technicien avec vérification d'abonnement actif."""
-        user = request.user
-        technician = get_technician_profile(user)
-        
-        if not technician:
-            return Response({"error": "Seul un technicien peut initier un paiement d'abonnement."}, status=403)
-        
-        # Vérifier la durée d'abonnement
-        duration_months = int(request.data.get('duration_months', 1))
-        if duration_months not in [1, 3, 6]:
-            return Response({"error": "Durée invalide. Choisissez 1, 3 ou 6 mois."}, status=400)
-        
-        # Vérifier s'il y a déjà un abonnement actif
-        now = timezone.now()
-        active_subscription = TechnicianSubscription.objects.filter(
-            technician=technician,
-            end_date__gt=now,
-            is_active=True
-        ).first()
-        
-        if active_subscription:
-            return Response({
-                "success": False,
-                "error": f"Vous avez déjà un abonnement actif jusqu'au {active_subscription.end_date.strftime('%d/%m/%Y')}. "
-                         f"Vous ne pouvez pas souscrire à un nouvel abonnement tant que l'actuel est valide."
-            }, status=400)
-        
-        # Calculer le montant
-        base_amount = 5000
-        amount = base_amount * duration_months
-        
-        # Préparer les données du paiement
-        description = f"Abonnement technicien {duration_months} mois - Accès premium aux demandes de réparation"
-        phone = getattr(user, 'phone', None) or getattr(user, 'phone_number', None) or '+22300000000'
-        name = user.get_full_name() or user.username or "Technicien"
-        metadata = {
-            "user_id": user.id,
-            "technician_id": technician.id,
-            "duration_months": duration_months,
-            "subscription_type": "technician_premium"
-        }
-        
-        # Appel au module CinetPay
-        result, transaction_id = init_cinetpay_payment(
-            amount=amount,
-            phone=phone,
-            name=name,
-            description=description,
-            metadata=metadata,
-            email=user.email,
-            user=user
-        )
-        
-        # Gérer la réponse
-        if result.get("success") and result.get("code") == "201":
-            payment_url = result["data"]["payment_url"]
-            return Response({
-                "success": True,
-                "payment_url": payment_url,
-                "transaction_id": transaction_id,
-                "amount": amount,
-                "duration_months": duration_months,
-                "message": f"Paiement d'abonnement {duration_months} mois initialisé avec succès"
-            })
-        else:
-            return Response({
-                "success": False,
-                "error": result.get("error", "Erreur lors de l'initialisation du paiement")
-            }, status=400)
-
-    def _initiate_cinetpay_payment(self, payment, duration_months=None):
-        try:
-            from django.conf import settings
-            CINETPAY_CONFIG = getattr(settings, "CINETPAY_CONFIG", {})
-            api_key = CINETPAY_CONFIG.get("API_KEY", "")
-            site_id = CINETPAY_CONFIG.get("SITE_ID", "")
-            # Mode test détecté
-            if not api_key or not site_id or api_key == "test_api_key_123456789" or site_id == "test_site_id_123456":
-                logger.warning("Clés CinetPay non configurées - Mode test activé")
-                payment.payment_token = f"test_token_{payment.transaction_id}"
-                payment.payment_url = f"http://127.0.0.1:5173/payment/test/{payment.transaction_id}"
-                payment.status = "success"
-                payment.metadata = (payment.metadata or "") + " [MODE TEST]"
-                payment.save()
-                # Créer l'abonnement immédiatement
-                from .models import TechnicianSubscription
-                from django.utils import timezone
-                now = timezone.now()
-                months = duration_months or 1
-                end_date = now + timezone.timedelta(days=30*months)
-                sub = TechnicianSubscription.objects.create(
-                    technician=payment.user.technician_profile,
-                    plan_name=f"Abonnement {months} mois (test)",
-                    start_date=now,
-                    end_date=end_date,
-                    is_active=True,
-                    payment=payment
-                )
-                # Notification spécifique
-                from .models import Notification
-                Notification.objects.create(
-                    recipient=payment.user,
-                    title="Abonnement activé (mode test)",
-                    message=f"Votre abonnement a été activé en mode test jusqu'au {end_date.strftime('%d/%m/%Y')}. Aucun paiement réel n'a été effectué.",
-                    type="subscription_renewed_test",
-                )
-                return {
-                    "success": True,
-                    "payment_url": payment.payment_url,
-                    "payment_token": payment.payment_token,
-                    "mode_test": True,
-                    "message": "Paiement simulé (mode test) : abonnement activé immédiatement."
-                }
-            # Code pour l'API CinetPay réelle (seulement si les clés sont valides)
-            logger.info("Utilisation de l'API CinetPay réelle")
-
-            # S'assurer que le montant est un multiple de 5 (requis par CinetPay)
-            amount = int(payment.amount)
-            if amount % 5 != 0:
-                amount = ((amount // 5) + 1) * 5
-
-            # Préparer les données pour CinetPay selon la documentation
-            payload = {
-                "apikey": api_key,
-                "site_id": site_id,
-                "transaction_id": payment.transaction_id,
-                "amount": amount,
-                "currency": CINETPAY_CONFIG.get("CURRENCY", "XOF"),
-                "description": payment.description,
-                "notify_url": f"{settings.BASE_URL}/depannage/api/cinetpay/notify/",
-                "return_url": f"{settings.FRONTEND_URL}/payment/success?transaction_id={payment.transaction_id}&amount={payment.amount}",
-                "channels": "ALL",
-                "lang": CINETPAY_CONFIG.get("LANG", "fr"),
-                "metadata": payment.metadata,
-                "invoice_data": payment.invoice_data,
-                # Informations client obligatoires pour carte bancaire
-                "customer_id": str(payment.user.id),
-                "customer_name": payment.customer_name,
-                "customer_surname": payment.customer_surname,
-                "customer_email": payment.customer_email,
-                "customer_phone_number": payment.customer_phone_number,
-                "customer_address": payment.customer_address,
-                "customer_city": payment.customer_city,
-                "customer_country": payment.customer_country,
-                "customer_state": payment.customer_state,
-                "customer_zip_code": payment.customer_zip_code,
-            }
-
-            # Log de la requête pour debug
-            logger.info(f"Requête CinetPay: {payload}")
-
-            # Envoyer la requête à CinetPay
-            response = requests.post(
-                CINETPAY_CONFIG.get(
-                    "API_URL", "https://api-checkout.cinetpay.com/v2/payment"
-                ),
-                json=payload,
-                headers={
-                    "Content-Type": "application/json",
-                    "User-Agent": "Django-CinetPay-Integration/1.0",
-                },
-                timeout=30,
-            )
-
-            logger.info(
-                f"Réponse CinetPay - Status: {response.status_code}, Body: {response.text}"
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-
-                # Vérifier le code de réponse selon la documentation
-                if data.get("code") == "201":
-                    # Succès - Mettre à jour le paiement
-                    payment.payment_token = data["data"]["payment_token"]
-                    payment.payment_url = data["data"]["payment_url"]
-                    payment.save()
-
-                    logger.info(
-                        f"Paiement CinetPay initialisé avec succès: {payment.transaction_id}"
-                    )
-
-                    return {
-                        "success": True,
-                        "payment_url": data["data"]["payment_url"],
-                        "payment_token": data["data"]["payment_token"],
-                    }
-                else:
-                    # Erreur CinetPay
-                    error_msg = f"CinetPay Error {data.get('code')}: {data.get('message', 'Erreur inconnue')}"
-                    logger.error(f"Erreur CinetPay: {error_msg}")
-
-                    return {"success": False, "error": error_msg}
-            elif response.status_code == 403:
-                return {
-                    "success": False,
-                    "error": "Erreur 403: Service non identifié ou URLs localhost non autorisées",
-                }
-            elif response.status_code == 429:
-                return {
-                    "success": False,
-                    "error": "Erreur 429: Trop de requêtes. Veuillez réessayer plus tard.",
-                }
-            else:
-                return {
-                    "success": False,
-                    "error": f"Erreur HTTP {response.status_code}: {response.text}",
-                }
-
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Erreur de connexion à CinetPay: {str(e)}")
-            return {
-                "success": False,
-                "error": "Erreur de connexion au service de paiement",
-            }
-        except Exception as e:
-            logger.error(f"Erreur lors de l'initialisation CinetPay: {str(e)}")
-            return {
-                "success": False,
-                "error": "Erreur interne lors de l'initialisation du paiement",
-            }
-
-    # @action(detail=False, methods=["post"], permission_classes=[AllowAny], url_path="cinetpay/notify")
-    # def notify(self, request):
-    #     """Endpoint de notification CinetPay pour traiter les paiements (COMMENTÉ - Utilise l'APIView à la place)."""
-    #     # Cette action a été commentée pour éviter les conflits de routes
-    #     # La notification CinetPay est maintenant gérée par CinetPayNotificationAPIView
-    #     # qui a permission_classes = [AllowAny] et est accessible sans authentification
-    #     pass
-
-    @action(detail=True, methods=["get"], permission_classes=[IsAuthenticated])
-    def check_status(self, request, pk=None):
-        """Vérifie le statut d'un paiement."""
-        payment = self.get_object()
-
-        # Vérifier que l'utilisateur est autorisé
-        if payment.user != request.user:
-            return Response({"error": "Non autorisé"}, status=403)
-
-        return Response(
-            {
-                "transaction_id": payment.transaction_id,
-                "status": payment.status,
-                "amount": payment.amount,
-                "currency": payment.currency,
-                "created_at": payment.created_at,
-                "paid_at": payment.paid_at,
-            }
-        )
-
-    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
-    def my_payments(self, request):
-        """Récupère tous les paiements de l'utilisateur connecté."""
-        payments = CinetPayPayment.objects.filter(user=request.user).order_by(
-            "-created_at"
-        )
-        serializer = self.get_serializer(payments, many=True)
-        return Response(serializer.data)
 
 
 class CsrfExemptMixin(object):
@@ -1742,7 +1371,7 @@ class TechnicianViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def subscription_status(self, request):
-        """Retourne le statut détaillé de l'abonnement du technicien avec vérification robuste."""
+        """Retourne le statut d'abonnement - maintenant gratuit pour tous les techniciens."""
         user = request.user
         logger = logging.getLogger(__name__)
         
@@ -1754,81 +1383,22 @@ class TechnicianViewSet(viewsets.ModelViewSet):
                 logger.warning(f"Utilisateur {user.id} n'est pas un technicien")
                 return Response({"error": "Vous n'êtes pas un technicien."}, status=403)
             
-            # Vérifier si le technicien a des abonnements (gérer les deux types de profils)
-            if hasattr(technician, 'subscriptions'):
-                # Profil Technician (app depannage)
-                subscriptions = technician.subscriptions
-                logger.info(f"Utilisation des abonnements du profil Technician pour {user.id}")
-            else:
-                # Profil TechnicianProfile (app users) - chercher les abonnements liés à l'utilisateur
-                from .models import TechnicianSubscription
-                subscriptions = TechnicianSubscription.objects.filter(
-                    technician__user=user
-                )
-                logger.info(f"Utilisation des abonnements TechnicianSubscription pour {user.id}")
-            
-            now = timezone.now()
-            
-            # Vérification robuste de l'abonnement actif
-            active_subscription = subscriptions.filter(
-                end_date__gt=now,
-                is_active=True
-            ).order_by('-end_date').first()
-            
-            # Récupérer les paiements récents
-            payments = Payment.objects.filter(payer=user).order_by('-created_at')[:10]
-            days_remaining = 0
-            
-            if active_subscription:
-                days_remaining = (active_subscription.end_date - now).days
-                logger.info(f"Abonnement actif trouvé pour {user.id}: {active_subscription.id}, expire dans {days_remaining} jours")
-            else:
-                logger.info(f"Aucun abonnement actif trouvé pour {user.id}")
-            
-            # Déterminer le statut avec logique améliorée
-            subscription_status = 'expired'
-            if active_subscription:
-                if days_remaining > 7:
-                    subscription_status = 'active'
-                elif days_remaining > 3:
-                    subscription_status = 'warning'
-                else:
-                    subscription_status = 'critical'
-            
-            # Créer une notification d'expiration si nécessaire
-            if active_subscription and days_remaining <= 7 and days_remaining > 0:
-                existing_notification = Notification.objects.filter(
-                    recipient=user,
-                    type='subscription_expiry',
-                    is_read=False
-                ).first()
-                if not existing_notification:
-                    Notification.objects.create(
-                        recipient=user,
-                        title="Abonnement expirant",
-                        message=f"Votre abonnement expire dans {days_remaining} jour(s). Renouvelez-le pour continuer à recevoir des demandes.",
-                        type="subscription_expiry"
-                    )
-                    logger.info(f"Notification d'expiration créée pour {user.id}")
-            
-            # Vérification supplémentaire pour can_receive_requests
-            can_receive_requests = active_subscription is not None and active_subscription.is_active
-            
-            # Log pour debugging
-            logger.info(f"Statut abonnement pour {user.id}: {subscription_status}, can_receive_requests: {can_receive_requests}")
+            # Tous les techniciens sont maintenant gratuits
+            logger.info(f"Technicien {user.id} - Accès gratuit activé")
             
             return Response({
-                'status': subscription_status,
-                'subscription': active_subscription.id if active_subscription else None,
-                'days_remaining': days_remaining,
-                'payments': PaymentSerializer(payments, many=True).data,
-                'can_receive_requests': can_receive_requests,
-                'is_active': can_receive_requests,  # Alias pour compatibilité
+                'status': 'active',
+                'subscription': None,
+                'days_remaining': 999999,  # Illimité
+                'payments': [],
+                'can_receive_requests': True,
+                'is_active': True,
                 'subscription_details': {
-                    'plan_name': active_subscription.plan_name if active_subscription else None,
-                    'start_date': active_subscription.start_date.isoformat() if active_subscription else None,
-                    'end_date': active_subscription.end_date.isoformat() if active_subscription else None,
-                } if active_subscription else None
+                    'plan_name': 'Gratuit',
+                    'start_date': timezone.now().isoformat(),
+                    'end_date': (timezone.now() + timezone.timedelta(days=36500)).isoformat(),  # 100 ans
+                },
+                'message': 'Accès gratuit activé'
             })
             
         except Exception as e:
@@ -1840,54 +1410,14 @@ class TechnicianViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
     def renew_subscription(self, request):
-        """Permet au technicien de renouveler son abonnement (1 mois par défaut)."""
-        user = request.user
-        try:
-            technician = Technician.objects.get(user=user)
-        except Technician.DoesNotExist:
-            return Response({"error": "Technicien introuvable"}, status=404)
-        
-        # Récupérer les paramètres de paiement
-        payment_method = request.data.get('payment_method', 'mobile_money')
-        phone_number = request.data.get('phone_number', '')
-        
-        # Chercher l'abonnement actif ou le plus récent
-        now = timezone.now()
-        sub = technician.subscriptions.filter(end_date__gt=now).order_by('-end_date').first()
-        
-        if sub:
-            # Prolonger l'abonnement existant
-            sub.end_date += timedelta(days=30)
-            sub.save()
-        else:
-            # Créer un nouvel abonnement
-            sub = technician.subscriptions.create(
-                plan_name="Standard",
-                start_date=now,
-                end_date=now + timedelta(days=30)
-            )
-        
-        # Créer un paiement
-        payment = Payment.objects.create(
-            payer=user,
-            amount=5000,  # Montant standard
-            payment_method=payment_method,
-            status='pending',
-            description=f"Renouvellement abonnement {sub.plan_name}"
-        )
-        
+        """Méthode supprimée - tous les techniciens sont maintenant gratuits."""
         return Response({
             "success": True,
+            "message": "Tous les techniciens ont maintenant un accès gratuit illimité",
             "subscription": {
-                "plan": sub.plan_name,
-                "start_date": sub.start_date,
-                "end_date": sub.end_date,
-                "is_active": sub.is_active,
-                "amount": 5000
-            },
-            "payment": {
-                "id": payment.id,
-                "status": payment.status
+                "plan": "Gratuit",
+                "is_active": True,
+                "amount": 0
             }
         })
 
@@ -2171,6 +1701,18 @@ class ReviewViewSet(viewsets.ModelViewSet):
             'achievements': []
         }
         return Response(rewards)
+
+    @action(detail=True, methods=["PATCH"], permission_classes=[IsAdminUser])
+    def moderate(self, request, pk=None):
+        """Permet à l'admin de masquer ou rendre visible un avis."""
+        review = self.get_object()
+        is_visible = request.data.get("is_visible")
+        if is_visible is None:
+            return Response({"error": "Champ 'is_visible' requis."}, status=400)
+        review.is_visible = bool(is_visible) in [True, 1, "1", "True"]
+        review.save()
+        serializer = self.get_serializer(review)
+        return Response(serializer.data)
 
 
 class PaymentViewSet(viewsets.ModelViewSet):
@@ -2537,9 +2079,95 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
 class AuditLogListView(APIView):
     permission_classes = [permissions.IsAdminUser]
     def get(self, request):
-        logs = AuditLog.objects.all().order_by('-timestamp')[:100]
+        logs = AuditLog.objects.all()
+        # Filtres dynamiques
+        event_type = request.GET.get('event_type')
+        status = request.GET.get('status')
+        user_email = request.GET.get('user_email')
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        if event_type:
+            logs = logs.filter(event_type__icontains=event_type)
+        if status:
+            logs = logs.filter(status__icontains=status)
+        if user_email:
+            logs = logs.filter(user__email__icontains=user_email)
+        if start_date:
+            logs = logs.filter(timestamp__gte=start_date)
+        if end_date:
+            logs = logs.filter(timestamp__lte=end_date)
+        logs = logs.order_by('-timestamp')[:100]
         serializer = AuditLogSerializer(logs, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="export", permission_classes=[permissions.IsAdminUser])
+    def export(self, request):
+        logs = AuditLog.objects.all()
+        # Filtres dynamiques
+        event_type = request.GET.get('event_type')
+        status = request.GET.get('status')
+        user_email = request.GET.get('user_email')
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        if event_type:
+            logs = logs.filter(event_type__icontains=event_type)
+        if status:
+            logs = logs.filter(status__icontains=status)
+        if user_email:
+            logs = logs.filter(user__email__icontains=user_email)
+        if start_date:
+            logs = logs.filter(timestamp__gte=start_date)
+        if end_date:
+            logs = logs.filter(timestamp__lte=end_date)
+        logs = logs.order_by('-timestamp')
+        export_format = request.GET.get('format', 'csv')
+        fields = [
+            'timestamp', 'user__email', 'event_type', 'status', 'ip_address', 'geo_country', 'geo_city', 'user_agent', 'risk_score', 'metadata'
+        ]
+        if export_format == 'excel':
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Audit Log"
+            ws.append(['Date', 'Utilisateur', 'Type', 'Statut', 'IP', 'Pays', 'Ville', 'User Agent', 'Risque', 'Détails'])
+            for log in logs:
+                ws.append([
+                    log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                    getattr(log.user, 'email', ''),
+                    log.event_type,
+                    log.status,
+                    log.ip_address,
+                    log.geo_country,
+                    log.geo_city,
+                    log.user_agent,
+                    log.risk_score,
+                    str(log.metadata) if log.metadata else ''
+                ])
+            from io import BytesIO
+            output = BytesIO()
+            wb.save(output)
+            output.seek(0)
+            response = HttpResponse(output, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = 'attachment; filename="audit_log.xlsx"'
+            return response
+        else:
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename="audit_log.csv"'
+            writer = csv.writer(response)
+            writer.writerow(['Date', 'Utilisateur', 'Type', 'Statut', 'IP', 'Pays', 'Ville', 'User Agent', 'Risque', 'Détails'])
+            for log in logs:
+                writer.writerow([
+                    log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                    getattr(log.user, 'email', ''),
+                    log.event_type,
+                    log.status,
+                    log.ip_address,
+                    log.geo_country,
+                    log.geo_city,
+                    log.user_agent,
+                    log.risk_score,
+                    str(log.metadata) if log.metadata else ''
+                ])
+            return response
 
 # ============================================================================
 # ENDPOINTS MANQUANTS - CORRECTIFS
@@ -2601,9 +2229,7 @@ def admin_notifications(request):
         return Response({"error": "Accès non autorisé"}, status=403)
     
     try:
-        notifications = AdminNotification.objects.filter(
-            recipient=request.user
-        ).order_by('-created_at')
+        notifications = AdminNotification.objects.all().order_by('-created_at')
         
         serializer = AdminNotificationSerializer(notifications, many=True)
         return Response(serializer.data)
@@ -2619,7 +2245,6 @@ def mark_all_notifications_read(request):
     
     try:
         AdminNotification.objects.filter(
-            recipient=request.user,
             is_read=False
         ).update(is_read=True, read_at=timezone.now())
         
@@ -2735,18 +2360,17 @@ def admin_security_alerts(request):
         # Alertes de sécurité récentes
         recent_alerts = AuditLog.objects.filter(
             risk_score__gte=80,
-            created_at__gte=timezone.now() - timedelta(days=7)
-        ).order_by('-created_at')[:10]
+            timestamp__gte=timezone.now() - timedelta(days=7)
+        ).order_by('-timestamp')[:10]
         
         alerts_data = []
         for alert in recent_alerts:
             alerts_data.append({
                 "id": alert.id,
                 "event_type": alert.event_type,
-                "description": alert.description,
                 "risk_score": alert.risk_score,
                 "ip_address": alert.ip_address,
-                "created_at": alert.created_at,
+                "timestamp": alert.timestamp,
                 "user": alert.user.username if alert.user else None
             })
         
@@ -2766,7 +2390,7 @@ def admin_login_locations(request):
         recent_logins = AuditLog.objects.filter(
             event_type='login',
             status='success'
-        ).order_by('-created_at')[:50]
+        ).order_by('-timestamp')[:50]
         
         locations_data = []
         for login in recent_logins:
@@ -2775,11 +2399,11 @@ def admin_login_locations(request):
                 "user": login.user.username if login.user else None,
                 "ip_address": login.ip_address,
                 "location": login.location if hasattr(login, 'location') else None,
-                "created_at": login.created_at,
+                "timestamp": login.timestamp,
                 "user_agent": login.user_agent if hasattr(login, 'user_agent') else None
             })
         
-        return Response({"locations": locations_data})
+        return Response({"results": locations_data})
     except Exception as e:
         return Response({"error": str(e)}, status=500)
 
@@ -2834,351 +2458,6 @@ def technician_dashboard_data(request):
     except Exception as e:
         return Response({"error": str(e)}, status=500)
 
-class SubscriptionRequestViewSet(viewsets.ModelViewSet):
-    """ViewSet pour gérer les demandes de paiement d'abonnement avec logique améliorée."""
-    
-    queryset = SubscriptionPaymentRequest.objects.all()
-    serializer_class = SubscriptionPaymentRequestSerializer
-    permission_classes = [IsAuthenticated]
-    
-    def get_queryset(self):
-        """Filtrer les demandes selon l'utilisateur avec optimisations."""
-        queryset = SubscriptionPaymentRequest.objects.select_related(
-            'technician__user',
-            'validated_by',
-            'subscription'
-        ).prefetch_related('technician__subscriptions')
-        
-        if self.request.user.is_staff:
-            # Admin voit toutes les demandes avec filtres
-            status_filter = self.request.query_params.get('status')
-            if status_filter:
-                queryset = queryset.filter(status=status_filter)
-            
-            technician_filter = self.request.query_params.get('technician')
-            if technician_filter:
-                queryset = queryset.filter(technician__user__username__icontains=technician_filter)
-            
-            return queryset.order_by('-created_at')
-        else:
-            # Technicien voit seulement ses demandes
-            try:
-                technician = get_technician_profile(self.request.user)
-                if technician:
-                    return queryset.filter(technician=technician).order_by('-created_at')
-                else:
-                    return SubscriptionPaymentRequest.objects.none()
-            except Exception as e:
-                logger.error(f"Erreur lors de la récupération du profil technicien: {e}")
-                return SubscriptionPaymentRequest.objects.none()
-    
-    def perform_create(self, serializer):
-        """Créer une nouvelle demande de paiement avec validation."""
-        try:
-            if self.request.user.is_staff:
-                # Admin peut créer des demandes pour n'importe quel technicien
-                technician_id = self.request.data.get('technician')
-                if not technician_id:
-                    raise serializers.ValidationError("ID du technicien requis")
-                try:
-                    technician = Technician.objects.get(id=technician_id)
-                    # Vérifier si le technicien a déjà une demande en attente
-                    existing_pending = SubscriptionPaymentRequest.objects.filter(
-                        technician=technician,
-                        status='pending'
-                    ).exists()
-                    if existing_pending:
-                        raise serializers.ValidationError(
-                            "Ce technicien a déjà une demande de paiement en attente"
-                        )
-                    serializer.save(technician=technician)
-                except Technician.DoesNotExist:
-                    raise serializers.ValidationError("Technicien non trouvé")
-            else:
-                # Technicien crée sa propre demande
-                technician = get_technician_profile(self.request.user)
-                if not technician:
-                    raise serializers.ValidationError("Profil technicien non trouvé")
-                # Vérifier si le technicien a déjà une demande en attente
-                existing_pending = SubscriptionPaymentRequest.objects.filter(
-                    technician=technician,
-                    status='pending'
-                ).exists()
-                if existing_pending:
-                    raise serializers.ValidationError(
-                        "Vous avez déjà une demande de paiement en attente"
-                    )
-                # Vérifier si le technicien a un abonnement actif
-                active_subscription = technician.subscriptions.filter(
-                    end_date__gt=timezone.now(),
-                    is_active=True
-                ).exists()
-                if active_subscription:
-                    raise serializers.ValidationError(
-                        "Vous avez déjà un abonnement actif"
-                    )
-                serializer.save(technician=technician)
-        except Exception as e:
-            logger.error(f"Erreur lors de la création de la demande: {e}")
-            raise serializers.ValidationError(f"Erreur lors de la création: {str(e)}")
-    
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
-    def recent_requests(self, request):
-        from django.db.models import Sum, Avg  # Import local garanti
-        if not request.user.is_staff:
-            return Response({"error": "Accès non autorisé"}, status=403)
-        
-        # Paramètres de filtrage
-        days = int(request.query_params.get('days', 30))
-        status = request.query_params.get('status')
-        
-        # Calculer la date de début
-        start_date = timezone.now() - timedelta(days=days)
-        
-        queryset = SubscriptionPaymentRequest.objects.filter(
-            created_at__gte=start_date
-        ).select_related('technician__user', 'validated_by')
-        
-        if status:
-            queryset = queryset.filter(status=status)
-        
-        # Statistiques
-        stats = {
-            'total_requests': queryset.count(),
-            'pending_requests': queryset.filter(status='pending').count(),
-            'approved_requests': queryset.filter(status='approved').count(),
-            'rejected_requests': queryset.filter(status='rejected').count(),
-            'total_amount': queryset.aggregate(
-                total=Sum('amount')
-            )['total'] or 0,
-            'average_amount': queryset.aggregate(
-                avg=Avg('amount')
-            )['avg'] or 0,
-        }
-        
-        # Pagination
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response({
-                'results': serializer.data,
-                'statistics': stats
-            })
-        
-        serializer = self.get_serializer(queryset, many=True)
-        return Response({
-            'results': serializer.data,
-            'statistics': stats
-        })
-    
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
-    def technician_payments(self, request):
-        from django.db.models import Sum  # Import local garanti
-        if not request.user.is_staff:
-            return Response({"error": "Accès non autorisé"}, status=403)
-        
-        # Paramètres de filtrage
-        days = int(request.query_params.get('days', 30))
-        status = request.query_params.get('status')
-        technician_id = request.query_params.get('technician_id')
-        
-        start_date = timezone.now() - timedelta(days=days)
-        
-        # Récupérer les paiements CinetPay des techniciens
-        queryset = CinetPayPayment.objects.filter(
-            created_at__gte=start_date,
-            user__technician_depannage__isnull=False  # Seulement les techniciens
-        ).select_related('user', 'user__technician_depannage')
-        
-        if status:
-            queryset = queryset.filter(status=status)
-        
-        if technician_id:
-            queryset = queryset.filter(user__technician_depannage__id=technician_id)
-        
-        # Statistiques des paiements
-        payment_stats = {
-            'total_payments': queryset.count(),
-            'successful_payments': queryset.filter(status='success').count(),
-            'failed_payments': queryset.filter(status='failed').count(),
-            'pending_payments': queryset.filter(status='pending').count(),
-            'total_amount': queryset.aggregate(
-                total=Sum('amount')
-            )['total'] or 0,
-            'successful_amount': queryset.filter(status='success').aggregate(
-                total=Sum('amount')
-            )['total'] or 0,
-        }
-        
-        # Pagination
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            from .serializers import CinetPayPaymentSerializer
-            serializer = CinetPayPaymentSerializer(page, many=True)
-            return self.get_paginated_response({
-                'results': serializer.data,
-                'statistics': payment_stats
-            })
-        
-        from .serializers import CinetPayPaymentSerializer
-        serializer = CinetPayPaymentSerializer(queryset, many=True)
-        return Response({
-            'results': serializer.data,
-            'statistics': payment_stats
-        })
-    
-    @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
-    def validate_payment(self, request, pk=None):
-        """Valider un paiement d'abonnement avec logique améliorée."""
-        payment_request = self.get_object()
-        
-        if payment_request.status != SubscriptionPaymentRequest.Status.PENDING:
-            return Response(
-                {"error": "Cette demande a déjà été traitée"},
-                status=400
-            )
-        
-        action = request.data.get('action')
-        notes = request.data.get('notes', '')
-        
-        if action == 'approve':
-            try:
-                # Vérifier si le technicien a déjà un abonnement actif
-                active_subscription = payment_request.technician.subscriptions.filter(
-                    end_date__gt=timezone.now(),
-                    is_active=True
-                ).first()
-                
-                if active_subscription:
-                    # Prolonger l'abonnement existant
-                    active_subscription.end_date += timedelta(days=30 * payment_request.duration_months)
-                    active_subscription.save()
-                    subscription = active_subscription
-                else:
-                    # Créer un nouvel abonnement
-                    end_date = timezone.now() + timedelta(days=30 * payment_request.duration_months)
-                    subscription = TechnicianSubscription.objects.create(
-                        technician=payment_request.technician,
-                        plan_name=f"Plan {payment_request.duration_months} mois",
-                        start_date=timezone.now(),
-                        end_date=end_date,
-                        is_active=True
-                    )
-                    
-                # Mettre à jour la demande
-                payment_request.status = SubscriptionPaymentRequest.Status.APPROVED
-                payment_request.validated_by = request.user
-                payment_request.validated_at = timezone.now()
-                payment_request.validation_notes = notes
-                payment_request.subscription = subscription
-                payment_request.save()
-
-                # Créer une notification pour le technicien
-                Notification.objects.create(
-                    recipient=payment_request.technician.user,
-                    type='subscription_approved',
-                    title='Abonnement approuvé',
-                    message=f"Votre demande d'abonnement de {payment_request.amount} FCFA a été approuvée.",
-                    extra_data={'subscription_id': subscription.id}
-                )
-
-                return Response({
-                    "message": "Paiement approuvé et abonnement créé",
-                    "subscription_id": subscription.id,
-                    "end_date": subscription.end_date.isoformat()
-                })
-            except Exception as e:
-                logger.error(f"Erreur lors de l'approbation: {e}")
-                return Response(
-                    {"error": f"Erreur lors de l'approbation: {str(e)}"},
-                    status=500
-                )
-        elif action == 'reject':
-            payment_request.status = SubscriptionPaymentRequest.Status.REJECTED
-            payment_request.validated_by = request.user
-            payment_request.validated_at = timezone.now()
-            payment_request.validation_notes = notes
-            payment_request.save()
-            
-            # Créer une notification pour le technicien
-            Notification.objects.create(
-                recipient=payment_request.technician.user,
-                type='subscription_rejected',
-                title='Demande d\'abonnement rejetée',
-                message=f'Votre demande d\'abonnement de {payment_request.amount} FCFA a été rejetée.',
-                extra_data={'reason': notes}
-            )
-            
-            return Response({
-                "message": "Paiement rejeté"
-            })
-        
-        else:
-            return Response(
-                {"error": "Action invalide. Utilisez 'approve' ou 'reject'"},
-                status=400
-            )
-    
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
-    def dashboard_stats(self, request):
-        from django.db.models import Sum  # Import local garanti
-        if not request.user.is_staff:
-            return Response({"error": "Accès non autorisé"}, status=403)
-        
-        # Statistiques générales
-        total_subscriptions = TechnicianSubscription.objects.count()
-        active_subscriptions = TechnicianSubscription.objects.filter(
-            end_date__gt=timezone.now(),
-            is_active=True
-        ).count()
-        expired_subscriptions = TechnicianSubscription.objects.filter(
-            end_date__lte=timezone.now()
-        ).count()
-        
-        # Demandes de paiement
-        total_requests = SubscriptionPaymentRequest.objects.count()
-        pending_requests = SubscriptionPaymentRequest.objects.filter(status='pending').count()
-        approved_requests = SubscriptionPaymentRequest.objects.filter(status='approved').count()
-        
-        # Paiements CinetPay des techniciens
-        technician_payments = CinetPayPayment.objects.filter(
-            user__technician_depannage__isnull=False
-        )
-        total_payments = technician_payments.count()
-        successful_payments = technician_payments.filter(status='success').count()
-        total_amount = technician_payments.filter(status='success').aggregate(
-            total=Sum('amount')
-        )['total'] or 0
-        
-        # Tendances (7 derniers jours)
-        seven_days_ago = timezone.now() - timedelta(days=7)
-        recent_subscriptions = TechnicianSubscription.objects.filter(
-            start_date__gte=seven_days_ago
-        ).count()
-        recent_requests = SubscriptionPaymentRequest.objects.filter(
-            created_at__gte=seven_days_ago
-        ).count()
-        
-        return Response({
-            'subscriptions': {
-                'total': total_subscriptions,
-                'active': active_subscriptions,
-                'expired': expired_subscriptions,
-                'recent': recent_subscriptions
-            },
-            'requests': {
-                'total': total_requests,
-                'pending': pending_requests,
-                'approved': approved_requests,
-                'recent': recent_requests
-            },
-            'payments': {
-                'total': total_payments,
-                'successful': successful_payments,
-                'total_amount': total_amount
-            }
-        })
-
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def admin_security_stats(request):
@@ -3208,127 +2487,72 @@ def admin_security_trends(request):
     }
     return Response(data)
 
-class CinetPayNotificationAPIView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        """Endpoint de notification CinetPay pour traiter les paiements (APIView, accès public)."""
-        logger.info(f"🔔 [NOTIFICATION] Notification CinetPay reçue: {request.data}")
-        try:
-            from .serializers import CinetPayNotificationSerializer
-            import datetime
-            from django.utils import timezone
-            notification_data = dict(request.data)
-            for k, v in notification_data.items():
-                if isinstance(v, list):
-                    notification_data[k] = v[0]
-            if 'currency' not in notification_data:
-                notification_data['currency'] = 'XOF'
-            if 'payment_method' not in notification_data:
-                notification_data['payment_method'] = 'MOBILE_MONEY'
-            if 'operator' not in notification_data:
-                notification_data['operator'] = 'ORANGE'
-            if 'payment_date' not in notification_data:
-                notification_data['payment_date'] = timezone.now().isoformat()
-            serializer = CinetPayNotificationSerializer(data=notification_data)
-            if not serializer.is_valid():
-                logger.error(f"🔔 [NOTIFICATION] Données invalides: {serializer.errors}")
-                return Response(serializer.errors, status=400)
-            data = serializer.validated_data
-            transaction_id = data['transaction_id']
-            status = data['status']
-            try:
-                payment = CinetPayPayment.objects.get(transaction_id=transaction_id)
-            except CinetPayPayment.DoesNotExist:
-                logger.error(f"🔔 [NOTIFICATION] Paiement non trouvé: {transaction_id}")
-                return Response({"error": "Paiement non trouvé"}, status=404)
-            # Stocker la notification brute
-            payment.notification_data = notification_data
-            payment.save(update_fields=["notification_data"])
-            # Idempotence stricte
-            if payment.status in ["success", "failed", "cancelled"]:
-                logger.info(f"🔔 [NOTIFICATION] Paiement déjà traité: {transaction_id}")
-                return Response({"message": "Paiement déjà traité"}, status=200)
-            if status == "ACCEPTED":
-                payment.status = "success"
-                payment.paid_at = timezone.now()
-                payment.cinetpay_transaction_id = data.get("payment_token", "")
-                payment.save()
-                # Activation abonnement technicien
-                if payment.user:
-                    user = payment.user
-                    technician = get_technician_profile(user)
-                    if technician:
-                        duration_months = 1
-                        if payment.metadata:
-                            try:
-                                import json
-                                metadata = json.loads(payment.metadata) if isinstance(payment.metadata, str) else payment.metadata
-                                duration_months = int(metadata.get("duration_months", 1))
-                            except Exception as e:
-                                logger.warning(f"🔔 [NOTIFICATION] Erreur parsing métadonnées: {e}, valeur par défaut 1 mois")
-                                duration_months = 1
-                        now = timezone.now()
-                        # Vérifier s'il existe déjà un abonnement actif couvrant la période
-                        active_sub = technician.subscriptions.filter(end_date__gt=now, is_active=True).order_by('-end_date').first()
-                        if active_sub:
-                            # Prolonger l'abonnement existant si le paiement n'est pas déjà lié
-                            if not active_sub.payment or active_sub.payment != payment:
-                                active_sub.end_date += datetime.timedelta(days=30 * duration_months)
-                                active_sub.payment = payment
-                                active_sub.save()
-                                logger.info(f"🔔 [NOTIFICATION] Abonnement prolongé pour {technician.user.username} via paiement {transaction_id}")
-                            else:
-                                logger.info(f"🔔 [NOTIFICATION] Abonnement déjà prolongé pour {technician.user.username} via ce paiement")
-                            sub = active_sub
-                        else:
-                            # Créer un nouvel abonnement uniquement si aucun actif n'existe pour la période
-                            sub, created = TechnicianSubscription.objects.get_or_create(
-                                technician=technician,
-                                start_date__lte=now,
-                                end_date__gte=now,
-                                defaults={
-                                    "plan_name": f"Standard {duration_months} mois",
-                                    "start_date": now,
-                                    "end_date": now + datetime.timedelta(days=30 * duration_months),
-                                    "payment": payment,
-                                    "is_active": True
-                                }
-                            )
-                            if created:
-                                logger.info(f"🔔 [NOTIFICATION] Nouvel abonnement créé pour {technician.user.username} via paiement {transaction_id}")
-                            else:
-                                logger.info(f"🔔 [NOTIFICATION] Abonnement déjà existant pour {technician.user.username} sur la période")
-                        # Notification utilisateur
-                        try:
-                            Notification.objects.create(
-                                recipient=user,
-                                title="Abonnement activé avec succès !",
-                                message=f"Votre abonnement a été activé pour {duration_months} mois jusqu'au {sub.end_date.strftime('%d/%m/%Y')}. Vous pouvez maintenant recevoir de nouvelles demandes de réparation.",
-                                type="subscription_renewed",
-                            )
-                        except Exception as e:
-                            logger.error(f"🔔 [NOTIFICATION] Erreur création notification: {e}")
-                logger.info(f"🔔 [NOTIFICATION] Paiement {transaction_id} traité avec succès")
-                return Response({"success": True, "message": "Abonnement activé avec succès"})
-            elif status in ["REFUSED", "CANCELLED"]:
-                payment.status = "failed" if status == "REFUSED" else "cancelled"
-                payment.save()
-                try:
-                    Notification.objects.create(
-                        recipient=payment.user,
-                        title="Paiement échoué",
-                        message="Votre paiement a échoué. Veuillez réessayer.",
-                        type="payment_failed",
-                    )
-                except Exception as e:
-                    logger.error(f"🔔 [NOTIFICATION] Erreur création notification d'échec: {e}")
-                return Response({"success": False, "message": f"Paiement {status.lower()}"}, status=400)
-            else:
-                logger.warning(f"🔔 [NOTIFICATION] Statut de paiement inattendu: {status}")
-                return Response({"error": "Statut de paiement inconnu"}, status=400)
-        except Exception as e:
-            logger.error(f"🔔 [NOTIFICATION] Erreur lors du traitement: {str(e)}")
-            import traceback
-            logger.error(f"🔔 [NOTIFICATION] Traceback: {traceback.format_exc()}")
-            return Response({"error": "Erreur interne du serveur"}, status=500)
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def export_audit_logs(request):
+    from users.models import AuditLog
+    logs = AuditLog.objects.all()
+    # Filtres dynamiques
+    event_type = request.GET.get('event_type')
+    status = request.GET.get('status')
+    user_email = request.GET.get('user_email')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    if event_type:
+        logs = logs.filter(event_type__icontains=event_type)
+    if status:
+        logs = logs.filter(status__icontains=status)
+    if user_email:
+        logs = logs.filter(user__email__icontains=user_email)
+    if start_date:
+        logs = logs.filter(timestamp__gte=start_date)
+    if end_date:
+        logs = logs.filter(timestamp__lte=end_date)
+    logs = logs.order_by('-timestamp')
+    export_format = request.GET.get('format', 'csv')
+    if export_format == 'excel':
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Audit Log"
+        ws.append(['Date', 'Utilisateur', 'Type', 'Statut', 'IP', 'Pays', 'Ville', 'User Agent', 'Risque', 'Détails'])
+        for log in logs:
+            ws.append([
+                log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                getattr(log.user, 'email', ''),
+                log.event_type,
+                log.status,
+                log.ip_address,
+                log.geo_country,
+                log.geo_city,
+                log.user_agent,
+                log.risk_score,
+                str(log.metadata) if log.metadata else ''
+            ])
+        from io import BytesIO
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        response = HttpResponse(output, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = 'attachment; filename="audit_log.xlsx"'
+        return response
+    else:
+        import csv
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="audit_log.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['Date', 'Utilisateur', 'Type', 'Statut', 'IP', 'Pays', 'Ville', 'User Agent', 'Risque', 'Détails'])
+        for log in logs:
+            writer.writerow([
+                log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                getattr(log.user, 'email', ''),
+                log.event_type,
+                log.status,
+                log.ip_address,
+                log.geo_country,
+                log.geo_city,
+                log.user_agent,
+                log.risk_score,
+                str(log.metadata) if log.metadata else ''
+            ])
+        return response

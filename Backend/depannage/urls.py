@@ -6,14 +6,14 @@ from .views import (
     RepairRequestViewSet,
     RequestDocumentViewSet,
     ReviewViewSet,
-    PaymentViewSet,
+    # PaymentViewSet,  # Supprimé - plus de paiements
     ConversationViewSet,
     MessageViewSet,
     MessageAttachmentViewSet,
     NotificationViewSet,
     TechnicianLocationViewSet,
     SystemConfigurationViewSet,
-    CinetPayViewSet,
+    # CinetPayViewSet,  # Supprimé - plus de paiements CinetPay
     PublicTestViewSet,
     TechnicianNearbyViewSet,
     find_nearest_technician,
@@ -25,21 +25,22 @@ from .views import (
     ReportViewSet,
     AdminNotificationViewSet,
     AuditLogListView,
-    SubscriptionRequestViewSet,
+    # SubscriptionRequestViewSet,  # Supprimé - plus de demandes d'abonnement
     # Nouveaux endpoints
     admin_dashboard_stats,
     admin_notifications,
     mark_all_notifications_read,
     admin_reviews,
-    admin_payments,
-    admin_payments_stats,
+    # admin_payments,  # Supprimé - plus de paiements
+    # admin_payments_stats,  # Supprimé - plus de statistiques de paiements
     admin_security_alerts,
     admin_login_locations,
     system_configuration,
     technician_dashboard_data,
     admin_security_stats,
     admin_security_trends,
-    CinetPayNotificationAPIView,
+    # CinetPayNotificationAPIView,  # Supprimé - plus de notifications CinetPay
+    export_audit_logs,
 )
 from .export_statistics import export_statistics_excel
 from .export_statistics_pdf import export_statistics_pdf
@@ -50,24 +51,23 @@ router.register(r"technicians", TechnicianViewSet)
 router.register(r"repair-requests", RepairRequestViewSet, basename="repair-request")
 router.register(r"documents", RequestDocumentViewSet)
 router.register(r"reviews", ReviewViewSet)
-router.register(r"payments", PaymentViewSet)
+# router.register(r"payments", PaymentViewSet)  # Supprimé
 router.register(r"conversations", ConversationViewSet)
 router.register(r"messages", MessageViewSet)
 router.register(r"attachments", MessageAttachmentViewSet)
 router.register(r"notifications", NotificationViewSet)
 router.register(r"locations", TechnicianLocationViewSet)
 router.register(r"configurations", SystemConfigurationViewSet)
-router.register(r"cinetpay", CinetPayViewSet, basename="cinetpay")
+# router.register(r"cinetpay", CinetPayViewSet, basename="cinetpay")  # Supprimé
 router.register(r"techniciens-proches", TechnicianNearbyViewSet, basename="techniciens-proches")
 router.register(r"configuration", PlatformConfigurationViewSet, basename="configuration")
 router.register(r"client-locations", ClientLocationViewSet, basename="client-location")
 router.register(r'reports', ReportViewSet, basename='reports')
 router.register(r'admin-notifications', AdminNotificationViewSet, basename='admin-notifications')
-router.register(r'subscription-requests', SubscriptionRequestViewSet, basename='subscription-request')
+# router.register(r'subscription-requests', SubscriptionRequestViewSet, basename='subscription-request')  # Supprimé
 
 urlpatterns = [
-    # Endpoint de notification CinetPay (doit être AVANT le routeur pour avoir la priorité)
-    path("api/cinetpay/notify/", CinetPayNotificationAPIView.as_view(), name='cinetpay-notify'),
+    # Endpoint de notification CinetPay supprimé - plus de paiements
     
     path("api/", include(router.urls)),
     
@@ -99,11 +99,12 @@ urlpatterns = [
     path("api/admin/notifications/", admin_notifications, name="admin_notifications"),
     path("api/admin/notifications/mark-all-read/", mark_all_notifications_read, name="mark_all_notifications_read"),
     path("api/admin/reviews/", admin_reviews, name="admin_reviews"),
-    path("api/admin/payments/", admin_payments, name="admin_payments"),
-    path("api/admin/payments/stats/", admin_payments_stats, name="admin_payments_stats"),
+    # path("api/admin/payments/", admin_payments, name="admin_payments"),  # Supprimé
+    # path("api/admin/payments/stats/", admin_payments_stats, name="admin_payments_stats"),  # Supprimé
     path("api/admin/security/alerts/recent/", admin_security_alerts, name="admin_security_alerts"),
     path("api/admin/security/login-locations/", admin_login_locations, name="admin_login_locations"),
     path("api/admin/audit-logs/", AuditLogListView.as_view(), name="admin_audit_logs"),
+    path("api/admin/audit-logs/export/", export_audit_logs, name="admin_audit_logs_export"),
     path("api/configuration/", system_configuration, name="system_configuration"),
     path("api/technicians/dashboard/", technician_dashboard_data, name="technician_dashboard_data"),
     path("api/admin/security/stats/", admin_security_stats, name="admin_security_stats"),
@@ -112,9 +113,9 @@ urlpatterns = [
     # Endpoints pour les rapports
     path("api/reports/export/", ReportViewSet.as_view({"get": "export"}), name="reports_export"),
     
-    # Endpoints pour les paiements
-    path("api/payments/export/", PaymentViewSet.as_view({"get": "export"}), name="payments_export"),
-    path("api/payments/stats/", PaymentViewSet.as_view({"get": "stats"}), name="payments_stats"),
+    # Endpoints pour les paiements supprimés
+    # path("api/payments/export/", PaymentViewSet.as_view({"get": "export"}), name="payments_export"),  # Supprimé
+    # path("api/payments/stats/", PaymentViewSet.as_view({"get": "stats"}), name="payments_stats"),  # Supprimé
     
     # Endpoints pour les avis
     path("api/reviews/export/", ReviewViewSet.as_view({"get": "export"}), name="reviews_export"),
@@ -123,13 +124,13 @@ urlpatterns = [
     path("api/users/export/", include("users.urls")),
     path("api/users/admin/login-locations/", include("users.urls")),
     
-    # Endpoints pour les demandes d'abonnement
-    path("api/subscription-requests/<int:pk>/validate/", SubscriptionRequestViewSet.as_view({"post": "validate_payment"}), name="subscription_request_validate"),
+    # Endpoints pour les demandes d'abonnement supprimés
+    # path("api/subscription-requests/<int:pk>/validate/", SubscriptionRequestViewSet.as_view({"post": "validate_payment"}), name="subscription_request_validate"),  # Supprimé
     
-    # Endpoints pour les demandes d'abonnement (actions personnalisées)
-    path("api/subscription-requests/recent_requests/", SubscriptionRequestViewSet.as_view({"get": "recent_requests"}), name="subscription_requests_recent"),
-    path("api/subscription-requests/technician_payments/", SubscriptionRequestViewSet.as_view({"get": "technician_payments"}), name="subscription_requests_technician_payments"),
-    path("api/subscription-requests/dashboard_stats/", SubscriptionRequestViewSet.as_view({"get": "dashboard_stats"}), name="subscription_requests_dashboard_stats"),
+    # Endpoints pour les demandes d'abonnement (actions personnalisées) supprimés
+    # path("api/subscription-requests/recent_requests/", SubscriptionRequestViewSet.as_view({"get": "recent_requests"}), name="subscription_requests_recent"),  # Supprimé
+    # path("api/subscription-requests/technician_payments/", SubscriptionRequestViewSet.as_view({"get": "technician_payments"}), name="subscription_requests_technician_payments"),  # Supprimé
+    # path("api/subscription-requests/dashboard_stats/", SubscriptionRequestViewSet.as_view({"get": "dashboard_stats"}), name="subscription_requests_dashboard_stats"),  # Supprimé
 
     # Endpoint de test général
     path("api/test/", PublicTestViewSet.as_view({"get": "health_check"}), name="test_api_info")

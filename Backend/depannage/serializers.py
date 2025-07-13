@@ -85,7 +85,7 @@ class ReviewSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'request', 'technician', 'rating',
             'comment', 'would_recommend', 'punctuality_rating', 'quality_rating', 
-            'communication_rating', 'client_name', 'technician_name', 'created_at'
+            'communication_rating', 'client_name', 'technician_name', 'created_at', 'is_visible'
         ]
         read_only_fields = ['id', 'created_at']
 
@@ -592,7 +592,7 @@ class ReportSerializer(serializers.ModelSerializer):
     class Meta:
         model = Report
         fields = '__all__'
-        read_only_fields = ['id', 'created_at', 'reviewed_at', 'reviewed_by']
+        read_only_fields = ['id', 'created_at', 'reviewed_at', 'reviewed_by', 'sender']
 
 class AdminNotificationSerializer(serializers.ModelSerializer):
     class Meta:
@@ -603,7 +603,11 @@ class AuditLogSerializer(serializers.ModelSerializer):
     user_email = serializers.ReadOnlyField(source='user.email')
     class Meta:
         model = AuditLog
-        fields = '__all__'
+        fields = [
+            'id', 'timestamp', 'user', 'user_email', 'event_type', 'status', 
+            'ip_address', 'geo_country', 'geo_city', 'location', 'user_agent', 
+            'risk_score', 'metadata'
+        ]
 
 
 class SubscriptionPaymentRequestSerializer(serializers.ModelSerializer):

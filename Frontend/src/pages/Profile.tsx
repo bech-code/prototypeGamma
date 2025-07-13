@@ -27,8 +27,7 @@ const Profile: React.FC = () => {
     const [geoStatus, setGeoStatus] = useState<string | null>(null);
     const [geoLoading, setGeoLoading] = useState(false);
     const [clientLocation, setClientLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-    const [cinetpayTestMode, setCinetpayTestMode] = useState(false);
-    const [cinetpayTestStatus, setCinetpayTestStatus] = useState<'success' | 'failed' | 'pending'>('success');
+    // Variables CinetPay supprimées - plus de paiements
     const navigate = useNavigate();
 
     // Icône par défaut pour Leaflet (fix bug d'affichage)
@@ -185,32 +184,8 @@ const Profile: React.FC = () => {
                         <span className="text-green-700 font-medium">{success}</span>
                     </div>
                 )}
-                {cinetpayTestMode && (
-                    <div className="mb-4 p-3 rounded-xl bg-yellow-50 border border-yellow-300 text-yellow-800 font-semibold text-center animate-fade-in">
-                        <span>Mode test CinetPay actif : aucun paiement réel n'a été effectué.</span>
-                        <div className="mt-2 flex gap-2 justify-center">
-                            <button onClick={() => setCinetpayTestStatus('success')} className={`px-3 py-1 rounded bg-green-100 text-green-700 font-medium border border-green-300 ${cinetpayTestStatus === 'success' ? 'ring-2 ring-green-400' : ''}`}>Simuler succès</button>
-                            <button onClick={() => setCinetpayTestStatus('failed')} className={`px-3 py-1 rounded bg-red-100 text-red-700 font-medium border border-red-300 ${cinetpayTestStatus === 'failed' ? 'ring-2 ring-red-400' : ''}`}>Simuler échec</button>
-                            <button onClick={() => setCinetpayTestStatus('pending')} className={`px-3 py-1 rounded bg-gray-100 text-gray-700 font-medium border border-gray-300 ${cinetpayTestStatus === 'pending' ? 'ring-2 ring-gray-400' : ''}`}>Simuler en attente</button>
-                        </div>
-                    </div>
-                )}
-                {/* Affichage dynamique selon le statut simulé */}
-                {cinetpayTestMode && cinetpayTestStatus === 'success' && (
-                    <div className="mb-4 p-4 rounded-xl bg-green-50 border border-green-300 text-green-800 font-semibold text-center animate-fade-in">
-                        Paiement réussi ! Votre abonnement est activé.
-                    </div>
-                )}
-                {cinetpayTestMode && cinetpayTestStatus === 'failed' && (
-                    <div className="mb-4 p-4 rounded-xl bg-red-50 border border-red-300 text-red-800 font-semibold text-center animate-fade-in">
-                        Paiement refusé. Veuillez réessayer ou contacter le support.
-                    </div>
-                )}
-                {cinetpayTestMode && cinetpayTestStatus === 'pending' && (
-                    <div className="mb-4 p-4 rounded-xl bg-gray-50 border border-gray-300 text-gray-800 font-semibold text-center animate-fade-in">
-                        Paiement en attente de validation...
-                    </div>
-                )}
+                {/* Mode test CinetPay supprimé - plus de paiements */}
+                {/* Statuts de test CinetPay supprimés - plus de paiements */}
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>

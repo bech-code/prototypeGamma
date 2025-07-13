@@ -1,13 +1,16 @@
 from .models import AuditLog, SecurityNotification
 from django.core.mail import send_mail
 from django.conf import settings
+from depannage.utils import get_location_from_ip
 
-def log_event(request, event_type, status, risk_score=0, metadata=None):
-    user = request.user if hasattr(request, 'user') and request.user.is_authenticated else None
+def log_event(request, event_type, status, risk_score=0, metadata=None, user=None):
+    if user is None:
+        user = request.user if hasattr(request, 'user') and request.user.is_authenticated else None
     ip = request.META.get('REMOTE_ADDR')
     user_agent = request.META.get('HTTP_USER_AGENT', '')
     geo_country = getattr(request, 'geoip_country', '') or request.META.get('GEOIP_COUNTRY', '')
     geo_city = getattr(request, 'geoip_city', '') or request.META.get('GEOIP_CITY', '')
+    location = get_location_from_ip(ip)
     AuditLog.objects.create(
         user=user,
         ip_address=ip,
@@ -17,7 +20,8 @@ def log_event(request, event_type, status, risk_score=0, metadata=None):
         geo_country=geo_country,
         geo_city=geo_city,
         risk_score=risk_score,
-        metadata=metadata or {}
+        metadata=metadata or {},
+        location=location
     )
 
 def send_security_notification(user, subject, message, html_message=None, event_type=None):

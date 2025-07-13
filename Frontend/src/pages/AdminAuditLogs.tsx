@@ -54,7 +54,7 @@ function AdminAuditLogs() {
         setLoading(true);
         setError("");
         try {
-            const response = await fetchWithAuth("/api/admin/audit-logs/");
+            const response = await fetchWithAuth("/depannage/api/admin/audit-logs/");
             if (response.ok) {
                 const data = await response.json();
                 setLogs(data);
@@ -75,23 +75,25 @@ function AdminAuditLogs() {
         }
     };
 
-    const exportLogs = async () => {
+    const exportLogs = async (format: 'csv' | 'excel' = 'csv') => {
         setExporting(true);
         try {
-            const response = await fetchWithAuth("/api/admin/audit-logs/export/", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(filter),
-            });
-
+            // Construction de la query string avec les filtres
+            const params = new URLSearchParams();
+            if (filter.event_type) params.append('event_type', filter.event_type);
+            if (filter.status) params.append('status', filter.status);
+            if (filter.user_email) params.append('user_email', filter.user_email);
+            if (filter.date_from) params.append('start_date', filter.date_from);
+            if (filter.date_to) params.append('end_date', filter.date_to);
+            params.append('format', format);
+            const url = `/depannage/api/admin/audit-logs/export/?${params.toString()}`;
+            const response = await fetchWithAuth(url, { method: 'GET' });
             if (response.ok) {
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `audit-logs-${new Date().toISOString().split('T')[0]}.csv`;
+                a.download = `audit-logs-${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'csv'}`;
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
@@ -211,17 +213,21 @@ function AdminAuditLogs() {
                         <RefreshCw className="h-4 w-4 mr-2" />
                         Actualiser
                     </button>
-                    <button
-                        onClick={exportLogs}
-                        disabled={exporting}
-                        className="flex items-center px-3 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
-                    >
+                    <button onClick={() => exportLogs('csv')} disabled={exporting} className="flex items-center px-3 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50">
                         {exporting ? (
                             <div className="animate-spin rounded-full h-4 w-4 border-b border-white mr-2"></div>
                         ) : (
                             <Download className="h-4 w-4 mr-2" />
                         )}
-                        {exporting ? 'Export...' : 'Exporter'}
+                        {exporting ? 'Export...' : 'Exporter CSV'}
+                    </button>
+                    <button onClick={() => exportLogs('excel')} disabled={exporting} className="flex items-center px-3 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50">
+                        {exporting ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b border-white mr-2"></div>
+                        ) : (
+                            <Download className="h-4 w-4 mr-2" />
+                        )}
+                        {exporting ? 'Export...' : 'Exporter Excel'}
                     </button>
                 </div>
             </div>
@@ -328,10 +334,7 @@ function AdminAuditLogs() {
                                         {log.ip_address}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <div>
-                                            <div>{log.geo_city || "-"}</div>
-                                            <div className="text-xs text-gray-500">{log.geo_country || "-"}</div>
-                                        </div>
+                                        {log.location || '-'}
                                     </td>
                                     <td className="px-6 py-4 text-sm text-gray-900">
                                         <details className="cursor-pointer">

@@ -148,8 +148,8 @@ class Technician(BaseTimeStampModel):
 
     @property
     def has_active_subscription(self):
-        sub = self.subscriptions.filter(end_date__gt=timezone.now()).order_by('-end_date').first()
-        return bool(sub)
+        """Tous les techniciens sont maintenant gratuits - toujours actif"""
+        return True
 
     class Meta:
         verbose_name = "Technicien"
@@ -383,6 +383,7 @@ class Review(BaseTimeStampModel):
     )
     comment = models.TextField("Commentaire", blank=True)
     would_recommend = models.BooleanField("Recommanderait", default=True)
+    is_visible = models.BooleanField("Visible", default=True)
 
     # Critères détaillés
     punctuality_rating = models.PositiveSmallIntegerField(

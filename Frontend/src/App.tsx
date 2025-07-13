@@ -19,13 +19,9 @@ import { AuthProvider, AuthContext, useAuth } from './contexts/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import DiagnosticPanel from './components/DiagnosticPanel';
-import PaymentPage from './pages/PaymentPage';
-import PaymentSuccess from './pages/PaymentSuccess';
 import Profile from './pages/Profile';
 import UserManagement from './pages/UserManagement';
 import AdminConfiguration from './pages/AdminConfiguration';
-import AdminSubscriptionRequests from './pages/AdminSubscriptionRequests';
-import ManualPaymentPage from './pages/ManualPaymentPage';
 import ReviewPage from './pages/ReviewPage';
 import ChatPage from './pages/ChatPage';
 import { useContext } from 'react';
@@ -79,10 +75,7 @@ function App() {
             <Route path="booking" element={<BookingForm />} />
             <Route path="login" element={<Login />} />
             <Route path="register" element={<Register />} />
-            <Route path="payment/:transactionId?" element={<PrivateRoute><PaymentPage /></PrivateRoute>} />
-            <Route path="payment/success" element={<PaymentSuccess />} />
 
-            {/* Routes protégées */}
             <Route path="dashboard" element={
               <PrivateRoute>
                 {({ user }) => {
@@ -97,7 +90,6 @@ function App() {
               </PrivateRoute>
             } />
 
-            {/* Routes technicien */}
             <Route path="technician" element={
               <PrivateRoute userTypeRequired="technician">
                 <TechnicianHome />
@@ -109,7 +101,6 @@ function App() {
               </PrivateRoute>
             } />
 
-            {/* Routes admin */}
             <Route path="admin" element={
               <PrivateRoute>
                 {({ user }) => {
@@ -160,16 +151,6 @@ function App() {
                 }}
               </PrivateRoute>
             } />
-            <Route path="admin/subscription-requests" element={
-              <PrivateRoute>
-                {({ user }) => {
-                  if (user.is_superuser || user.user_type === 'admin') {
-                    return <AdminSubscriptionRequests />;
-                  }
-                  return <Navigate to="/" replace />;
-                }}
-              </PrivateRoute>
-            } />
             <Route path="admin/config" element={<ProtectedAdminRoute><AdminConfiguration /></ProtectedAdminRoute>} />
 
             <Route path="profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
@@ -179,13 +160,6 @@ function App() {
             <Route path="reset-password" element={<ResetPassword />} />
 
             <Route path="chat/:id" element={<PrivateRoute><ChatPage /></PrivateRoute>} />
-
-            {/* Route pour le paiement manuel des techniciens */}
-            <Route path="technician/payment/:requestId" element={
-              <PrivateRoute userTypeRequired="technician">
-                <ManualPaymentPage />
-              </PrivateRoute>
-            } />
 
             <Route path="*" element={<NotFound />} />
           </Route>

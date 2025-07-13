@@ -6199,3 +6199,1056 @@ INFO 2025-07-11 14:36:36,996 views 47464 6117093376 [DEBUG] get_technician_profi
 INFO 2025-07-11 14:36:36,996 views 47464 6117093376 Utilisation des abonnements du profil Technician pour 139
 INFO 2025-07-11 14:36:36,997 views 47464 6117093376 Abonnement actif trouvé pour 139: 47, expire dans 29 jours
 INFO 2025-07-11 14:36:36,997 views 47464 6117093376 Statut abonnement pour 139: active, can_receive_requests: True
+INFO 2025-07-12 20:27:20,377 views 11562 6166179840 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:27:20,378 views 11562 6166179840 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:27:20,381 views 11562 6166179840 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:27:20,381 views 11562 6166179840 Statut abonnement pour 87: active, can_receive_requests: True
+WARNING 2025-07-12 20:27:20,386 log 11562 6199832576 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-12 20:27:20,387 log 11562 6216658944 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-12 20:27:20,410 views 11562 6149353472 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:27:20,410 views 11562 6183006208 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:27:20,410 views 11562 6149353472 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:27:20,411 views 11562 6183006208 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:27:20,413 views 11562 6149353472 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:27:20,414 views 11562 6183006208 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:27:20,414 views 11562 6149353472 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:27:20,414 views 11562 6183006208 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:27:20,429 views 11562 6166179840 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:27:20,429 views 11562 6166179840 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:27:20,431 views 11562 6166179840 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:27:20,431 views 11562 6166179840 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:27:29,780 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:27:29,790 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:27:33,647 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:27:33,648 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:27:33,650 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:27:33,650 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:27:33,659 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:27:33,659 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:27:33,660 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:27:33,660 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:27:33,668 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:27:33,668 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:27:33,670 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:27:33,670 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:27:33,681 views 11562 6166179840 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:27:33,681 views 11562 6166179840 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:27:33,682 views 11562 6166179840 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:27:33,682 views 11562 6166179840 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:28:03,730 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:28:03,731 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:28:03,733 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:28:03,733 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:28:33,713 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:28:33,713 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:28:33,715 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:28:33,715 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:29:03,721 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:29:03,721 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:29:03,723 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:29:03,723 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:29:33,732 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:29:33,733 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:29:33,735 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:29:33,735 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:30:03,724 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:30:03,725 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:30:03,727 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:30:03,727 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:30:33,738 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:30:33,738 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:30:33,740 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:30:33,740 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:31:03,738 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:31:03,738 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:31:03,740 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:31:03,740 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:31:33,731 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:31:33,732 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:31:33,733 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:31:33,734 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:32:03,808 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:32:03,810 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:32:03,814 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:32:03,814 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:32:33,839 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:32:33,840 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:32:33,842 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:32:33,842 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:33:03,828 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:33:03,829 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:33:03,830 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:33:03,830 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:33:33,829 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:33:33,830 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:33:33,831 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:33:33,831 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:33:53,668 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:33:53,669 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:33:53,670 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:33:53,670 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:34:03,814 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:34:03,814 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:34:03,815 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:34:03,815 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:34:15,658 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:34:15,658 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:34:15,659 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:34:15,659 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:34:31,731 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:34:31,731 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:34:31,733 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:34:31,733 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:34:33,814 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:34:33,814 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:34:33,815 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:34:33,815 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:35:03,831 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:35:03,831 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:35:03,832 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:35:03,832 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:35:33,845 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:35:33,846 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:35:33,847 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:35:33,847 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:36:03,847 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:36:03,847 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:36:03,849 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:36:03,849 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:36:20,530 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:36:20,530 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:36:20,531 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:36:20,531 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:36:33,869 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:36:33,870 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:36:33,871 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:36:33,871 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:36:59,852 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:36:59,852 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:36:59,853 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:36:59,853 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:36:59,860 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+WARNING 2025-07-12 20:36:59,861 log 11562 6199832576 Bad Request: /depannage/api/cinetpay/initiate_subscription_payment/
+INFO 2025-07-12 20:37:03,866 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:37:03,867 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:37:03,868 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:37:03,868 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:37:09,203 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:37:09,203 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:37:09,205 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:37:09,205 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:37:09,212 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+WARNING 2025-07-12 20:37:09,213 log 11562 6216658944 Bad Request: /depannage/api/cinetpay/initiate_subscription_payment/
+INFO 2025-07-12 20:37:33,900 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:37:33,901 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:37:33,902 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:37:33,902 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:37:46,742 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:37:46,742 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:37:46,743 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:37:46,743 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:37:46,748 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+WARNING 2025-07-12 20:37:46,749 log 11562 6199832576 Bad Request: /depannage/api/cinetpay/initiate_subscription_payment/
+INFO 2025-07-12 20:38:03,862 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:38:03,862 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:38:03,863 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:38:03,863 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:38:26,932 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:38:26,932 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:38:26,933 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:38:26,933 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:38:26,940 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+WARNING 2025-07-12 20:38:26,941 log 11562 6216658944 Bad Request: /depannage/api/cinetpay/initiate_subscription_payment/
+INFO 2025-07-12 20:38:33,870 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:38:33,870 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:38:33,873 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:38:33,873 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:39:03,883 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:39:03,884 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:39:03,887 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:39:03,887 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:39:23,987 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:39:23,987 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:39:23,988 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:39:23,989 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:39:23,996 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+WARNING 2025-07-12 20:39:23,997 log 11562 6199832576 Bad Request: /depannage/api/cinetpay/initiate_subscription_payment/
+INFO 2025-07-12 20:39:33,928 views 11562 6115700736 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:39:33,928 views 11562 6115700736 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:39:33,929 views 11562 6115700736 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:39:33,930 views 11562 6115700736 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:39:59,727 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:39:59,727 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:39:59,729 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 27 jours
+INFO 2025-07-12 20:39:59,729 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:39:59,813 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:39:59,815 cinetpay 14798 6105149440 🔧 [SIMULATEUR] Paiement fictif initié
+INFO 2025-07-12 20:39:59,817 cinetpay 14798 6105149440 🔧 [SIMULATEUR] Paiement créé: TXN-9AEE5A14D8E5 - 5000 FCFA
+INFO 2025-07-12 20:39:59,836 views 14798 6105149440 🔔 [NOTIFICATION] Notification CinetPay reçue: {'transaction_id': 'TXN-9AEE5A14D8E5', 'status': 'ACCEPTED', 'payment_token': 'test_token_TXN-9AEE5A14D8E5', 'amount': 5000, 'currency': 'XOF', 'payment_date': '2025-07-12 20:39:59', 'customer_name': 'Test Technicien', 'customer_surname': '', 'customer_email': 'ballo@gmail.com', 'customer_phone_number': '+22300000000', 'customer_address': 'Test Address', 'customer_city': 'Bamako', 'customer_country': 'ML', 'customer_state': 'ML', 'customer_zip_code': '00000', 'metadata': '{"user_id": 1, "duration_months": 1, "subscription_type": "technician_premium", "operation_type": "renewal"}'}
+INFO 2025-07-12 20:39:59,843 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+WARNING 2025-07-12 20:39:59,844 views 14798 6105149440 🔔 [NOTIFICATION] Erreur parsing métadonnées: Expecting property name enclosed in double quotes: line 1 column 2 (char 1), valeurs par défaut utilisées
+INFO 2025-07-12 20:39:59,845 views 14798 6105149440 🔔 [NOTIFICATION] Abonnement prolongé pour babe
+INFO 2025-07-12 20:39:59,845 views 14798 6105149440    - Ancienne date de fin: 09/08/2025
+INFO 2025-07-12 20:39:59,845 views 14798 6105149440    - Nouvelle date de fin: 08/09/2025
+INFO 2025-07-12 20:39:59,845 views 14798 6105149440    - Durée ajoutée: 1 mois
+INFO 2025-07-12 20:39:59,847 views 14798 6105149440 🔔 [NOTIFICATION] Paiement TXN-9AEE5A14D8E5 traité avec succès
+INFO 2025-07-12 20:40:01,859 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:40:01,859 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:40:01,860 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 57 jours
+INFO 2025-07-12 20:40:01,860 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:40:01,867 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:40:01,867 cinetpay 14798 6105149440 🔧 [SIMULATEUR] Paiement fictif initié
+INFO 2025-07-12 20:40:01,870 cinetpay 14798 6105149440 🔧 [SIMULATEUR] Paiement créé: TXN-92C449031DD7 - 15000 FCFA
+INFO 2025-07-12 20:40:01,875 views 14798 6105149440 🔔 [NOTIFICATION] Notification CinetPay reçue: {'transaction_id': 'TXN-92C449031DD7', 'status': 'ACCEPTED', 'payment_token': 'test_token_TXN-92C449031DD7', 'amount': 15000, 'currency': 'XOF', 'payment_date': '2025-07-12 20:40:01', 'customer_name': 'Test Technicien', 'customer_surname': '', 'customer_email': 'ballo@gmail.com', 'customer_phone_number': '+22300000000', 'customer_address': 'Test Address', 'customer_city': 'Bamako', 'customer_country': 'ML', 'customer_state': 'ML', 'customer_zip_code': '00000', 'metadata': '{"user_id": 1, "duration_months": 3, "subscription_type": "technician_premium", "operation_type": "renewal"}'}
+INFO 2025-07-12 20:40:01,881 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+WARNING 2025-07-12 20:40:01,881 views 14798 6105149440 🔔 [NOTIFICATION] Erreur parsing métadonnées: Expecting property name enclosed in double quotes: line 1 column 2 (char 1), valeurs par défaut utilisées
+INFO 2025-07-12 20:40:01,883 views 14798 6105149440 🔔 [NOTIFICATION] Abonnement prolongé pour babe
+INFO 2025-07-12 20:40:01,883 views 14798 6105149440    - Ancienne date de fin: 08/09/2025
+INFO 2025-07-12 20:40:01,883 views 14798 6105149440    - Nouvelle date de fin: 08/10/2025
+INFO 2025-07-12 20:40:01,883 views 14798 6105149440    - Durée ajoutée: 1 mois
+INFO 2025-07-12 20:40:01,884 views 14798 6105149440 🔔 [NOTIFICATION] Paiement TXN-92C449031DD7 traité avec succès
+INFO 2025-07-12 20:40:04,120 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:40:04,120 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:40:04,122 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:40:04,122 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:40:34,140 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:40:34,141 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:40:34,143 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:40:34,143 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:41:04,133 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:41:04,133 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:41:04,136 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:41:04,136 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:41:31,966 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:41:31,967 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:41:31,969 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:41:31,970 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+WARNING 2025-07-12 20:41:31,970 log 14798 6325039104 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-12 20:41:31,971 log 14798 6341865472 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-12 20:41:31,995 views 14798 6155628544 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:41:31,996 views 14798 6155628544 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:41:31,998 views 14798 6155628544 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:41:31,999 views 14798 6155628544 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:41:32,009 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:41:32,010 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:41:32,012 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:41:32,013 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:41:32,026 views 14798 6155628544 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:41:32,027 views 14798 6155628544 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:41:32,029 views 14798 6155628544 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:41:32,030 views 14798 6155628544 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:41:35,041 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:41:35,041 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:41:35,042 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:41:35,042 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:41:35,049 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:41:35,049 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:41:35,050 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:41:35,050 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:41:35,058 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:41:35,058 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:41:35,059 views 14798 6138802176 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:41:35,059 views 14798 6138802176 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:41:35,060 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:41:35,060 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:41:35,061 views 14798 6138802176 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:41:35,061 views 14798 6138802176 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:42:05,071 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:42:05,072 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:42:05,074 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:42:05,074 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:42:35,092 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:42:35,093 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:42:35,095 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:42:35,096 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:43:05,095 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:43:05,096 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:43:05,100 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:43:05,100 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:43:35,084 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:43:35,085 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:43:35,086 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:43:35,086 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:43:54,851 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:43:54,852 cinetpay 14798 6105149440 🔧 [SIMULATEUR] Paiement fictif initié
+INFO 2025-07-12 20:43:54,859 cinetpay 14798 6105149440 🔧 [SIMULATEUR] Paiement créé: TXN-463CD6378A12 - 15000 FCFA
+WARNING 2025-07-12 20:43:57,807 log 14798 6325039104 Unauthorized: /depannage/api/technicians/subscription_status/
+WARNING 2025-07-12 20:43:57,807 log 14798 6341865472 Unauthorized: /depannage/api/technicians/subscription_status/
+WARNING 2025-07-12 20:44:07,228 log 14798 6325039104 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-12 20:44:07,229 log 14798 6341865472 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-12 20:44:07,294 views 14798 6409170944 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:44:07,295 views 14798 6409170944 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:44:07,297 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:44:07,297 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:44:07,299 views 14798 6155628544 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:44:07,300 views 14798 6409170944 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:44:07,300 views 14798 6155628544 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:44:07,300 views 14798 6409170944 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:44:07,301 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:44:07,301 views 14798 6172454912 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:44:07,301 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:44:07,301 views 14798 6172454912 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:44:07,301 views 14798 6155628544 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:44:07,302 views 14798 6155628544 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:44:07,303 views 14798 6172454912 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:44:07,303 views 14798 6172454912 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:44:09,162 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:44:09,163 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:44:09,163 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:44:09,163 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:44:09,169 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:44:09,169 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:44:09,169 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:44:09,170 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:44:09,176 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:44:09,176 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:44:09,177 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:44:09,178 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:44:09,185 views 14798 6155628544 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:44:09,185 views 14798 6155628544 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:44:09,186 views 14798 6155628544 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:44:09,186 views 14798 6155628544 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:44:19,110 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:44:19,121 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:44:19,730 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:44:19,730 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:44:19,732 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:44:19,732 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:44:19,743 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:44:19,743 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:44:19,745 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:44:19,745 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:44:19,756 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:44:19,756 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:44:19,759 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:44:19,759 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:44:19,770 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:44:19,771 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:44:19,772 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:44:19,772 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+WARNING 2025-07-12 20:44:41,101 log 14798 6325039104 Not Found: /depannage/api/payments/export/
+INFO 2025-07-12 20:44:49,738 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:44:49,738 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:44:49,741 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:44:49,741 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:45:19,818 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:45:19,818 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:45:19,820 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:45:19,820 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+WARNING 2025-07-12 20:45:42,059 log 14798 6341865472 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-12 20:45:42,060 log 14798 6325039104 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-12 20:45:42,063 views 14798 6155628544 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:45:42,063 views 14798 6155628544 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:45:42,066 views 14798 6155628544 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:45:42,066 views 14798 6155628544 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:45:42,078 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:45:42,079 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:45:42,080 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:45:42,081 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:45:42,100 views 14798 6138802176 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:45:42,101 views 14798 6138802176 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:45:42,105 views 14798 6138802176 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:45:42,107 views 14798 6138802176 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:45:42,124 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:45:42,126 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:45:42,128 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:45:42,128 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:45:45,112 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:45:45,112 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:45:45,114 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:45:45,115 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:45:45,129 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:45:45,129 views 14798 6138802176 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:45:45,129 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:45:45,129 views 14798 6138802176 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:45:45,131 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:45:45,132 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:45:45,133 views 14798 6138802176 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:45:45,133 views 14798 6138802176 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:45:45,142 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:45:45,143 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:45:45,144 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:45:45,144 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:46:15,153 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:46:15,153 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:46:15,155 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:46:15,155 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:46:45,451 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:46:45,452 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:46:45,454 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:46:45,455 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:47:15,336 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:47:15,336 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:47:15,338 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:47:15,338 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:47:45,413 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:47:45,414 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:47:45,416 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:47:45,416 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:48:15,330 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:48:15,331 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:48:15,333 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:48:15,333 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:48:45,312 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:48:45,313 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:48:45,315 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:48:45,315 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:49:15,341 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:49:15,342 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:49:15,345 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:49:15,345 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:49:45,307 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:49:45,307 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:49:45,308 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:49:45,308 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:50:15,332 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:50:15,332 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:50:15,334 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:50:15,334 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:50:45,330 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:50:45,330 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:50:45,332 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:50:45,332 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:51:15,352 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:51:15,352 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:51:15,354 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:51:15,354 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:51:45,341 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:51:45,341 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:51:45,342 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:51:45,342 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:52:15,370 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:52:15,371 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:52:15,372 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:52:15,372 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:52:45,588 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:52:45,589 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:52:45,591 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:52:45,591 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:53:15,438 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:53:15,438 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:53:15,440 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:53:15,440 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:53:45,348 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:53:45,348 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:53:45,350 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:53:45,350 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:54:16,092 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:54:16,093 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:54:16,094 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:54:16,094 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:54:17,085 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:54:17,085 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:54:17,086 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:54:17,086 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:54:47,119 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:54:47,120 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:54:47,122 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:54:47,122 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:55:17,252 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:55:17,253 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:55:17,254 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:55:17,254 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:55:47,123 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:55:47,124 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:55:47,126 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:55:47,126 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:56:17,101 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:56:17,102 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:56:17,104 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:56:17,104 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+WARNING 2025-07-12 20:56:39,710 log 14798 6341865472 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-12 20:56:39,711 log 14798 6325039104 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-12 20:56:39,711 views 14798 6155628544 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:56:39,712 views 14798 6155628544 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:56:39,715 views 14798 6155628544 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:56:39,715 views 14798 6155628544 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:56:39,730 views 14798 6138802176 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:56:39,731 views 14798 6138802176 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:56:39,734 views 14798 6138802176 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:56:39,734 views 14798 6138802176 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:56:39,751 views 14798 6155628544 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:56:39,751 views 14798 6155628544 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:56:39,753 views 14798 6155628544 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:56:39,754 views 14798 6155628544 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:56:39,771 views 14798 6138802176 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:56:39,771 views 14798 6138802176 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:56:39,774 views 14798 6138802176 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:56:39,774 views 14798 6138802176 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:57:13,865 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:57:13,865 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:57:13,867 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:57:13,867 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:57:13,876 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:57:13,876 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:57:13,877 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:57:13,877 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:57:13,888 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:57:13,888 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:57:13,889 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:57:13,889 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:57:13,896 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:57:13,897 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:57:13,898 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:57:13,898 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+WARNING 2025-07-12 20:57:36,809 log 14798 6341865472 Not Found: /favicon.ico
+WARNING 2025-07-12 20:57:43,463 log 14798 6341865472 Not Found: /favicon.ico
+INFO 2025-07-12 20:57:43,848 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:57:43,848 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:57:43,849 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:57:43,849 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:58:13,850 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:58:13,850 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:58:13,851 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:58:13,851 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:58:28,013 views 14798 6138802176 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:58:28,014 views 14798 6138802176 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:58:28,017 views 14798 6138802176 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:58:28,019 views 14798 6138802176 Statut abonnement pour 87: active, can_receive_requests: True
+WARNING 2025-07-12 20:58:28,019 log 14798 6341865472 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-12 20:58:28,022 log 14798 6325039104 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-12 20:58:28,034 views 14798 6172454912 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:58:28,035 views 14798 6172454912 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:58:28,036 views 14798 6172454912 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:58:28,037 views 14798 6172454912 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:58:28,053 views 14798 6138802176 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:58:28,053 views 14798 6155628544 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:58:28,054 views 14798 6138802176 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:58:28,054 views 14798 6155628544 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:58:28,056 views 14798 6138802176 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:58:28,057 views 14798 6138802176 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:58:28,057 views 14798 6155628544 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:58:28,058 views 14798 6155628544 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:58:32,279 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:58:32,279 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:58:32,281 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:58:32,281 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:58:32,290 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:58:32,290 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:58:32,291 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:58:32,291 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:58:32,303 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:58:32,303 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:58:32,305 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:58:32,305 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:58:32,317 views 14798 6138802176 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:58:32,318 views 14798 6138802176 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:58:32,319 views 14798 6138802176 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:58:32,319 views 14798 6138802176 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:58:52,190 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:58:52,191 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:58:52,192 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:58:52,192 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:58:52,200 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:58:52,200 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:58:52,201 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:58:52,201 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:58:52,209 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:58:52,210 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:58:52,211 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:58:52,211 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:58:52,222 views 14798 6155628544 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:58:52,222 views 14798 6155628544 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:58:52,223 views 14798 6155628544 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:58:52,223 views 14798 6155628544 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:58:56,071 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:58:56,074 cinetpay 14798 6105149440 🔧 [SIMULATEUR] Paiement fictif initié
+INFO 2025-07-12 20:58:56,078 cinetpay 14798 6105149440 🔧 [SIMULATEUR] Paiement créé: TXN-0B1ED6F8526A - 5000 FCFA
+INFO 2025-07-12 20:58:57,846 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:58:57,846 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:58:57,848 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:58:57,849 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:58:57,855 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:58:57,855 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:58:57,856 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:58:57,856 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+WARNING 2025-07-12 20:58:59,899 log 14798 6341865472 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-12 20:58:59,899 log 14798 6325039104 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-12 20:58:59,901 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:58:59,901 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:58:59,903 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:58:59,903 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:58:59,913 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:58:59,913 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:58:59,915 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:58:59,916 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:58:59,932 views 14798 6138802176 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:58:59,932 views 14798 6138802176 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:58:59,934 views 14798 6138802176 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:58:59,934 views 14798 6138802176 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:58:59,951 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:58:59,952 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:58:59,955 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:58:59,955 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:59:02,046 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:02,046 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:59:02,047 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:59:02,047 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:59:02,054 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:02,054 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:59:02,055 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:59:02,055 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:59:02,064 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:02,064 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:59:02,066 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:59:02,066 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:59:02,070 views 14798 6138802176 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:02,070 views 14798 6138802176 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:59:02,071 views 14798 6138802176 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:59:02,071 views 14798 6138802176 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:59:09,089 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:09,101 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:10,441 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:10,453 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:13,379 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:13,380 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:59:13,383 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:59:13,383 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:59:13,394 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:13,394 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:59:13,395 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:59:13,395 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:59:13,400 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:13,400 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:59:13,401 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:59:13,401 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:59:13,412 views 14798 6155628544 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:13,412 views 14798 6155628544 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:59:13,413 views 14798 6155628544 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:59:13,413 views 14798 6155628544 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:59:21,231 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:21,233 cinetpay 14798 6105149440 🔧 [SIMULATEUR] Paiement fictif initié
+INFO 2025-07-12 20:59:21,236 cinetpay 14798 6105149440 🔧 [SIMULATEUR] Paiement créé: TXN-0CA58A03E96E - 30000 FCFA
+INFO 2025-07-12 20:59:22,357 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:22,357 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:59:22,359 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:59:22,360 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:59:22,377 views 14798 6138802176 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:22,378 views 14798 6138802176 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:59:22,379 views 14798 6138802176 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:59:22,379 views 14798 6138802176 Statut abonnement pour 87: active, can_receive_requests: True
+WARNING 2025-07-12 20:59:24,421 log 14798 6341865472 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-12 20:59:24,421 log 14798 6325039104 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-12 20:59:24,423 views 14798 6358691840 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:24,423 views 14798 6358691840 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:59:24,426 views 14798 6358691840 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:59:24,426 views 14798 6358691840 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:59:24,435 views 14798 6138802176 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:24,435 views 14798 6138802176 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:59:24,436 views 14798 6138802176 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:59:24,437 views 14798 6138802176 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:59:24,454 views 14798 6155628544 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:24,454 views 14798 6155628544 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:59:24,457 views 14798 6155628544 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:59:24,457 views 14798 6155628544 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:59:24,470 views 14798 6138802176 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:24,470 views 14798 6138802176 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:59:24,472 views 14798 6138802176 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:59:24,473 views 14798 6138802176 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:59:31,208 views 14798 6138802176 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:31,218 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:31,726 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:31,727 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:59:31,728 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:59:31,729 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:59:31,738 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:31,738 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:59:31,740 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:59:31,740 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:59:31,751 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:31,752 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:59:31,753 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:59:31,754 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 20:59:31,765 views 14798 6138802176 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 20:59:31,765 views 14798 6138802176 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 20:59:31,766 views 14798 6138802176 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 20:59:31,766 views 14798 6138802176 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:00:01,752 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:00:01,753 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:00:01,754 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:00:01,754 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:00:31,789 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:00:31,789 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:00:31,791 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:00:31,791 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:01:01,771 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:01:01,772 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:01:01,775 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:01:01,775 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:01:31,774 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:01:31,775 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:01:31,778 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:01:31,778 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:02:01,811 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:02:01,812 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:02:01,813 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:02:01,813 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:02:31,775 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:02:31,776 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:02:31,778 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:02:31,778 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:03:01,772 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:03:01,773 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:03:01,775 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:03:01,775 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:03:31,759 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:03:31,759 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:03:31,761 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:03:31,761 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:04:01,779 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:04:01,780 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:04:01,782 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:04:01,782 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:04:31,786 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:04:31,787 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:04:31,790 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:04:31,790 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:05:01,798 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:05:01,799 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:05:01,800 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:05:01,800 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:05:31,800 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:05:31,801 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:05:31,803 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:05:31,803 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:06:01,771 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:06:01,771 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:06:01,773 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:06:01,773 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:06:31,802 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:06:31,802 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:06:31,804 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:06:31,804 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:07:01,850 views 14798 6105149440 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:07:01,850 views 14798 6105149440 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:07:01,853 views 14798 6105149440 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:07:01,853 views 14798 6105149440 Statut abonnement pour 87: active, can_receive_requests: True
+WARNING 2025-07-12 21:08:42,414 log 19958 6157250560 Not Found: /favicon.ico
+WARNING 2025-07-12 21:08:44,027 log 19958 6157250560 Not Found: /favicon.ico
+WARNING 2025-07-12 21:08:50,405 log 19958 6157250560 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-12 21:08:50,405 log 19958 6190903296 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-12 21:08:50,409 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:08:50,410 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:08:50,414 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:08:50,414 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:08:50,428 views 19958 6207729664 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:08:50,429 views 19958 6207729664 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:08:50,431 views 19958 6207729664 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:08:50,431 views 19958 6207729664 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:08:50,452 views 19958 6207729664 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:08:50,453 views 19958 6207729664 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:08:50,456 views 19958 6207729664 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:08:50,456 views 19958 6207729664 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:08:50,470 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:08:50,470 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:08:50,472 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:08:50,473 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:08:52,360 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:08:52,361 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:08:52,362 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:08:52,362 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:08:52,372 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:08:52,372 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:08:52,374 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:08:52,374 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:08:52,385 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:08:52,385 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:08:52,387 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:08:52,388 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:08:52,400 views 19958 6207729664 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:08:52,400 views 19958 6207729664 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:08:52,401 views 19958 6207729664 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:08:52,401 views 19958 6207729664 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:08:56,588 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:08:56,590 cinetpay 19958 6174076928 🌐 [PRODUCTION] Appel API CinetPay réel
+INFO 2025-07-12 21:08:56,590 cinetpay 19958 6174076928 🌐 [PRODUCTION] Requête CinetPay: {'apikey': '1152009869685a9c56400b55.82198885', 'site_id': '105899471', 'transaction_id': 'TXN-ADFAB1D0A827', 'amount': 5000, 'currency': 'XOF', 'description': "Renouvellement abonnement technicien 1 mois - Prolongation jusqu'au 07/11/2025", 'customer_name': 'Bechir Ballo', 'customer_surname': 'Ballo', 'customer_email': 'ballo@gmail.com', 'customer_phone_number': '+22300000000', 'customer_address': 'Bamako, Mali', 'customer_city': 'Bamako', 'customer_country': 'ML', 'customer_state': 'ML', 'customer_zip_code': '1000', 'notify_url': 'http://127.0.0.1:8000/depannage/api/cinetpay/notify/', 'return_url': 'http://127.0.0.1:5173/payment/success', 'channels': 'ALL', 'lang': 'fr', 'metadata': "{'user_id': 87, 'technician_id': 67, 'duration_months': 1, 'subscription_type': 'technician_premium', 'operation_type': 'renewal', 'current_subscription_id': 38}", 'invoice_data': '', 'cp_currency': 'XOF', 'cp_phone_prefix': '223'}
+INFO 2025-07-12 21:08:57,045 cinetpay 19958 6174076928 🌐 [PRODUCTION] Réponse CinetPay - Status: 200
+INFO 2025-07-12 21:08:57,045 cinetpay 19958 6174076928 🌐 [PRODUCTION] Réponse CinetPay - Body: {"code":"201","message":"CREATED","description":"Transaction created with success","data":{"payment_token":"1821e3ff747579a4c28bf79e1be4243005c6abe8f86c603237e4d4d1c9261d291df77c4425305a91262f1fd765c9740f137ead7653d9f4","payment_url":"https:\/\/checkout.cinetpay.com\/payment\/1821e3ff747579a4c28bf79e1be4243005c6abe8f86c603237e4d4d1c9261d291df77c4425305a91262f1fd765c9740f137ead7653d9f4"},"api_response_id":"1752354537.2085"}
+INFO 2025-07-12 21:09:39,428 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:09:39,429 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+WARNING 2025-07-12 21:09:39,431 log 19958 6157250560 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-12 21:09:39,431 log 19958 6190903296 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-12 21:09:39,432 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:09:39,433 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:09:39,451 views 19958 6208303104 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:09:39,452 views 19958 6208303104 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:09:39,454 views 19958 6208303104 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:09:39,454 views 19958 6208303104 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:09:39,470 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:09:39,470 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:09:39,471 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:09:39,472 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:09:39,490 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:09:39,490 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:09:39,491 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:09:39,492 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:09:42,957 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:09:42,957 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:09:42,960 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:09:42,960 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:09:42,970 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:09:42,970 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:09:42,971 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:09:42,971 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:09:42,982 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:09:42,982 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:09:42,985 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:09:42,985 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:09:42,997 views 19958 6225129472 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:09:42,997 views 19958 6225129472 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:09:42,998 views 19958 6225129472 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:09:42,998 views 19958 6225129472 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:09:49,834 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:09:49,836 cinetpay 19958 6174076928 🌐 [PRODUCTION] Appel API CinetPay réel
+INFO 2025-07-12 21:09:49,836 cinetpay 19958 6174076928 🌐 [PRODUCTION] Requête CinetPay: {'apikey': '1152009869685a9c56400b55.82198885', 'site_id': '105899471', 'transaction_id': 'TXN-893174D565ED', 'amount': 15000, 'currency': 'XOF', 'description': "Renouvellement abonnement technicien 3 mois - Prolongation jusqu'au 06/01/2026", 'customer_name': 'Bechir Ballo', 'customer_surname': 'Ballo', 'customer_email': 'ballo@gmail.com', 'customer_phone_number': '+22300000000', 'customer_address': 'Bamako, Mali', 'customer_city': 'Bamako', 'customer_country': 'ML', 'customer_state': 'ML', 'customer_zip_code': '1000', 'notify_url': 'http://127.0.0.1:8000/depannage/api/cinetpay/notify/', 'return_url': 'http://127.0.0.1:5173/payment/success', 'channels': 'ALL', 'lang': 'fr', 'metadata': "{'user_id': 87, 'technician_id': 67, 'duration_months': 3, 'subscription_type': 'technician_premium', 'operation_type': 'renewal', 'current_subscription_id': 38}", 'invoice_data': '', 'cp_currency': 'XOF', 'cp_phone_prefix': '223'}
+INFO 2025-07-12 21:09:50,636 cinetpay 19958 6174076928 🌐 [PRODUCTION] Réponse CinetPay - Status: 200
+INFO 2025-07-12 21:09:50,636 cinetpay 19958 6174076928 🌐 [PRODUCTION] Réponse CinetPay - Body: {"code":"201","message":"CREATED","description":"Transaction created with success","data":{"payment_token":"48c677ae91bd99d4bcca75f455ec8d0193cae944ff9fcabd694b5764822bb80fac2703425b093d57a1f2c7af50b225b947aca90cfe773c","payment_url":"https:\/\/checkout.cinetpay.com\/payment\/48c677ae91bd99d4bcca75f455ec8d0193cae944ff9fcabd694b5764822bb80fac2703425b093d57a1f2c7af50b225b947aca90cfe773c"},"api_response_id":"1752354590.9083"}
+INFO 2025-07-12 21:10:12,880 views 19958 6208303104 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:10:12,882 views 19958 6208303104 Utilisation des abonnements du profil Technician pour 87
+WARNING 2025-07-12 21:10:12,884 log 19958 6157250560 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-12 21:10:12,884 log 19958 6190903296 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-12 21:10:12,885 views 19958 6208303104 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:10:12,885 views 19958 6208303104 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:10:12,904 views 19958 6225129472 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:10:12,905 views 19958 6225129472 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:10:12,907 views 19958 6225129472 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:10:12,908 views 19958 6225129472 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:10:12,928 views 19958 6241955840 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:10:12,928 views 19958 6241955840 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:10:12,930 views 19958 6208303104 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:10:12,934 views 19958 6208303104 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:10:12,937 views 19958 6208303104 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:10:12,937 views 19958 6241955840 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:10:12,937 views 19958 6208303104 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:10:12,937 views 19958 6241955840 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:10:15,577 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:10:15,577 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:10:15,578 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:10:15,578 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:10:15,588 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:10:15,588 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:10:15,589 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:10:15,589 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:10:15,600 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:10:15,600 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:10:15,603 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:10:15,603 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:10:15,614 views 19958 6208303104 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:10:15,614 views 19958 6208303104 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:10:15,615 views 19958 6208303104 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:10:15,615 views 19958 6208303104 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:10:26,444 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:10:26,444 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:10:26,445 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:10:26,445 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:10:26,453 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:10:26,453 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:10:26,453 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:10:26,453 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:10:26,460 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:10:26,460 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:10:26,461 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:10:26,461 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:10:26,469 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:10:26,469 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:10:26,470 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:10:26,470 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:10:27,035 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:10:27,046 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:10:27,695 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:10:27,695 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:10:27,697 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:10:27,698 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:10:27,709 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:10:27,709 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:10:27,710 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:10:27,710 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:10:27,719 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:10:27,719 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:10:27,721 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:10:27,721 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:10:27,733 views 19958 6225129472 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:10:27,733 views 19958 6225129472 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:10:27,735 views 19958 6225129472 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:10:27,735 views 19958 6225129472 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:10:31,769 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:10:31,771 cinetpay 19958 6174076928 🌐 [PRODUCTION] Appel API CinetPay réel
+INFO 2025-07-12 21:10:31,771 cinetpay 19958 6174076928 🌐 [PRODUCTION] Requête CinetPay: {'apikey': '1152009869685a9c56400b55.82198885', 'site_id': '105899471', 'transaction_id': 'TXN-3F79310E81B3', 'amount': 30000, 'currency': 'XOF', 'description': "Renouvellement abonnement technicien 6 mois - Prolongation jusqu'au 06/04/2026", 'customer_name': 'Bechir Ballo', 'customer_surname': 'Ballo', 'customer_email': 'ballo@gmail.com', 'customer_phone_number': '+22300000000', 'customer_address': 'Bamako, Mali', 'customer_city': 'Bamako', 'customer_country': 'ML', 'customer_state': 'ML', 'customer_zip_code': '1000', 'notify_url': 'http://127.0.0.1:8000/depannage/api/cinetpay/notify/', 'return_url': 'http://127.0.0.1:5173/payment/success', 'channels': 'ALL', 'lang': 'fr', 'metadata': "{'user_id': 87, 'technician_id': 67, 'duration_months': 6, 'subscription_type': 'technician_premium', 'operation_type': 'renewal', 'current_subscription_id': 38}", 'invoice_data': '', 'cp_currency': 'XOF', 'cp_phone_prefix': '223'}
+INFO 2025-07-12 21:10:32,644 cinetpay 19958 6174076928 🌐 [PRODUCTION] Réponse CinetPay - Status: 200
+INFO 2025-07-12 21:10:32,645 cinetpay 19958 6174076928 🌐 [PRODUCTION] Réponse CinetPay - Body: {"code":"201","message":"CREATED","description":"Transaction created with success","data":{"payment_token":"c8ddf8c486ff4cc8ef8f5aebcfb523da791a5b5e787619d0346230665739f452f13157f4ceb8cd8e3a315ec8d050b225def63a2b912236","payment_url":"https:\/\/checkout.cinetpay.com\/payment\/c8ddf8c486ff4cc8ef8f5aebcfb523da791a5b5e787619d0346230665739f452f13157f4ceb8cd8e3a315ec8d050b225def63a2b912236"},"api_response_id":"1752354632.6011"}
+INFO 2025-07-12 21:10:49,596 views 19958 6258782208 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+WARNING 2025-07-12 21:10:49,598 log 19958 6157250560 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-12 21:10:49,598 views 19958 6258782208 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:10:49,600 views 19958 6258782208 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:10:49,601 views 19958 6258782208 Statut abonnement pour 87: active, can_receive_requests: True
+WARNING 2025-07-12 21:10:49,602 log 19958 6190903296 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-12 21:10:49,621 views 19958 6208303104 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:10:49,622 views 19958 6208303104 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:10:49,624 views 19958 6208303104 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:10:49,625 views 19958 6208303104 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:10:49,642 views 19958 6241955840 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:10:49,643 views 19958 6241955840 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:10:49,643 views 19958 6225129472 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:10:49,644 views 19958 6225129472 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:10:49,646 views 19958 6241955840 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:10:49,646 views 19958 6241955840 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:10:49,648 views 19958 6225129472 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:10:49,648 views 19958 6225129472 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:18:37,205 views 19958 6208303104 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:18:37,206 views 19958 6208303104 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:18:37,208 views 19958 6208303104 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:18:37,208 views 19958 6208303104 Statut abonnement pour 87: active, can_receive_requests: True
+WARNING 2025-07-12 21:18:37,212 log 19958 6157250560 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-12 21:18:37,223 views 19958 6241955840 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:18:37,223 views 19958 6241955840 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:18:37,224 views 19958 6241955840 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:18:37,224 views 19958 6241955840 Statut abonnement pour 87: active, can_receive_requests: True
+WARNING 2025-07-12 21:18:45,981 log 19958 6190903296 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-12 21:18:45,987 views 19958 6225129472 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:18:45,988 views 19958 6225129472 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:18:45,989 views 19958 6225129472 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:18:45,989 views 19958 6225129472 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:18:46,012 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:18:46,012 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:18:46,013 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:18:46,013 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:18:57,678 views 19958 6225129472 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:18:57,678 views 19958 6225129472 Utilisation des abonnements du profil Technician pour 87
+WARNING 2025-07-12 21:18:57,679 log 19958 6157250560 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-12 21:18:57,681 views 19958 6225129472 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:18:57,682 views 19958 6225129472 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:18:57,700 views 19958 6208303104 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:18:57,700 views 19958 6208303104 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:18:57,702 views 19958 6208303104 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:18:57,702 views 19958 6208303104 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:19:29,352 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:19:29,353 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:19:29,356 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:19:29,356 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+WARNING 2025-07-12 21:19:29,361 log 19958 6190903296 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-12 21:19:29,361 log 19958 6157250560 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-12 21:19:29,374 views 19958 6258782208 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:19:29,375 views 19958 6258782208 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:19:29,376 views 19958 6258782208 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:19:29,376 views 19958 6258782208 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:19:29,392 views 19958 6174076928 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:19:29,392 views 19958 6174076928 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:19:29,395 views 19958 6174076928 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:19:29,395 views 19958 6174076928 Statut abonnement pour 87: active, can_receive_requests: True
+INFO 2025-07-12 21:19:29,410 views 19958 6225129472 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-12 21:19:29,411 views 19958 6225129472 Utilisation des abonnements du profil Technician pour 87
+INFO 2025-07-12 21:19:29,411 views 19958 6225129472 Abonnement actif trouvé pour 87: 38, expire dans 87 jours
+INFO 2025-07-12 21:19:29,412 views 19958 6225129472 Statut abonnement pour 87: active, can_receive_requests: True
+WARNING 2025-07-12 21:20:56,619 log 19958 6190903296 Unauthorized: /depannage/api/technicians/subscription_status/
+WARNING 2025-07-12 21:20:56,626 log 19958 6157250560 Unauthorized: /depannage/api/cinetpay/initiate_subscription_payment/
+WARNING 2025-07-12 21:20:56,630 log 19958 6190903296 Method Not Allowed: /depannage/api/cinetpay/notify/
+WARNING 2025-07-12 21:20:56,636 log 19958 6157250560 Unauthorized: /depannage/api/subscription-requests/
+WARNING 2025-07-13 00:22:59,065 log 19958 6157250560 Not Found: /depannage/api/auth/login/
+WARNING 2025-07-13 00:22:59,075 log 19958 6157250560 Not Found: /depannage/api/auth/login/
+WARNING 2025-07-13 00:23:08,129 log 19958 6157250560 Not Found: /depannage/api/auth/login/
+WARNING 2025-07-13 00:23:08,139 log 19958 6157250560 Not Found: /depannage/api/auth/login/
+WARNING 2025-07-13 00:23:10,670 log 19958 6157250560 Not Found: /depannage/api/auth/login/
+WARNING 2025-07-13 00:23:14,856 log 19958 6157250560 Not Found: /depannage/api/auth/login/
+WARNING 2025-07-13 00:25:09,598 log 19958 6157250560 Not Found: /api/token/
+WARNING 2025-07-13 00:25:09,605 log 19958 6157250560 Not Found: /api/auth/login/
+WARNING 2025-07-13 00:25:09,610 log 19958 6157250560 Not Found: /api/token/
+WARNING 2025-07-13 00:25:09,614 log 19958 6157250560 Not Found: /api/auth/login/
+WARNING 2025-07-13 00:25:09,620 log 19958 6157250560 Not Found: /api/token/
+WARNING 2025-07-13 00:25:09,625 log 19958 6157250560 Not Found: /api/auth/login/
+WARNING 2025-07-13 00:25:53,174 log 19958 6190903296 Unauthorized: /depannage/api/payments/
+WARNING 2025-07-13 00:25:53,179 log 19958 6157250560 Unauthorized: /depannage/api/payments/stats/
+WARNING 2025-07-13 00:25:53,183 log 19958 6190903296 Unauthorized: /depannage/api/subscription-requests/
+WARNING 2025-07-13 00:25:53,187 log 19958 6157250560 Unauthorized: /depannage/api/cinetpay/
+WARNING 2025-07-13 00:25:53,191 log 19958 6190903296 Unauthorized: /depannage/api/cinetpay/notification/
+WARNING 2025-07-13 00:26:23,420 log 19958 6157250560 Unauthorized: /depannage/api/payments/
+WARNING 2025-07-13 00:26:23,423 log 19958 6190903296 Unauthorized: /depannage/api/payments/stats/
+WARNING 2025-07-13 00:26:23,425 log 19958 6157250560 Unauthorized: /depannage/api/subscription-requests/
+WARNING 2025-07-13 00:26:23,428 log 19958 6190903296 Unauthorized: /depannage/api/cinetpay/
+WARNING 2025-07-13 00:26:23,432 log 19958 6157250560 Unauthorized: /depannage/api/cinetpay/notification/
+WARNING 2025-07-13 00:27:12,095 log 19958 6190903296 Unauthorized: /depannage/api/payments/
+WARNING 2025-07-13 00:27:12,101 log 19958 6157250560 Unauthorized: /depannage/api/payments/stats/
+WARNING 2025-07-13 00:27:12,104 log 19958 6190903296 Unauthorized: /depannage/api/subscription-requests/
+WARNING 2025-07-13 00:27:12,108 log 19958 6157250560 Unauthorized: /depannage/api/cinetpay/
+WARNING 2025-07-13 00:27:12,112 log 19958 6190903296 Unauthorized: /depannage/api/cinetpay/notification/
+ERROR 2025-07-13 00:27:43,988 log 19958 6157250560 Internal Server Error: /depannage/api/admin/security/alerts/recent/
+ERROR 2025-07-13 00:27:43,992 log 19958 6190903296 Internal Server Error: /depannage/api/admin/security/login-locations/
+WARNING 2025-07-13 00:27:50,060 log 19958 6190903296 Not Found: /api/admin/audit-logs/
+WARNING 2025-07-13 00:27:50,078 log 19958 6190903296 Not Found: /api/admin/audit-logs/
+ERROR 2025-07-13 00:27:59,718 log 19958 6157250560 Internal Server Error: /depannage/api/admin/security/alerts/recent/
+ERROR 2025-07-13 00:27:59,719 log 19958 6190903296 Internal Server Error: /depannage/api/admin/security/login-locations/
+WARNING 2025-07-13 00:45:41,550 log 19958 6157250560 Unauthorized: /depannage/api/admin/reviews/
+WARNING 2025-07-13 00:53:15,857 log 19958 6157250560 Not Found: /depannage/api/reviews/21/moderate/
+WARNING 2025-07-13 00:53:19,316 log 19958 6157250560 Not Found: /depannage/api/reviews/21/moderate/
+WARNING 2025-07-13 00:53:32,062 log 19958 6157250560 Not Found: /depannage/api/reviews/21/moderate/
+WARNING 2025-07-13 00:53:42,412 log 19958 6157250560 Not Found: /depannage/api/reviews/21/moderate/
+WARNING 2025-07-13 00:57:50,272 log 19958 6157250560 Not Found: /depannage/api/reviews/21/moderate/
+WARNING 2025-07-13 00:57:57,694 log 19958 6157250560 Not Found: /depannage/api/reviews/21/moderate/
+WARNING 2025-07-13 01:02:36,309 log 36591 6188347392 Method Not Allowed: /depannage/api/reviews/export/
+WARNING 2025-07-13 01:02:47,159 log 36591 6188347392 Method Not Allowed: /depannage/api/reviews/export/
+WARNING 2025-07-13 01:02:58,074 log 36591 6188347392 Method Not Allowed: /depannage/api/reviews/export/
+WARNING 2025-07-13 01:05:36,388 log 36591 6188347392 Not Found: /api/admin/audit-logs/
+WARNING 2025-07-13 01:05:36,388 log 36591 6272479232 Not Found: /api/admin/audit-logs/
+WARNING 2025-07-13 01:05:47,588 log 36591 6272479232 Not Found: /api/admin/audit-logs/
+WARNING 2025-07-13 01:05:47,588 log 36591 6188347392 Not Found: /api/admin/audit-logs/
+WARNING 2025-07-13 01:19:39,399 log 36591 6272479232 Unauthorized: /users/login/
+WARNING 2025-07-13 01:28:30,539 log 42474 6169391104 Unauthorized: /api/admin/audit-logs/export/
+WARNING 2025-07-13 01:28:30,575 log 42474 6169391104 Not Found: /api/admin/audit-logs/export/
+WARNING 2025-07-13 01:29:15,223 log 42474 6169391104 Not Found: /api/admin/audit-logs/export/
+WARNING 2025-07-13 01:31:47,707 log 42474 6169391104 Not Found: /api/admin/audit-logs/export/
+WARNING 2025-07-13 01:33:03,432 log 42474 6169391104 Not Found: /api/admin/audit-logs/export/
+WARNING 2025-07-13 01:34:31,286 log 42474 6169391104 Not Found: /depannage/api/admin/audit-logs/export/
+WARNING 2025-07-13 01:34:32,882 log 42474 6169391104 Not Found: /depannage/api/admin/audit-logs/export/
+WARNING 2025-07-13 01:34:44,584 log 42474 6169391104 Not Found: /depannage/api/admin/audit-logs/export/
+WARNING 2025-07-13 01:36:19,730 log 42474 6169391104 Not Found: /depannage/api/admin/audit-logs/export/
+WARNING 2025-07-13 01:36:20,820 log 42474 6169391104 Not Found: /depannage/api/admin/audit-logs/export/
+WARNING 2025-07-13 01:37:48,226 log 44585 6214496256 Not Found: /depannage/api/admin/audit-logs/export/
+WARNING 2025-07-13 01:37:49,650 log 44585 6214496256 Not Found: /depannage/api/admin/audit-logs/export/
+WARNING 2025-07-13 01:40:14,167 log 44826 6153154560 Not Found: /depannage/api/admin/audit-logs/export/
+WARNING 2025-07-13 01:40:33,038 log 44826 6153154560 Not Found: /depannage/api/admin/audit-logs/export/
+WARNING 2025-07-13 01:40:33,127 log 44826 6153154560 Not Found: /favicon.ico
+WARNING 2025-07-13 01:43:10,734 log 45458 6180892672 Not Found: /favicon.ico
+WARNING 2025-07-13 01:43:13,721 log 45458 6180892672 Not Found: /favicon.ico
+WARNING 2025-07-13 01:46:58,252 log 45458 6180892672 Method Not Allowed: /depannage/api/reports/export/
+WARNING 2025-07-13 01:47:19,015 log 45458 6180892672 Unauthorized: /users/login/
+WARNING 2025-07-13 01:50:28,752 log 45458 6180892672 Unauthorized: /depannage/api/reports/
+WARNING 2025-07-13 01:52:20,035 log 45458 6180892672 Not Found: /auth/login/
+WARNING 2025-07-13 01:52:30,896 log 45458 6180892672 Bad Request: /users/login/
+WARNING 2025-07-13 01:53:00,825 log 45458 6180892672 Bad Request: /depannage/api/reports/
+INFO 2025-07-13 01:54:31,663 views 45458 6164066304 [DEBUG] Body reçu pour création RepairRequest: {'title': "Test API - Panne d'électricité", 'description': "Simulation d'une panne d'électricité pour test API.", 'address': 'Quartier Test, Ville Test', 'specialty_needed': 'électricien', 'priority': 'medium'}
+ERROR 2025-07-13 01:54:31,667 views 45458 6164066304 [DEBUG][EXCEPTION] {'specialty_needed': [ErrorDetail(string='"électricien" is not a valid choice.', code='invalid_choice')]}
+Traceback (most recent call last):
+  File "/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend/depannage/views.py", line 1002, in create
+    serializer.is_valid(raise_exception=True)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend/venv/lib/python3.13/site-packages/rest_framework/serializers.py", line 233, in is_valid
+    raise ValidationError(self.errors)
+rest_framework.exceptions.ValidationError: {'specialty_needed': [ErrorDetail(string='"électricien" is not a valid choice.', code='invalid_choice')]}
+
+ERROR 2025-07-13 01:54:31,668 log 45458 6180892672 Internal Server Error: /depannage/api/repair-requests/
+INFO 2025-07-13 01:54:56,503 views 45458 6164066304 [DEBUG] Body reçu pour création RepairRequest: {'title': "Test API - Panne d'électricité", 'description': "Simulation d'une panne d'électricité pour test API.", 'address': 'Quartier Test, Ville Test', 'specialty_needed': 'electrician', 'priority': 'medium', 'latitude': 5.3599517, 'longitude': -4.0082563}
+INFO 2025-07-13 01:54:56,529 views 45458 6164066304 Nouvelle demande créée: 585 par client1
+WARNING 2025-07-13 01:54:56,556 log 45458 6180892672 Bad Request: /depannage/api/reports/
+ERROR 2025-07-13 01:58:04,959 log 51029 6173143040 Internal Server Error: /depannage/api/admin/security/alerts/recent/
+ERROR 2025-07-13 01:58:04,960 log 51029 6189969408 Internal Server Error: /depannage/api/admin/security/login-locations/
+ERROR 2025-07-13 01:58:15,489 log 51029 6173143040 Internal Server Error: /depannage/api/admin/security/login-locations/
+ERROR 2025-07-13 01:58:15,490 log 51029 6189969408 Internal Server Error: /depannage/api/admin/security/alerts/recent/
+ERROR 2025-07-13 01:58:21,435 log 51029 6173143040 Internal Server Error: /depannage/api/admin/security/alerts/recent/
+ERROR 2025-07-13 01:58:21,436 log 51029 6189969408 Internal Server Error: /depannage/api/admin/security/login-locations/
+WARNING 2025-07-13 02:14:37,889 log 55959 6169128960 Bad Request: /users/login/
+WARNING 2025-07-13 02:14:37,916 log 55959 6169128960 Unauthorized: /depannage/api/admin/security/login-locations/
+WARNING 2025-07-13 02:14:40,835 log 55959 6169128960 Bad Request: /users/login/
+WARNING 2025-07-13 02:14:43,907 log 55959 6169128960 Unauthorized: /users/login/
+WARNING 2025-07-13 02:14:51,410 log 55959 6169128960 Unauthorized: /users/login/
+WARNING 2025-07-13 02:15:06,149 log 55959 6169128960 Unauthorized: /users/login/
+ERROR 2025-07-13 02:15:19,754 log 55959 6169128960 Internal Server Error: /depannage/api/admin/security/login-locations/
+ERROR 2025-07-13 02:36:59,863 log 61748 6195654656 Internal Server Error: /depannage/api/admin/security/alerts/recent/
+ERROR 2025-07-13 02:37:18,250 log 61748 6195654656 Internal Server Error: /depannage/api/admin/security/alerts/recent/
+ERROR 2025-07-13 02:37:41,542 log 61748 6195654656 Internal Server Error: /depannage/api/admin/security/alerts/recent/
+ERROR 2025-07-13 02:38:00,213 log 61748 6195654656 Internal Server Error: /depannage/api/admin/security/alerts/recent/
+ERROR 2025-07-13 02:40:08,818 log 61748 6195654656 Internal Server Error: /depannage/api/admin/security/alerts/recent/
+ERROR 2025-07-13 02:40:54,977 log 62647 6153629696 Internal Server Error: /depannage/api/admin/security/alerts/recent/
+ERROR 2025-07-13 02:41:16,958 log 62647 6153629696 Internal Server Error: /depannage/api/admin/security/alerts/recent/
+WARNING 2025-07-13 02:51:50,553 log 63333 6141456384 Not Found: /depannage/api/admin/audit-logs/export/
+ERROR 2025-07-13 02:54:04,260 log 63333 6141456384 Internal Server Error: /depannage/api/admin/notifications/
+ERROR 2025-07-13 02:59:31,660 log 63333 6141456384 Internal Server Error: /depannage/api/admin/notifications/
+ERROR 2025-07-13 02:59:54,309 log 63333 6141456384 Internal Server Error: /depannage/api/admin/notifications/

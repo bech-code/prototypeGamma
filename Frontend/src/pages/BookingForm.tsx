@@ -838,31 +838,14 @@ const BookingForm: React.FC = () => {
         throw new Error(errorMsg);
       }
 
-      // Calculer le montant total
+      // Calculer le montant total (pour information seulement)
       let totalAmount = data.estimated_price || services.find(s => s.id === formData.serviceId)?.startingPrice || 0;
       if (formData.isUrgent) {
         totalAmount += 25000; // Frais d'urgence
       }
 
-      // Arrondir au multiple de 5 le plus proche pour CinetPay
-      totalAmount = Math.ceil(totalAmount / 5) * 5;
-
-      // Préparer les données de paiement
-      const paymentData = {
-        request_id: data.id,
-        amount: totalAmount,
-        description: `Paiement pour ${services.find(s => s.id === formData.serviceId)?.name} - Demande #${data.id}`,
-        service_name: services.find(s => s.id === formData.serviceId)?.name || '',
-        address: `${formData.address}, ${formData.city} ${formData.postalCode}`,
-        date: formData.date,
-        time: formData.time,
-        is_urgent: formData.isUrgent,
-        phone: user?.client?.phone || '', // Utiliser le numéro de téléphone du profil utilisateur
-      };
-
-      console.log('[DEBUG] Redirection vers /payment avec paymentData:', paymentData);
-      // Supprimer la redirection vers le paiement
-      // navigate('/payment', { state: { paymentData } });
+      console.log('[DEBUG] Demande créée avec succès:', data);
+      console.log('[DEBUG] Montant estimé:', totalAmount, 'FCFA');
 
       // Afficher un message de confirmation à l'utilisateur
       setError(null);

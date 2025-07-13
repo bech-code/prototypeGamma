@@ -156,7 +156,6 @@ const AdminHome: React.FC = () => {
             <StatCard icon={<Users className="h-8 w-8 text-blue-600" />} label="Utilisateurs" value={stats.total_users} color="text-blue-700" bg="bg-white" />
             <StatCard icon={<Wrench className="h-8 w-8 text-green-600" />} label="Techniciens" value={stats.total_technicians} color="text-green-700" bg="bg-white" />
             <StatCard icon={<BarChart className="h-8 w-8 text-yellow-600" />} label="Demandes" value={stats.total_requests} color="text-yellow-700" bg="bg-white" />
-            <StatCard icon={<CreditCard className="h-8 w-8 text-purple-600" />} label="Revenus" value={stats.total_revenue.toLocaleString() + ' FCFA'} color="text-purple-700" bg="bg-white" />
           </div>
         </section>
       )}

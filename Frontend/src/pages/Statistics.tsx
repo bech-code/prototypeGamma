@@ -110,16 +110,12 @@ const Statistics: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState('overview');
-    // Filtres pour l'onglet financier
-    const [financialPeriod, setFinancialPeriod] = useState<'all' | '7d' | '30d'>('all');
-    const [paymentMethod, setPaymentMethod] = useState<string>('all');
     // Filtres pour l'onglet satisfaction
     const [reviewPeriod, setReviewPeriod] = useState<'all' | '7d' | '30d'>('all');
     const [reviewMinRating, setReviewMinRating] = useState<number>(1);
     const [showFullComment, setShowFullComment] = useState<string | null>(null);
     // 1. Ajout d'un état pour l'export
     const [exporting, setExporting] = useState<'none' | 'excel' | 'pdf'>('none');
-    const [filteringPayments, setFilteringPayments] = useState(false);
     const [filteringReviews, setFilteringReviews] = useState(false);
 
     useEffect(() => {
@@ -224,10 +220,6 @@ const Statistics: React.FC = () => {
         });
     }
 
-    // Paiements filtrés
-    const filteredPayments = data?.financial?.payment_methods && Array.isArray(data.financial.payment_methods)
-        ? filterByPeriod(data.financial.payment_methods, 'date', financialPeriod).filter((p: PaymentMethod) => paymentMethod === 'all' || p.method === paymentMethod)
-        : [];
     // Avis filtrés
     const filteredReviews = data?.satisfaction?.reviews && Array.isArray(data.satisfaction.reviews)
         ? filterByPeriod(data.satisfaction.reviews, 'created_at', reviewPeriod).filter((r: Review) => r.rating >= reviewMinRating)
@@ -333,7 +325,6 @@ const Statistics: React.FC = () => {
     const tabs = [
         { id: 'overview', name: 'Vue d\'ensemble', icon: Activity },
         { id: 'requests', name: 'Demandes', icon: FileText },
-        { id: 'financial', name: 'Financier', icon: DollarSign },
         { id: 'technicians', name: 'Techniciens', icon: UserCheck },
         { id: 'security', name: 'Sécurité', icon: Shield }
     ];
@@ -363,11 +354,6 @@ const Statistics: React.FC = () => {
                                 <FileText className="w-8 h-8 mx-auto mb-4" />
                                 <h3 className="font-semibold mb-2">Demandes</h3>
                                 <p className="text-sm text-blue-100">Analyse des interventions</p>
-                            </div>
-                            <div className="bg-blue-800/50 p-6 rounded-lg">
-                                <DollarSign className="w-8 h-8 mx-auto mb-4" />
-                                <h3 className="font-semibold mb-2">Financier</h3>
-                                <p className="text-sm text-blue-100">Revenus et paiements</p>
                             </div>
                             <div className="bg-blue-800/50 p-6 rounded-lg">
                                 <Shield className="w-8 h-8 mx-auto mb-4" />
@@ -473,21 +459,6 @@ const Statistics: React.FC = () => {
                                 </div>
                                 <div className="mt-4 text-sm text-gray-500">
                                     {data.overview.completed_requests} terminées
-                                </div>
-                            </div>
-
-                            <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow duration-300">
-                                <div className="flex items-center">
-                                    <DollarSign className="h-8 w-8 text-yellow-600" />
-                                    <div className="ml-4">
-                                        <p className="text-sm font-medium text-gray-600">Revenus totaux</p>
-                                        <p className="text-2xl font-bold text-gray-900">
-                                            {data.overview.total_revenue.toLocaleString('fr-FR')} FCFA
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="mt-4 text-sm text-gray-500">
-                                    {data.overview.platform_fees.toLocaleString('fr-FR')} FCFA de frais
                                 </div>
                             </div>
 
@@ -625,25 +596,6 @@ const Statistics: React.FC = () => {
                                 )}
                             </div>
                         </div>
-                        {/* Évolution des revenus (7 jours) */}
-                        {data.financial && data.requests && data.requests.daily_evolution && (
-                            <div className="mt-8">
-                                <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow duration-300 max-w-2xl mx-auto">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Évolution des revenus (7 jours)</h3>
-                                    <AmChartsLine
-                                        data={data.requests.daily_evolution.map(item => ({ date: item.date, revenus: 0 }))}
-                                        categoryField="date"
-                                        valueField="revenus"
-                                        title="Revenus quotidiens"
-                                        color="#F59E0B"
-                                        height={300}
-                                    />
-                                    {data.requests.daily_evolution.length === 0 && (
-                                        <div className="text-center text-gray-400 text-sm mt-2">Aucune donnée à afficher</div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
                     </div>
                 )}
 
@@ -669,49 +621,6 @@ const Statistics: React.FC = () => {
                                 <p className="text-sm text-gray-600">Annulées</p>
                             </div>
                         </div>
-                    </div>
-                )}
-
-                {activeTab === 'financial' && (
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <h2 className="text-xl font-semibold text-gray-900 mb-4">Statistiques financières</h2>
-                        <div className="flex flex-wrap gap-4 mb-4">
-                            <label htmlFor="financialPeriod" className="sr-only">Période</label>
-                            <select value={financialPeriod} onChange={e => setFinancialPeriod(e.target.value as any)} className="border rounded px-2 py-1 text-sm">
-                                <option value="all">Tout</option>
-                                <option value="7d">7 derniers jours</option>
-                                <option value="30d">30 derniers jours</option>
-                            </select>
-                            <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="border rounded px-2 py-1 text-sm">
-                                <option value="all">Toutes méthodes</option>
-                                {data.financial.payment_methods?.map((m, i) => <option key={i} value={m.method}>{m.method}</option>)}
-                            </select>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                            <div className="text-center">
-                                <p className="text-3xl font-bold text-green-600">
-                                    {data.financial.total_revenue.toLocaleString('fr-FR')} FCFA
-                                </p>
-                                <p className="text-sm text-gray-600">Revenus totaux</p>
-                            </div>
-                            <div className="text-center">
-                                <p className="text-3xl font-bold text-blue-600">
-                                    {data.financial.total_payouts.toLocaleString('fr-FR')} FCFA
-                                </p>
-                                <p className="text-sm text-gray-600">Paiements techniciens</p>
-                            </div>
-                            <div className="text-center">
-                                <p className="text-3xl font-bold text-purple-600">
-                                    {data.financial.platform_fees.toLocaleString('fr-FR')} FCFA
-                                </p>
-                                <p className="text-sm text-gray-600">Frais plateforme</p>
-                            </div>
-                        </div>
-                        {/* Liste détaillée des paiements */}
-                        <h3 className="text-lg font-semibold mb-2">Détail des paiements</h3>
-                        {filteredPayments.length === 0 && (
-                            <div className="text-gray-400 text-sm">Aucun paiement trouvé.</div>
-                        )}
                     </div>
                 )}
 

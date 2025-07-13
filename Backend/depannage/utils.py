@@ -4,6 +4,10 @@ import hmac
 from django.conf import settings
 from datetime import datetime
 from math import radians, sin, cos, sqrt, atan2
+import os
+import geoip2.database
+
+GEOIP_DB_PATH = os.path.join(os.path.dirname(__file__), '../geoip/GeoLite2-City.mmdb')
 
 
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -122,3 +126,21 @@ def validate_payment_data(data):
         return False, f"Statut invalide: {data['status']}"
     
     return True, "Données valides"
+
+def get_location_from_ip(ip_address):
+    # Retourne None pour localhost
+    if ip_address in ("127.0.0.1", "::1", "localhost"):
+        return None
+    try:
+        reader = geoip2.database.Reader(GEOIP_DB_PATH)
+        response = reader.city(ip_address)
+        city = response.city.name
+        country = response.country.name
+        reader.close()
+        if city and country:
+            return f"{city}, {country}"
+        elif country:
+            return country
+        return None
+    except Exception:
+        return None

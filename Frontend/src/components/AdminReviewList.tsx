@@ -53,10 +53,15 @@ export default function AdminReviewList() {
         setLoading(true);
         setError("");
         try {
-            const response = await fetchWithAuth("/depannage/api/reviews/");
+            const response = await fetchWithAuth("/depannage/api/admin/reviews/");
             if (response.ok) {
                 const data = await response.json();
-                setReviews(data);
+                // L'API admin renvoie un objet { results, count, ... }
+                const reviewsRaw = Array.isArray(data.results) ? data.results : data;
+                setReviews(reviewsRaw.map(r => ({
+                    ...r,
+                    is_visible: r.is_visible === true || r.is_visible === 1 || r.is_visible === "1" || r.is_visible === "True"
+                })));
             } else {
                 let backendMsg = '';
                 try {
@@ -134,11 +139,7 @@ export default function AdminReviewList() {
         setExporting(true);
         try {
             const response = await fetchWithAuth("/depannage/api/reviews/export/", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(filter),
+                method: 'GET',
             });
 
             if (response.ok) {
