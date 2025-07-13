@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Final Auth</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ccc;
+        }
+
+        .success {
+            color: green;
+        }
+
+        .error {
+            color: red;
+        }
+
+        .info {
+            color: blue;
+        }
+
+        button {
+            padding: 10px;
+            margin: 5px;
+        }
+
+        input {
+            padding: 8px;
+            margin: 5px;
+            width: 200px;
+        }
+
+        #logs {
+            background: #f5f5f5;
+            padding: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Test Final d'Authentification</h1>
+
+    <div class="test-section">
+        <h2>1. Test de Connexion</h2>
+        <input type="email" id="email" placeholder="Email" value="admin@depanneteliman.com">
+        <input type="password" id="password" placeholder="Password" value="admin123">
+        <button onclick="testLogin()">Test Login</button>
+        <button onclick="testWrongCredentials()">Test Mauvais Identifiants</button>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Test Refresh Token</h2>
+        <button onclick="testRefresh()">Test Refresh</button>
+        <button onclick="clearTokens()">Clear Tokens</button>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Test API Protégée</h2>
+        <button onclick="testProtectedAPI()">Test /users/me/</button>
+    </div>
+
+    <div class="test-section">
+        <h2>4. LocalStorage</h2>
+        <button onclick="showLocalStorage()">Afficher localStorage</button>
+        <div id="localStorage"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>5. Logs</h2>
+        <button onclick="clearLogs()">Clear Logs</button>
+        <div id="logs"></div>
+    </div>
+
+    <script>
+        const BASE_URL = 'http://127.0.0.1:8000';
+
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            logsDiv.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            console.log(message);
+        }
+
+        async function testLogin() {
+            log('=== Test Login ===', 'info');
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                log('Tentative de login...', 'info');
+                const response = await fetch(`${BASE_URL}/users/login/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                log(`Status: ${response.status}`, 'info');
+                const data = await response.json();
+
+                if (response.status === 200) {
+                    const { access, refresh } = data;
+
+                    if (access && refresh) {
+                        log('✅ Login réussi avec tokens', 'success');
+
+                        // Stocker dans localStorage
+                        localStorage.setItem('token', access);
+                        localStorage.setItem('refreshToken', refresh);
+
+                        log('Tokens stockés dans localStorage', 'success');
+                        showLocalStorage();
+                    } else {
+                        log('❌ Tokens manquants', 'error');
+                    }
+                } else {
+                    log(`❌ Login échoué: ${JSON.stringify(data)}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        async function testWrongCredentials() {
+            log('=== Test Mauvais Identifiants ===', 'info');
+
+            try {
+                const response = await fetch(`${BASE_URL}/users/login/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'wrong@email.com',
+                        password: 'wrongpassword'
+                    })
+                });
+
+                log(`Status: ${response.status}`, 'info');
+                const data = await response.json();
+                log(`Response: ${JSON.stringify(data)}`, 'info');
+
+                if (response.status === 401) {
+                    log('✅ Erreur 401 correctement gérée', 'success');
+                } else {
+                    log('❌ Comportement inattendu', 'error');
+                }
+            } catch (error) {
+                log(`❌ Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        async function testRefresh() {
+            log('=== Test Refresh ===', 'info');
+
+            const refreshToken = localStorage.getItem('refreshToken');
+            if (!refreshToken) {
+                log('❌ Aucun refresh token stocké', 'error');
+                return;
+            }
+
+            try {
+                log('Tentative de refresh...', 'info');
+                const response = await fetch(`${BASE_URL}/users/token/refresh/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ refresh: refreshToken })
+                });
+
+                log(`Status: ${response.status}`, 'info');
+                const data = await response.json();
+
+                if (response.status === 200) {
+                    const { access } = data;
+                    if (access) {
+                        log('✅ Refresh réussi', 'success');
+                        localStorage.setItem('token', access);
+                        showLocalStorage();
+                    } else {
+                        log('❌ Nouveau token manquant', 'error');
+                    }
+                } else {
+                    log(`❌ Refresh échoué: ${JSON.stringify(data)}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        async function testProtectedAPI() {
+            log('=== Test API Protégée ===', 'info');
+
+            const token = localStorage.getItem('token');
+            if (!token) {
+                log('❌ Aucun token stocké', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${BASE_URL}/users/me/`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                log(`Status: ${response.status}`, 'info');
+
+                if (response.status === 200) {
+                    const data = await response.json();
+                    log('✅ API protégée accessible', 'success');
+                    log(`User: ${data.user?.email || 'N/A'}`, 'info');
+                } else {
+                    const data = await response.json();
+                    log(`❌ API protégée échouée: ${JSON.stringify(data)}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        function showLocalStorage() {
+            const div = document.getElementById('localStorage');
+            const token = localStorage.getItem('token');
+            const refreshToken = localStorage.getItem('refreshToken');
+
+            div.innerHTML = `
+                <p><strong>Token:</strong> ${token ? token.substring(0, 50) + '...' : 'Non stocké'}</p>
+                <p><strong>Refresh Token:</strong> ${refreshToken ? refreshToken.substring(0, 50) + '...' : 'Non stocké'}</p>
+            `;
+        }
+
+        function clearTokens() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
+            log('Tokens supprimés', 'info');
+            showLocalStorage();
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+
+        // Afficher localStorage au chargement
+        showLocalStorage();
+    </script>
+</body>
+
+</html>

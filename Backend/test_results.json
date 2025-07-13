@@ -1,0 +1,93 @@
+[
+  {
+    "test": "Health Check",
+    "success": true,
+    "timestamp": "2025-07-09T22:46:51.593244",
+    "status_code": 200,
+    "error": null
+  },
+  {
+    "test": "API Info",
+    "success": true,
+    "timestamp": "2025-07-09T22:46:51.594575",
+    "status_code": 200,
+    "error": null
+  },
+  {
+    "test": "Admin Interface",
+    "success": true,
+    "timestamp": "2025-07-09T22:46:51.598751",
+    "status_code": 200,
+    "error": null
+  },
+  {
+    "test": "Login",
+    "success": true,
+    "timestamp": "2025-07-09T22:46:51.731374",
+    "status_code": 200,
+    "error": null
+  },
+  {
+    "test": "User Profile (Protected)",
+    "success": true,
+    "timestamp": "2025-07-09T22:46:51.734047",
+    "status_code": 200,
+    "error": null
+  },
+  {
+    "test": "Create Repair Request (all fields)",
+    "success": true,
+    "timestamp": "2025-07-09T22:46:51.758795",
+    "status_code": 201,
+    "error": null
+  },
+  {
+    "test": "Repair Requests List",
+    "success": true,
+    "timestamp": "2025-07-09T22:47:01.735564",
+    "status_code": 200,
+    "error": null
+  },
+  {
+    "test": "Technicians List",
+    "success": true,
+    "timestamp": "2025-07-09T22:47:01.744830",
+    "status_code": 200,
+    "error": null
+  },
+  {
+    "test": "Clients List",
+    "success": true,
+    "timestamp": "2025-07-09T22:47:01.750351",
+    "status_code": 200,
+    "error": null
+  },
+  {
+    "test": "Unauthorized Access",
+    "success": true,
+    "timestamp": "2025-07-09T22:47:01.752056",
+    "status_code": null,
+    "error": null
+  },
+  {
+    "test": "Non-existent Route",
+    "success": true,
+    "timestamp": "2025-07-09T22:47:01.756983",
+    "status_code": null,
+    "error": null
+  },
+  {
+    "test": "Invalid Token",
+    "success": true,
+    "timestamp": "2025-07-09T22:47:01.758332",
+    "status_code": null,
+    "error": null
+  },
+  {
+    "test": "Response Time (2.49ms)",
+    "success": true,
+    "timestamp": "2025-07-09T22:47:01.760861",
+    "status_code": 200,
+    "error": null
+  }
+]

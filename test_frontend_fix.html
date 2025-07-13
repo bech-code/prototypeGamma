@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Auth Frontend</title>
+</head>
+
+<body>
+    <h1>Test d'authentification Frontend</h1>
+
+    <div>
+        <h2>Login Test</h2>
+        <input type="email" id="email" placeholder="Email" value="admin@depanneteliman.com">
+        <input type="password" id="password" placeholder="Password" value="admin123">
+        <button onclick="testLogin()">Test Login</button>
+    </div>
+
+    <div>
+        <h2>Refresh Token Test</h2>
+        <button onclick="testRefresh()">Test Refresh</button>
+    </div>
+
+    <div>
+        <h2>LocalStorage</h2>
+        <button onclick="showLocalStorage()">Afficher localStorage</button>
+        <div id="localStorage"></div>
+    </div>
+
+    <div>
+        <h2>Logs</h2>
+        <div id="logs"></div>
+    </div>
+
+    <script>
+        const BASE_URL = 'http://127.0.0.1:8000';
+
+        function log(message) {
+            const logsDiv = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            logsDiv.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            console.log(message);
+        }
+
+        async function testLogin() {
+            log('=== Test Login ===');
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                log('Tentative de login...');
+                const response = await fetch(`${BASE_URL}/users/login/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                log(`Status: ${response.status}`);
+                const data = await response.json();
+                log(`Response: ${JSON.stringify(data, null, 2)}`);
+
+                if (response.status === 200) {
+                    const { access, refresh } = data;
+
+                    if (access && refresh) {
+                        log('✅ Login réussi avec tokens');
+
+                        // Stocker dans localStorage comme le frontend
+                        localStorage.setItem('token', access);
+                        localStorage.setItem('refreshToken', refresh);
+
+                        log('Tokens stockés dans localStorage');
+                        showLocalStorage();
+                    } else {
+                        log('❌ Tokens manquants');
+                    }
+                } else {
+                    log('❌ Login échoué');
+                }
+            } catch (error) {
+                log(`❌ Erreur: ${error.message}`);
+            }
+        }
+
+        async function testRefresh() {
+            log('=== Test Refresh ===');
+
+            const refreshToken = localStorage.getItem('refreshToken');
+            if (!refreshToken) {
+                log('❌ Aucun refresh token stocké');
+                return;
+            }
+
+            try {
+                log('Tentative de refresh...');
+                const response = await fetch(`${BASE_URL}/users/token/refresh/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ refresh: refreshToken })
+                });
+
+                log(`Status: ${response.status}`);
+                const data = await response.json();
+                log(`Response: ${JSON.stringify(data, null, 2)}`);
+
+                if (response.status === 200) {
+                    const { access } = data;
+                    if (access) {
+                        log('✅ Refresh réussi');
+                        localStorage.setItem('token', access);
+                        showLocalStorage();
+                    } else {
+                        log('❌ Nouveau token manquant');
+                    }
+                } else {
+                    log('❌ Refresh échoué');
+                }
+            } catch (error) {
+                log(`❌ Erreur: ${error.message}`);
+            }
+        }
+
+        function showLocalStorage() {
+            const div = document.getElementById('localStorage');
+            const token = localStorage.getItem('token');
+            const refreshToken = localStorage.getItem('refreshToken');
+
+            div.innerHTML = `
+                <p><strong>Token:</strong> ${token ? token.substring(0, 50) + '...' : 'Non stocké'}</p>
+                <p><strong>Refresh Token:</strong> ${refreshToken ? refreshToken.substring(0, 50) + '...' : 'Non stocké'}</p>
+            `;
+        }
+    </script>
+</body>
+
+</html>

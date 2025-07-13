@@ -1,0 +1,35 @@
+# Core Django
+Django>=5.2.3
+
+# Django REST Framework
+djangorestframework>=3.15.1
+
+# JWT Auth
+djangorestframework-simplejwt>=5.3.1
+
+# Channels (WebSocket)
+channels>=4.0.0
+daphne>=4.2.1
+
+# CORS
+django-cors-headers>=4.3.1
+
+# Environnement
+python-dotenv>=1.0.1
+
+# Géolocalisation (si utilisé)
+# django.contrib.gis  # Ne pas inclure ici, c'est un module Django, pas un package pip
+
+# Twilio (optionnel, pour SMS)
+twilio>=9.0.0
+
+# PDF/Excel export (optionnel)
+openpyxl>=3.1.2
+xlsxwriter>=3.1.9
+reportlab>=4.0.8
+
+# Autres dépendances utiles
+Pillow>=10.3.0
+
+# Pour le développement
+ipython 
