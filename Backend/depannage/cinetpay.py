@@ -4,6 +4,7 @@ import logging
 from django.conf import settings
 from django.utils import timezone
 from .utils import generate_transaction_id, format_amount_for_cinetpay, is_simulator_mode, log_payment_attempt
+from .mali_pricing import CURRENCY, COUNTRY_CODE, PHONE_PREFIX, TEST_AMOUNTS, format_price
 
 logger = logging.getLogger(__name__)
 
