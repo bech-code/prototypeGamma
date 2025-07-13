@@ -56,6 +56,10 @@ class Client(BaseTimeStampModel):
         verbose_name = "Client"
         verbose_name_plural = "Clients"
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=['is_active']),
+            models.Index(fields=['created_at']),
+        ]
 
 
 class Technician(BaseTimeStampModel):
@@ -155,6 +159,17 @@ class Technician(BaseTimeStampModel):
         verbose_name = "Technicien"
         verbose_name_plural = "Techniciens"
         ordering = ["-is_verified", "-years_experience"]
+        indexes = [
+            models.Index(fields=['is_available']),
+            models.Index(fields=['is_verified']),
+            models.Index(fields=['specialty']),
+            models.Index(fields=['experience_level']),
+            models.Index(fields=['is_available_urgent']),
+            models.Index(fields=['current_latitude', 'current_longitude']),
+            models.Index(fields=['last_position_update']),
+            models.Index(fields=['badge_level']),
+            models.Index(fields=['service_radius_km']),
+        ]
 
 
 # ============================================================================
@@ -270,19 +285,21 @@ class RepairRequest(BaseTimeStampModel):
     mission_validated = models.BooleanField(default=False, verbose_name="Mission validée par le client")
 
     def __str__(self):
-        return f"#{self.id} - {self.title} - {self.get_status_display()}"
+        return f"{self.title} - {self.get_status_display()}"
 
     @property
     def total_cost(self):
+        """Calcule le coût total de la demande."""
         if self.final_price:
             return self.final_price + self.travel_cost
-        return None
+        return self.estimated_price + self.travel_cost if self.estimated_price else Decimal("0.00")
 
     @property
     def duration_hours(self):
+        """Calcule la durée en heures si les dates sont disponibles."""
         if self.started_at and self.completed_at:
-            delta = self.completed_at - self.started_at
-            return round(delta.total_seconds() / 3600, 2)
+            duration = self.completed_at - self.started_at
+            return round(duration.total_seconds() / 3600, 2)
         return None
 
     def assign_to_technician(self, technician):
@@ -294,29 +311,34 @@ class RepairRequest(BaseTimeStampModel):
 
     def start_work(self):
         """Marque le début du travail."""
-        if self.status == self.Status.ASSIGNED:
-            self.status = self.Status.IN_PROGRESS
-            self.started_at = timezone.now()
-            self.save()
+        self.status = self.Status.IN_PROGRESS
+        self.started_at = timezone.now()
+        self.save()
 
     def complete_work(self, final_price=None):
         """Marque la fin du travail."""
-        if self.status == self.Status.IN_PROGRESS:
-            self.status = self.Status.COMPLETED
-            self.completed_at = timezone.now()
-            if final_price:
-                self.final_price = final_price
-            self.save()
+        self.status = self.Status.COMPLETED
+        self.completed_at = timezone.now()
+        if final_price:
+            self.final_price = final_price
+        self.save()
 
     class Meta:
         verbose_name = "Demande de dépannage"
         verbose_name_plural = "Demandes de dépannage"
         ordering = ["-priority", "-created_at"]
         indexes = [
-            models.Index(fields=["status", "created_at"]),
-            models.Index(fields=["specialty_needed", "status"]),
-            models.Index(fields=["client", "status"]),
-            models.Index(fields=["technician", "status"]),
+            models.Index(fields=['status']),
+            models.Index(fields=['specialty_needed']),
+            models.Index(fields=['urgency_level']),
+            models.Index(fields=['priority']),
+            models.Index(fields=['created_at']),
+            models.Index(fields=['assigned_at']),
+            models.Index(fields=['completed_at']),
+            models.Index(fields=['latitude', 'longitude']),
+            models.Index(fields=['client']),
+            models.Index(fields=['technician']),
+            models.Index(fields=['mission_validated']),
         ]
 
 

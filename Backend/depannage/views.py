@@ -202,536 +202,400 @@ class RepairRequestViewSet(CsrfExemptMixin, viewsets.ModelViewSet):
 
     serializer_class = RepairRequestSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = PageNumberPagination
 
     def get_serializer_class(self):
-        """Retourne le serializer approprié selon l'action."""
         if self.action == "create":
             return RepairRequestCreateSerializer
         return RepairRequestSerializer
 
     def get_queryset(self):
-        """Filtre les demandes selon le type d'utilisateur."""
+        """Optimise les requêtes avec select_related et prefetch_related."""
         user = self.request.user
-
-        if user.user_type == "admin":
+        
+        # Base queryset avec optimisations
+        queryset = RepairRequest.objects.select_related(
+            'client__user',
+            'technician__user'
+        ).prefetch_related(
+            'documents',
+            'review',
+            'payments',
+            'notifications'
+        )
+        
+        # Filtrage selon le type d'utilisateur
+        if user.is_superuser or user.user_type == 'admin':
             # Admin voit toutes les demandes
-            return RepairRequest.objects.all().order_by("-created_at")
-        elif user.user_type == "technician":
-            # Technicien voit ses demandes assignées et les demandes de sa spécialité
-            technician = get_object_or_404(Technician, user=user)
-            return RepairRequest.objects.filter(
-                Q(technician=technician)
-                | Q(specialty_needed=technician.specialty, status="pending")
-            ).order_by("-created_at")
+            return queryset
+        
+        elif user.user_type == 'technician':
+            # Technicien voit ses demandes assignées et les demandes disponibles
+            technician = get_technician_profile(user)
+            if technician:
+                return queryset.filter(
+                    Q(technician=technician) | 
+                    Q(status='pending', specialty_needed=technician.specialty)
+                )
+            return RepairRequest.objects.none()
+        
         else:
             # Client voit ses propres demandes
-            client = get_object_or_404(Client, user=user)
-            return RepairRequest.objects.filter(client=client).order_by("-created_at")
+            try:
+                client = user.client_profile
+                return queryset.filter(client=client)
+            except:
+                return RepairRequest.objects.none()
 
     def perform_create(self, serializer):
-        technician = None  # Initialisation systématique pour éviter UnboundLocalError
+        """Crée une demande avec validation et notifications."""
         user = self.request.user
+        
+        # Validation des données
+        data = serializer.validated_data
+        
+        # Vérification de la géolocalisation
+        if not data.get('latitude') or not data.get('longitude'):
+            raise ValidationError("La géolocalisation est obligatoire")
+        
+        # Création de la demande
+        repair_request = serializer.save(client=user.client_profile)
+        
+        # Notification aux techniciens disponibles
+        self.notify_available_technicians(repair_request)
+        
+        # Log de création
+        logger.info(f"Demande créée: {repair_request.id} par {user.username}")
+        
+        return repair_request
 
-        lat = serializer.validated_data.get('latitude')
-        lng = serializer.validated_data.get('longitude')
-        if lat is None or lng is None:
-            from rest_framework.exceptions import ValidationError
-            raise ValidationError({
-                'latitude': 'La latitude est obligatoire pour créer une demande.',
-                'longitude': 'La longitude est obligatoire pour créer une demande.'
-            })
-
-        client, created = Client.objects.get_or_create(
-            user=user,
-            defaults={
-                "address": self.request.data.get("address", "Adresse non spécifiée"),
-                "phone": user.phone_number if hasattr(user, "phone_number") else "",
-                "is_active": True,
-            },
-        )
-
-        data = serializer.validated_data.copy()
-        if "service_type" in data:
-            data["specialty_needed"] = data.pop("service_type")
-        if "title" not in data or not data["title"]:
-            service_name = data.get("specialty_needed", "Service")
-            data["title"] = f"Demande de {service_name}"
-
-        # Nouveau : gestion du statut draft
-        request_status = data.get('status', RepairRequest.Status.PENDING)
-        repair_request = serializer.save(client=client, **data)
-
-        if request_status == RepairRequest.Status.DRAFT:
-            # Ne pas créer de conversation ni envoyer de notification
-            return
-
-        # Création de la conversation et notification comme avant
-        conversation = Conversation.objects.create(
-            request=repair_request, is_active=True
-        )
-        conversation.participants.add(user)
-
-        from users.models import User
-        admin_users = User.objects.filter(is_staff=True, is_active=True)
-        for admin in admin_users:
-            Notification.objects.create(
-                recipient=admin,
-                title="Nouvelle demande de réparation",
-                message=f"Nouvelle demande #{repair_request.id} - {repair_request.specialty_needed}",
-                type="new_request",
-            )
-
-        # Envoyer notification aux techniciens de la spécialité (seulement les 10 plus proches)
-        lat = repair_request.latitude
-        lng = repair_request.longitude
-        # 1. Filtrer les techniciens de la spécialité, disponibles, vérifiés, géolocalisés
-        technicians = Technician.objects.filter(
-            specialty=repair_request.specialty_needed,
-            is_available=True,
-            is_verified=True,
-            current_latitude__isnull=False,
-            current_longitude__isnull=False,
-        )
-        # 2. Filtrer sur abonnement actif
-        technicians = [t for t in technicians if t.has_active_subscription]
-        # 3. Exclure les techniciens ayant une demande en cours (assigned ou in_progress)
-        busy_tech_ids = set(
-            RepairRequest.objects.filter(
-                status__in=[RepairRequest.Status.ASSIGNED, RepairRequest.Status.IN_PROGRESS]
-            ).values_list('technician_id', flat=True)
-        )
-        technicians = [t for t in technicians if t.id not in busy_tech_ids]
-        # 4. Filtrer sur note minimale (par défaut 3.5, ou configurable)
-        MIN_RATING = 3.5
-        technicians = [t for t in technicians if t.average_rating >= MIN_RATING]
-        # 5. Filtrer sur rayon d'intervention
-        tech_with_distance = []
-        for tech in technicians:
-            distance = calculate_distance(lat, lng, tech.current_latitude, tech.current_longitude)
-            if distance <= tech.service_radius_km:
-                tech_with_distance.append((tech, distance))
-        # 6. Trier par distance et ne garder que les 10 plus proches
-        tech_with_distance.sort(key=lambda x: x[1])
-        closest_techs = [t[0] for t in tech_with_distance[:10]]
-        # DIAGNOSTIC DEBUG
-        print("[DEBUG] Techniciens candidats pour notification :")
-        for tech, dist in tech_with_distance:
-            print(f"  - TechID: {tech.id} | UserID: {tech.user.id} | Username: {tech.user.username} | Spécialité: {tech.specialty} | Distance: {dist:.2f} km | Note: {tech.average_rating}")
-        for technician in closest_techs:
-            Notification.objects.create(
-                recipient=technician.user,
-                title="Nouvelle demande dans votre spécialité",
-                message=f"Demande #{repair_request.id} - {repair_request.title}",
-                type="new_request_technician",
-                request=repair_request,
-            )
-
-        # Créer un message automatique
-        Message.objects.create(
-            conversation=conversation,
-            sender=user,
-            content=f"Demande créée le {timezone.now().strftime('%d/%m/%Y à %H:%M')}",
-            message_type="system",
-        )
-
-        logger.info(f"Nouvelle demande créée: {repair_request.id} par {user.username}")
-
-        # Notifier les autres techniciens de la spécialité (parmi les plus proches)
-        lat = repair_request.latitude
-        lng = repair_request.longitude
-        technicians = Technician.objects.filter(
-            specialty=repair_request.specialty_needed,
-            is_available=True,
-            is_verified=True,
-            current_latitude__isnull=False,
-            current_longitude__isnull=False,
-        )
-        # Exclure le technicien courant seulement si la variable existe
-        if 'technician' in locals() and technician is not None:
-            technicians = technicians.exclude(id=technician.id)
-        tech_with_distance = []
-        for tech in technicians:
-            distance = calculate_distance(lat, lng, tech.current_latitude, tech.current_longitude)
-            tech_with_distance.append((tech, distance))
-        tech_with_distance.sort(key=lambda x: x[1])
-        closest_techs = [t[0] for t in tech_with_distance[:10]]
-        for other_tech in closest_techs:
-            Notification.objects.create(
-                recipient=other_tech.user,
-                title="Demande déjà acceptée",
-                message=f"La demande #{repair_request.id} a été acceptée par {technician.user.get_full_name() if 'technician' in locals() and technician is not None else 'un technicien'}.",
-                type="request_taken",
-                request=repair_request,
-            )
-
-        # Notifier les admins
-        from users.models import User
-        admin_users = User.objects.filter(is_staff=True, is_active=True)
-        for admin in admin_users:
-            tech_name = technician.user.get_full_name() if 'technician' in locals() and technician is not None else "un technicien"
-            Notification.objects.create(
-                recipient=admin,
-                title="Demande acceptée par un technicien",
-                message=f"La demande #{repair_request.id} a été acceptée par {tech_name}",
-                type="request_accepted",
-                request=repair_request,
-            )
-
-        # Retourne la réponse complète avec l'ID
-        response_serializer = RepairRequestSerializer(repair_request, context={'request': self.request})
-        self.response = Response(response_serializer.data, status=201)
+    def notify_available_technicians(self, repair_request):
+        """Notifie les techniciens disponibles de la nouvelle demande."""
+        try:
+            # Trouver les techniciens disponibles dans la spécialité
+            available_technicians = Technician.objects.filter(
+                is_available=True,
+                specialty=repair_request.specialty_needed,
+                is_verified=True
+            ).select_related('user')
+            
+            # Créer des notifications pour chaque technicien
+            notifications = []
+            for technician in available_technicians:
+                notification = Notification(
+                    recipient=technician.user,
+                    type=Notification.Type.URGENT_REQUEST,
+                    title="Nouvelle demande urgente",
+                    message=f"Nouvelle demande {repair_request.title} dans votre zone",
+                    request=repair_request,
+                    extra_data={
+                        'request_id': repair_request.id,
+                        'specialty': repair_request.specialty_needed,
+                        'urgency': repair_request.urgency_level
+                    }
+                )
+                notifications.append(notification)
+            
+            # Bulk create pour optimiser les performances
+            if notifications:
+                Notification.objects.bulk_create(notifications)
+                logger.info(f"Notifications envoyées à {len(notifications)} techniciens")
+                
+        except Exception as e:
+            logger.error(f"Erreur lors de la notification des techniciens: {e}")
 
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
     def assign_technician(self, request, pk=None):
-        """Assigne un technicien à une demande ou refuse la demande (Admin ou Technicien)."""
+        """Assigne un technicien à une demande avec validation."""
         repair_request = self.get_object()
         user = request.user
-
-        action = request.data.get("action", "accept")  # Par défaut: accepter
-        logger.info(f"Tentative d'action - Demande: {repair_request.id}, Utilisateur: {user.id} ({user.user_type}), Action: {action}")
-
-        technician_id = request.data.get("technician_id")
-        if not technician_id:
-            logger.error(f"ID du technicien manquant pour la demande {repair_request.id}")
+        
+        # Validation des permissions
+        if user.user_type not in ['technician', 'admin']:
             return Response(
-                {"error": "ID du technicien requis"}, status=400
+                {"error": "Seuls les techniciens peuvent s'assigner aux demandes"},
+                status=403
             )
-
-        logger.info(f"Technician ID reçu: {technician_id}")
-
+        
         try:
-            technician = Technician.objects.get(id=technician_id)
-            logger.info(f"Technicien trouvé: {technician.id}, User: {technician.user.id}, Spécialité: {technician.specialty}, Disponible: {technician.is_available}")
-
-            # Cas admin : assignation classique
-            if user.user_type == "admin":
-                logger.info("Action par admin")
-                # Vérifier que le technicien est disponible et de la bonne spécialité
-                if not technician.is_available:
-                    logger.warning(f"Technicien {technician.id} non disponible")
-                    return Response(
-                        {"error": "Ce technicien n'est pas disponible"},
-                        status=400,
-                    )
-                if technician.specialty != repair_request.specialty_needed:
-                    logger.warning(f"Spécialité non correspondante: {technician.specialty} vs {repair_request.specialty_needed}")
-                    return Response(
-                        {
-                            "error": "Ce technicien ne correspond pas à la spécialité requise"
-                        },
-                        status=400,
-                    )
-            # Cas technicien : auto-assignation ou refus
-            elif user.user_type == "technician" and technician.user == user:
-                logger.info(f"Action par technicien: {action}")
-                if repair_request.status != "pending":
-                    logger.warning(f"Demande non en attente: {repair_request.status}")
-                    return Response(
-                        {"error": "Seules les demandes en attente peuvent être traitées."},
-                        status=400,
-                    )
-                if technician.specialty != repair_request.specialty_needed:
-                    logger.warning(f"Spécialité technicien non correspondante: {technician.specialty} vs {repair_request.specialty_needed}")
-                    return Response(
-                        {"error": "Vous ne correspondez pas à la spécialité requise."},
-                        status=400,
-                    )
-                if not technician.is_available:
-                    logger.warning(f"Technicien {technician.id} non disponible")
-                    return Response(
-                        {"error": "Vous n'êtes pas disponible."},
-                        status=400,
-                    )
-            else:
-                logger.error(f"Non autorisé - User type: {user.user_type}, Technician user: {technician.user.id if technician else 'None'}")
+            technician = get_technician_profile(user)
+            if not technician:
                 return Response(
-                    {"error": "Non autorisé."}, status=403
+                    {"error": "Profil technicien non trouvé"},
+                    status=404
                 )
-
-            # Vérifier que le technicien n'a pas déjà une demande en cours
-            from depannage.models import RepairRequest
-            busy_request = RepairRequest.objects.filter(
-                technician=technician,
-                status__in=[RepairRequest.Status.ASSIGNED, RepairRequest.Status.IN_PROGRESS]
-            ).exclude(id=repair_request.id).first()
-            if busy_request:
-                return Response(
-                    {"error": "Vous avez déjà une demande en cours. Terminez-la avant d'en accepter une nouvelle."},
-                    status=400,
-                )
-            # Accepter la demande (logique existante)
-            repair_request.technician = technician
-            repair_request.status = "assigned"
-            repair_request.assigned_at = timezone.now()
-            repair_request.save()
             
-            logger.info(f"Technicien {technician.user.get_full_name()} assigné avec succès à la demande {repair_request.id}")
-
-            # Marquer comme lues les notifications pour les autres techniciens
-            Notification.objects.filter(
-                request=repair_request,
-                type="new_request_technician"
-            ).exclude(recipient=technician.user).delete()
-
-            # Ajouter le technicien à la conversation
-            conversation = repair_request.conversation
-            conversation.participants.add(technician.user)
-
-            # Envoyer notification au technicien
-            Notification.objects.create(
-                recipient=technician.user,
-                title="Nouvelle demande assignée",
-                message=f"Vous avez été assigné à la demande #{repair_request.id}",
-                type="request_assigned",
-            )
-
-            # Envoyer notification au client
+            # Vérifications de sécurité
+            if repair_request.status != RepairRequest.Status.PENDING:
+                return Response(
+                    {"error": "Cette demande n'est plus disponible"},
+                    status=400
+                )
+            
+            if repair_request.specialty_needed != technician.specialty:
+                return Response(
+                    {"error": "Spécialité non compatible"},
+                    status=400
+                )
+            
+            # Assignation du technicien
+            repair_request.assign_to_technician(technician)
+            
+            # Notification au client
             Notification.objects.create(
                 recipient=repair_request.client.user,
+                type=Notification.Type.REQUEST_ASSIGNED,
                 title="Technicien assigné",
-                message=f"Un technicien a été assigné à votre demande #{repair_request.id}",
-                type="technician_assigned",
+                message=f"Un technicien a accepté votre demande: {repair_request.title}",
+                request=repair_request
             )
-
-            # Créer un message automatique
-            Message.objects.create(
-                conversation=conversation,
-                sender=request.user,
-                content=f"Technicien {technician.user.get_full_name()} assigné à cette demande",
-                message_type="system",
+            
+            # Notification au technicien
+            Notification.objects.create(
+                recipient=technician.user,
+                type=Notification.Type.REQUEST_ASSIGNED,
+                title="Demande acceptée",
+                message=f"Vous avez accepté la demande: {repair_request.title}",
+                request=repair_request
             )
-
-            # Notifier les autres techniciens de la spécialité (parmi les plus proches)
-            lat = repair_request.latitude
-            lng = repair_request.longitude
-            technicians = Technician.objects.filter(
-                specialty=repair_request.specialty_needed,
-                is_available=True,
-                is_verified=True,
-                current_latitude__isnull=False,
-                current_longitude__isnull=False,
-            )
-            # Exclure le technicien courant seulement si la variable existe
-            if 'technician' in locals() and technician is not None:
-                technicians = technicians.exclude(id=technician.id)
-            tech_with_distance = []
-            for tech in technicians:
-                distance = calculate_distance(lat, lng, tech.current_latitude, tech.current_longitude)
-                tech_with_distance.append((tech, distance))
-            tech_with_distance.sort(key=lambda x: x[1])
-            closest_techs = [t[0] for t in tech_with_distance[:10]]
-            for other_tech in closest_techs:
-                Notification.objects.create(
-                    recipient=other_tech.user,
-                    title="Demande déjà acceptée",
-                    message=f"La demande #{repair_request.id} a été acceptée par {technician.user.get_full_name() if 'technician' in locals() and technician is not None else 'un technicien'}.",
-                    type="request_taken",
-                    request=repair_request,
-                )
-
-            # Notifier les admins
-            from users.models import User
-            admin_users = User.objects.filter(is_staff=True, is_active=True)
-            for admin in admin_users:
-                tech_name = technician.user.get_full_name() if 'technician' in locals() and technician is not None else "un technicien"
-                Notification.objects.create(
-                    recipient=admin,
-                    title="Demande acceptée par un technicien",
-                    message=f"La demande #{repair_request.id} a été acceptée par {tech_name}",
-                    type="request_accepted",
-                    request=repair_request,
-                )
-
-            # Retirer l'ancien technicien des participants si différent du nouveau
-            old_technician = None
-            if repair_request.conversation.participants.count() > 1:
-                for participant in repair_request.conversation.participants.all():
-                    if hasattr(participant, 'technician_depannage') and participant != technician.user:
-                        old_technician = participant
-                        break
-            if old_technician:
-                repair_request.conversation.participants.remove(old_technician)
-            # Ajouter le nouveau technicien
-            repair_request.conversation.participants.add(technician.user)
-
-            # Ajouter le client aux participants
-            repair_request.conversation.participants.add(repair_request.client.user)
-
+            
+            serializer = self.get_serializer(repair_request)
+            return Response(serializer.data)
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de l'assignation: {e}")
             return Response(
-                {
-                    "success": True,
-                    "message": f"Technicien {technician.user.get_full_name()} assigné avec succès",
-                }
-            )
-
-        except Technician.DoesNotExist:
-            logger.error(f"Technicien avec ID {technician_id} non trouvé")
-            return Response(
-                {"error": "Technicien non trouvé"}, status=404
+                {"error": "Erreur lors de l'assignation"},
+                status=500
             )
 
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
     def update_status(self, request, pk=None):
-        """Met à jour le statut d'une demande."""
+        """Met à jour le statut d'une demande avec validation."""
         repair_request = self.get_object()
         user = request.user
-        new_status = request.data.get("status")
-
-        if not new_status:
+        new_status = request.data.get('status')
+        
+        # Validation du statut
+        valid_statuses = dict(RepairRequest.Status.choices)
+        if new_status not in valid_statuses:
             return Response(
-                {"error": "Nouveau statut requis"}, status=400
+                {"error": "Statut invalide"},
+                status=400
             )
-
-        # Vérifier les permissions
-        can_update = False
-        if user.user_type == "admin":
-            can_update = True
-        elif (
-            user.user_type == "technician"
-            and (
-                (repair_request.technician and repair_request.technician.user == user)
-                or (repair_request.status == "pending" and repair_request.specialty_needed == user.technician.specialty)
-            )
-        ):
-            can_update = True
-        elif user.user_type == "client" and repair_request.client.user == user:
-            can_update = new_status == "cancelled" and repair_request.status == "pending"
-            logger.info(f"Client autorisé à annuler sa demande: {can_update}")
-
-        if not can_update:
+        
+        # Vérification des permissions
+        if user.user_type == 'technician':
+            technician = get_technician_profile(user)
+            if not technician or repair_request.technician != technician:
+                return Response(
+                    {"error": "Vous ne pouvez modifier que vos propres demandes"},
+                    status=403
+                )
+        
+        try:
+            old_status = repair_request.status
+            repair_request.status = new_status
+            
+            # Actions spécifiques selon le statut
+            if new_status == RepairRequest.Status.IN_PROGRESS:
+                repair_request.start_work()
+            elif new_status == RepairRequest.Status.COMPLETED:
+                final_price = request.data.get('final_price')
+                repair_request.complete_work(final_price)
+            
+            repair_request.save()
+            
+            # Notification du changement de statut
+            self.notify_status_change(repair_request, old_status, new_status)
+            
+            serializer = self.get_serializer(repair_request)
+            return Response(serializer.data)
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de la mise à jour du statut: {e}")
             return Response(
-                {"error": "Vous n'êtes pas autorisé à modifier cette demande"},
-                status=403,
+                {"error": "Erreur lors de la mise à jour"},
+                status=500
             )
 
-        # Mettre à jour le statut
-        old_status = repair_request.status
-        repair_request.status = new_status
-
-        # Mettre à jour les timestamps selon le statut
-        if new_status == "in_progress" and old_status != "in_progress":
-            repair_request.started_at = timezone.now()
-        elif new_status == "completed" and old_status != "completed":
-            repair_request.completed_at = timezone.now()
-
-        repair_request.save()
-
-        # Envoyer notifications
-        if new_status == "in_progress":
-            Notification.objects.create(
-                recipient=repair_request.client.user,
-                title="Travaux commencés",
-                message=f"Les travaux pour la demande #{repair_request.id} ont commencé",
-                type="work_started",
-            )
-        elif new_status == "completed":
-            Notification.objects.create(
-                recipient=repair_request.client.user,
-                title="Travaux terminés",
-                message=f"Les travaux pour la demande #{repair_request.id} sont terminés",
-                type="work_completed",
-            )
-        elif new_status == "refused":
-            Notification.objects.create(
-                recipient=repair_request.client.user,
-                title="Demande refusée",
-                message=f"Votre demande #{repair_request.id} a été refusée par un technicien.",
-                type="request_refused",
-            )
-
-        # Créer un message automatique
-        conversation = repair_request.conversation
+    def notify_status_change(self, repair_request, old_status, new_status):
+        """Notifie le changement de statut aux parties concernées."""
         status_messages = {
-            "in_progress": "Les travaux ont commencé",
-            "completed": "Les travaux sont terminés",
-            "cancelled": "La demande a été annulée",
-            "refused": "La demande a été refusée par un technicien",
+            RepairRequest.Status.IN_PROGRESS: "Le travail a commencé",
+            RepairRequest.Status.COMPLETED: "Le travail est terminé",
+            RepairRequest.Status.CANCELLED: "La demande a été annulée"
         }
-
-        if new_status in status_messages:
-            Message.objects.create(
-                conversation=conversation,
-                sender=user,
-                content=status_messages[new_status],
-                message_type="system",
+        
+        message = status_messages.get(new_status, f"Statut changé vers {new_status}")
+        
+        # Notification au client
+        if repair_request.client:
+            Notification.objects.create(
+                recipient=repair_request.client.user,
+                type=Notification.Type.REQUEST_STARTED if new_status == RepairRequest.Status.IN_PROGRESS else Notification.Type.REQUEST_COMPLETED,
+                title=f"Demande {new_status}",
+                message=f"{message}: {repair_request.title}",
+                request=repair_request
             )
-
-        return Response(
-            {"success": True, "message": f"Statut mis à jour vers {new_status}"}
-        )
+        
+        # Notification au technicien
+        if repair_request.technician:
+            Notification.objects.create(
+                recipient=repair_request.technician.user,
+                type=Notification.Type.REQUEST_STARTED if new_status == RepairRequest.Status.IN_PROGRESS else Notification.Type.REQUEST_COMPLETED,
+                title=f"Demande {new_status}",
+                message=f"{message}: {repair_request.title}",
+                request=repair_request
+            )
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def dashboard_stats(self, request):
-        """Récupère les statistiques pour le tableau de bord."""
+        """Statistiques optimisées pour le dashboard."""
         user = request.user
-
-        if user.user_type == "admin":
-            # Statistiques admin
-            total_requests = RepairRequest.objects.count()
-            pending_requests = RepairRequest.objects.filter(status="pending").count()
-            in_progress_requests = RepairRequest.objects.filter(
-                status="in_progress"
-            ).count()
-            completed_requests = RepairRequest.objects.filter(
-                status="completed"
-            ).count()
-
-            # Demandes par spécialité
-            specialty_stats = (
-                RepairRequest.objects.values("specialty_needed")
-                .annotate(count=Count("id"))
-                .order_by("-count")
+        
+        try:
+            if user.user_type == 'technician':
+                technician = get_technician_profile(user)
+                if not technician:
+                    return Response({"error": "Profil technicien non trouvé"}, status=404)
+                
+                # Requêtes optimisées avec annotations
+                stats = RepairRequest.objects.filter(
+                    technician=technician
+                ).aggregate(
+                    total_requests=Count('id'),
+                    completed_requests=Count('id', filter=Q(status='completed')),
+                    pending_requests=Count('id', filter=Q(status='pending')),
+                    in_progress_requests=Count('id', filter=Q(status='in_progress')),
+                    total_earnings=Sum('final_price', filter=Q(status='completed')),
+                    avg_rating=Avg('review__rating', filter=Q(status='completed', review__isnull=False))
+                )
+                
+                # Calcul du taux de réussite
+                total = stats['total_requests'] or 0
+                completed = stats['completed_requests'] or 0
+                success_rate = round((completed / total * 100) if total > 0 else 0, 1)
+                
+                return Response({
+                    'total_requests': total,
+                    'completed_requests': completed,
+                    'pending_requests': stats['pending_requests'] or 0,
+                    'in_progress_requests': stats['in_progress_requests'] or 0,
+                    'total_earnings': float(stats['total_earnings'] or 0),
+                    'average_rating': round(stats['avg_rating'] or 0, 1),
+                    'success_rate': success_rate,
+                    'is_available': technician.is_available,
+                    'specialty': technician.specialty,
+                    'experience_level': technician.experience_level
+                })
+            
+            elif user.user_type == 'client':
+                client = user.client_profile
+                
+                stats = RepairRequest.objects.filter(
+                    client=client
+                ).aggregate(
+                    total_requests=Count('id'),
+                    completed_requests=Count('id', filter=Q(status='completed')),
+                    pending_requests=Count('id', filter=Q(status='pending')),
+                    in_progress_requests=Count('id', filter=Q(status='in_progress')),
+                    total_spent=Sum('final_price', filter=Q(status='completed'))
+                )
+                
+                return Response({
+                    'total_requests': stats['total_requests'] or 0,
+                    'completed_requests': stats['completed_requests'] or 0,
+                    'pending_requests': stats['pending_requests'] or 0,
+                    'in_progress_requests': stats['in_progress_requests'] or 0,
+                    'total_spent': float(stats['total_spent'] or 0)
+                })
+            
+            else:
+                # Admin - statistiques globales
+                stats = RepairRequest.objects.aggregate(
+                    total_requests=Count('id'),
+                    completed_requests=Count('id', filter=Q(status='completed')),
+                    pending_requests=Count('id', filter=Q(status='pending')),
+                    total_revenue=Sum('final_price', filter=Q(status='completed'))
+                )
+                
+                return Response({
+                    'total_requests': stats['total_requests'] or 0,
+                    'completed_requests': stats['completed_requests'] or 0,
+                    'pending_requests': stats['pending_requests'] or 0,
+                    'total_revenue': float(stats['total_revenue'] or 0)
+                })
+                
+        except Exception as e:
+            logger.error(f"Erreur lors du calcul des statistiques: {e}")
+            return Response(
+                {"error": "Erreur lors du calcul des statistiques"},
+                status=500
             )
 
+    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
+    def available_technicians(self, request):
+        """Récupère les techniciens disponibles avec géolocalisation optimisée."""
+        try:
+            # Paramètres de géolocalisation
+            latitude = request.query_params.get('latitude')
+            longitude = request.query_params.get('longitude')
+            specialty = request.query_params.get('specialty')
+            max_distance = float(request.query_params.get('max_distance', 20))  # km
+            
+            # Base queryset optimisée
+            queryset = Technician.objects.filter(
+                is_available=True,
+                is_verified=True
+            ).select_related('user')
+            
+            # Filtrage par spécialité si spécifiée
+            if specialty:
+                queryset = queryset.filter(specialty=specialty)
+            
+            # Calcul des distances si géolocalisation fournie
+            if latitude and longitude:
+                try:
+                    user_lat = float(latitude)
+                    user_lon = float(longitude)
+                    
+                    technicians_with_distance = []
+                    for technician in queryset:
+                        if technician.current_latitude and technician.current_longitude:
+                            distance = calculate_distance(
+                                user_lat, user_lon,
+                                technician.current_latitude, technician.current_longitude
+                            )
+                            if distance <= max_distance:
+                                technicians_with_distance.append((technician, distance))
+                    
+                    # Tri par distance
+                    technicians_with_distance.sort(key=lambda x: x[1])
+                    technicians = [tech for tech, _ in technicians_with_distance]
+                    
+                except (ValueError, TypeError):
+                    return Response(
+                        {"error": "Coordonnées géographiques invalides"},
+                        status=400
+                    )
+            else:
+                # Sans géolocalisation, retourner tous les techniciens disponibles
+                technicians = list(queryset)
+            
+            # Pagination
+            paginator = PageNumberPagination()
+            paginator.page_size = 20
+            paginated_technicians = paginator.paginate_queryset(technicians, request)
+            
+            serializer = TechnicianSerializer(paginated_technicians, many=True)
+            return paginator.get_paginated_response(serializer.data)
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération des techniciens: {e}")
             return Response(
-                {
-                    "total_requests": total_requests,
-                    "pending_requests": pending_requests,
-                    "in_progress_requests": in_progress_requests,
-                    "completed_requests": completed_requests,
-                    "specialty_stats": list(specialty_stats),
-                }
-            )
-
-        elif user.user_type == "technician":
-            # Statistiques technicien
-            technician = get_object_or_404(Technician, user=user)
-            assigned_requests = RepairRequest.objects.filter(
-                technician=technician
-            ).count()
-            completed_requests = RepairRequest.objects.filter(
-                technician=technician, status="completed"
-            ).count()
-            pending_requests = RepairRequest.objects.filter(
-                technician=technician, status__in=["assigned", "in_progress"]
-            ).count()
-
-            return Response(
-                {
-                    "assigned_requests": assigned_requests,
-                    "completed_requests": completed_requests,
-                    "pending_requests": pending_requests,
-                    "specialty": technician.specialty,
-                }
-            )
-
-        else:
-            # Statistiques client
-            client = get_object_or_404(Client, user=user)
-            total_requests = RepairRequest.objects.filter(client=client).count()
-            active_requests = RepairRequest.objects.filter(
-                client=client, status__in=["pending", "assigned", "in_progress"]
-            ).count()
-            completed_requests = RepairRequest.objects.filter(
-                client=client, status="completed"
-            ).count()
-
-            return Response(
-                {
-                    "total_requests": total_requests,
-                    "active_requests": active_requests,
-                    "completed_requests": completed_requests,
-                }
+                {"error": "Erreur lors de la récupération des techniciens"},
+                status=500
             )
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
@@ -953,169 +817,6 @@ class RepairRequestViewSet(CsrfExemptMixin, viewsets.ModelViewSet):
         print("=== project_statistics response ===")
         import pprint; pprint.pprint(response_data)
         return Response(response_data)
-
-    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
-    def available_technicians(self, request):
-        """Récupère les techniciens disponibles pour une spécialité (Admin seulement)."""
-        user = request.user
-        specialty = request.query_params.get("specialty")
-
-        if user.user_type != "admin":
-            return Response(
-                {"error": "Accès non autorisé"}, status=403
-            )
-
-        if not specialty:
-            return Response(
-                {"error": "Spécialité requise"}, status=400
-            )
-
-        technicians = Technician.objects.filter(
-            specialty=specialty, is_available=True, is_verified=True
-        ).select_related("user")
-
-        technician_data = []
-        for tech in technicians:
-            # Calculer la note moyenne
-            avg_rating = tech.average_rating
-            total_jobs = tech.total_jobs_completed
-
-            technician_data.append(
-                {
-                    "id": tech.id,
-                    "name": tech.user.get_full_name(),
-                    "email": tech.user.email,
-                    "phone": tech.phone,
-                    "years_experience": tech.years_experience,
-                    "average_rating": avg_rating,
-                    "total_jobs": total_jobs,
-                    "hourly_rate": tech.hourly_rate,
-                    "bio": tech.bio,
-                }
-            )
-
-        return Response(technician_data)
-
-    @csrf_exempt
-    def create(self, request, *args, **kwargs):
-        try:
-            try:
-                logger.info('[DEBUG] Body reçu pour création RepairRequest: %s', request.data)
-            except Exception as e:
-                logger.error('[DEBUG] Erreur lors du log du body: %s', e)
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            self.perform_create(serializer)
-            # Sérialiser la demande créée pour la réponse
-            response_serializer = RepairRequestSerializer(serializer.instance, context={'request': request})
-            headers = self.get_success_headers(serializer.data)
-            return Response(response_serializer.data, status=201, headers=headers)
-        except Exception as exc:
-            import traceback
-            tb = traceback.format_exc()
-            logger.error(f'[DEBUG][EXCEPTION] {exc}\n{tb}')
-            return Response({'error': str(exc), 'traceback': tb}, status=500)
-
-    def partial_update(self, request, *args, **kwargs):
-        """Gère les mises à jour partielles avec vérification des permissions."""
-        repair_request = self.get_object()
-        user = request.user
-        new_status = request.data.get("status")
-        
-        logger.info(f"Tentative de mise à jour - Demande: {repair_request.id}, Utilisateur: {user.id} ({user.user_type}), Nouveau statut: {new_status}")
-
-        # Vérifier les permissions selon le type d'utilisateur
-        can_update = False
-        if user.user_type == "admin":
-            can_update = True
-            logger.info("Admin autorisé à modifier la demande")
-        elif user.user_type == "technician":
-            # Vérifier si le technicien peut modifier cette demande
-            try:
-                technician = Technician.objects.get(user=user)
-                if (repair_request.technician and repair_request.technician.user == user) or \
-                   (repair_request.status == "pending" and repair_request.specialty_needed == technician.specialty):
-                    can_update = True
-                    logger.info(f"Technicien {technician.id} autorisé à modifier la demande")
-                else:
-                    logger.warning(f"Technicien {technician.id} non autorisé - Demande assignée à un autre ou spécialité différente")
-            except Technician.DoesNotExist:
-                logger.error(f"Profil technicien non trouvé pour l'utilisateur {user.id}")
-        elif user.user_type == "client" and repair_request.client.user == user:
-            # Les clients peuvent seulement annuler si la demande n'est pas acceptée
-            can_update = new_status == "cancelled" and repair_request.status == "pending"
-            logger.info(f"Client autorisé à annuler sa demande: {can_update}")
-
-        if not can_update:
-            logger.error(f"Utilisateur {user.id} non autorisé à modifier la demande {repair_request.id}")
-            return Response(
-                {"error": "Vous n'êtes pas autorisé à modifier cette demande"},
-                status=403,
-            )
-
-        # Si c'est un changement de statut, utiliser la logique de update_status
-        if new_status and new_status != repair_request.status:
-            logger.info(f"Changement de statut de {repair_request.status} vers {new_status}")
-            
-            # Mettre à jour le statut
-            old_status = repair_request.status
-            repair_request.status = new_status
-
-            # Mettre à jour les timestamps selon le statut
-            if new_status == "in_progress" and old_status != "in_progress":
-                repair_request.started_at = timezone.now()
-            elif new_status == "completed" and old_status != "completed":
-                repair_request.completed_at = timezone.now()
-
-            repair_request.save()
-
-            # Envoyer notifications selon le nouveau statut
-            if new_status == "in_progress":
-                Notification.objects.create(
-                    recipient=repair_request.client.user,
-                    title="Travaux commencés",
-                    message=f"Les travaux pour la demande #{repair_request.id} ont commencé",
-                    type="work_started",
-                )
-            elif new_status == "completed":
-                Notification.objects.create(
-                    recipient=repair_request.client.user,
-                    title="Travaux terminés",
-                    message=f"Les travaux pour la demande #{repair_request.id} sont terminés",
-                    type="work_completed",
-                )
-            elif new_status == "refused":
-                Notification.objects.create(
-                    recipient=repair_request.client.user,
-                    title="Demande refusée",
-                    message=f"Votre demande #{repair_request.id} a été refusée par un technicien.",
-                    type="request_refused",
-                )
-
-            # Créer un message automatique
-            conversation = repair_request.conversation
-            status_messages = {
-                "in_progress": "Les travaux ont commencé",
-                "completed": "Les travaux sont terminés",
-                "cancelled": "La demande a été annulée",
-                "refused": "La demande a été refusée par un technicien",
-            }
-
-            if new_status in status_messages:
-                Message.objects.create(
-                    conversation=conversation,
-                    sender=user,
-                    content=status_messages[new_status],
-                    message_type="system",
-                )
-
-            logger.info(f"Statut mis à jour avec succès vers {new_status}")
-            return Response(
-                {"success": True, "message": f"Statut mis à jour vers {new_status}"}
-            )
-
-        # Pour les autres champs, utiliser la logique par défaut
-        return super().partial_update(request, *args, **kwargs)
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def notification_candidates(self, request):
@@ -1355,11 +1056,11 @@ class ClientViewSet(viewsets.ModelViewSet):
     queryset = Client.objects.all()
     serializer_class = ClientSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = PageNumberPagination
 
     def get_queryset(self):
-        if self.request.user.is_staff:
-            return Client.objects.all()
-        return Client.objects.filter(user=self.request.user)
+        """Optimise les requêtes avec select_related."""
+        return Client.objects.select_related('user').all()
 
 
 class TechnicianViewSet(viewsets.ModelViewSet):
@@ -1368,166 +1069,236 @@ class TechnicianViewSet(viewsets.ModelViewSet):
     queryset = Technician.objects.all()
     serializer_class = TechnicianSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = PageNumberPagination
 
     def get_queryset(self):
-        if self.request.user.is_staff:
-            return Technician.objects.all()
-        return Technician.objects.filter(user=self.request.user)
+        """Optimise les requêtes avec select_related."""
+        return Technician.objects.select_related('user').all()
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def subscription_status(self, request):
-        """Retourne le statut d'abonnement - maintenant gratuit pour tous les techniciens."""
+        """Statut d'abonnement optimisé pour les techniciens."""
         user = request.user
-        logger = logging.getLogger(__name__)
         
         try:
-            # Récupérer le profil technicien avec gestion d'erreur robuste
             technician = get_technician_profile(user)
-            
             if not technician:
-                logger.warning(f"Utilisateur {user.id} n'est pas un technicien")
-                return Response({"error": "Vous n'êtes pas un technicien."}, status=403)
+                return Response({"error": "Profil technicien non trouvé"}, status=404)
             
-            # Tous les techniciens sont maintenant gratuits
-            logger.info(f"Technicien {user.id} - Accès gratuit activé")
+            # Requête optimisée pour les abonnements
+            active_subscription = TechnicianSubscription.objects.filter(
+                technician=technician,
+                is_active=True,
+                end_date__gte=timezone.now()
+            ).select_related('payment').first()
             
-            return Response({
-                'status': 'active',
-                'subscription': None,
-                'days_remaining': 999999,  # Illimité
-                'payments': [],
-                'can_receive_requests': True,
-                'is_active': True,
-                'subscription_details': {
-                    'plan_name': 'Gratuit',
-                    'start_date': timezone.now().isoformat(),
-                    'end_date': (timezone.now() + timezone.timedelta(days=36500)).isoformat(),  # 100 ans
-                },
-                'message': 'Accès gratuit activé'
-            })
-            
+            if active_subscription:
+                return Response({
+                    'has_active_subscription': True,
+                    'plan_name': active_subscription.plan_name,
+                    'start_date': active_subscription.start_date,
+                    'end_date': active_subscription.end_date,
+                    'days_remaining': (active_subscription.end_date - timezone.now()).days
+                })
+            else:
+                return Response({
+                    'has_active_subscription': False,
+                    'message': 'Aucun abonnement actif'
+                })
+                
         except Exception as e:
-            logger.error(f"Erreur lors de la vérification du statut d'abonnement pour {user.id}: {str(e)}")
-            return Response({
-                "error": "Erreur lors de la vérification du statut d'abonnement",
-                "details": str(e)
-            }, status=500)
+            logger.error(f"Erreur lors de la vérification du statut d'abonnement: {e}")
+            return Response(
+                {"error": "Erreur lors de la vérification du statut"},
+                status=500
+            )
 
     @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
     def renew_subscription(self, request):
-        """Méthode supprimée - tous les techniciens sont maintenant gratuits."""
-        return Response({
-            "success": True,
-            "message": "Tous les techniciens ont maintenant un accès gratuit illimité",
-            "subscription": {
-                "plan": "Gratuit",
-                "is_active": True,
-                "amount": 0
-            }
-        })
+        """Renouvellement d'abonnement optimisé."""
+        user = request.user
+        
+        try:
+            technician = get_technician_profile(user)
+            if not technician:
+                return Response({"error": "Profil technicien non trouvé"}, status=404)
+            
+            # Créer une demande de paiement
+            payment_request = SubscriptionPaymentRequest.objects.create(
+                technician=technician,
+                amount=Decimal("5000.00"),  # Prix fixe pour un an
+                duration_months=12,
+                payment_method="manual_validation",
+                description="Abonnement gratuit d'un an pour le développement du Mali"
+            )
+            
+            return Response({
+                'success': True,
+                'message': 'Demande de renouvellement créée',
+                'payment_request_id': payment_request.id
+            })
+            
+        except Exception as e:
+            logger.error(f"Erreur lors du renouvellement: {e}")
+            return Response(
+                {"error": "Erreur lors du renouvellement"},
+                status=500
+            )
 
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
     def upload_photo(self, request, pk=None):
-        """Permet au technicien de télécharger sa photo de profil."""
+        """Upload de photo optimisé."""
         technician = self.get_object()
         
-        if 'profile_picture' not in request.FILES:
-            return Response({"error": "Aucune photo fournie"}, status=400)
+        if 'photo' not in request.FILES:
+            return Response({"error": "Photo requise"}, status=400)
         
-        file = request.FILES['profile_picture']
-        
-        # Validation du fichier
-        if file.size > 5 * 1024 * 1024:  # 5MB max
-            return Response({"error": "Fichier trop volumineux (max 5MB)"}, status=400)
-        
-        if not file.content_type.startswith('image/'):
-            return Response({"error": "Format de fichier non supporté"}, status=400)
-        
-        # Sauvegarder la photo
-        technician.profile_picture = file
-        technician.save()
-        
-        return Response({
-            "success": True,
-            "profile_picture": technician.profile_picture.url
-        })
+        try:
+            photo = request.FILES['photo']
+            # Validation du fichier
+            if photo.size > 5 * 1024 * 1024:  # 5MB max
+                return Response({"error": "Fichier trop volumineux"}, status=400)
+            
+            # Sauvegarde de la photo
+            technician.user.photo = photo
+            technician.user.save()
+            
+            return Response({
+                'success': True,
+                'message': 'Photo mise à jour avec succès'
+            })
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de l'upload de photo: {e}")
+            return Response(
+                {"error": "Erreur lors de l'upload"},
+                status=500
+            )
 
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
     def upload_kyc(self, request, pk=None):
-        """Permet au technicien de télécharger son document KYC."""
+        """Upload de documents KYC optimisé."""
         technician = self.get_object()
         
-        if 'kyc_document' not in request.FILES:
-            return Response({"error": "Aucun document fourni"}, status=400)
+        if 'document' not in request.FILES:
+            return Response({"error": "Document requis"}, status=400)
         
-        file = request.FILES['kyc_document']
-        
-        # Validation du fichier
-        if file.size > 10 * 1024 * 1024:  # 10MB max
-            return Response({"error": "Fichier trop volumineux (max 10MB)"}, status=400)
-        
-        allowed_types = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']
-        if file.content_type not in allowed_types:
-            return Response({"error": "Format de fichier non supporté (PDF, JPG, PNG uniquement)"}, status=400)
-        
-        # Sauvegarder le document KYC
-        technician.kyc_document = file
-        technician.save()
-        
-        return Response({
-            "success": True,
-            "kyc_document": technician.kyc_document.url
-        })
+        try:
+            document = request.FILES['document']
+            # Validation du fichier
+            if document.size > 10 * 1024 * 1024:  # 10MB max
+                return Response({"error": "Fichier trop volumineux"}, status=400)
+            
+            # Sauvegarde du document
+            technician.user.kyc_document = document
+            technician.user.save()
+            
+            return Response({
+                'success': True,
+                'message': 'Document KYC mis à jour avec succès'
+            })
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de l'upload KYC: {e}")
+            return Response(
+                {"error": "Erreur lors de l'upload"},
+                status=500
+            )
 
     @action(detail=True, methods=["get"], permission_classes=[IsAuthenticated])
     def download_receipts(self, request, pk=None):
-        """Permet au technicien de télécharger ses reçus."""
+        """Téléchargement de reçus optimisé."""
         technician = self.get_object()
         
-        # Récupérer tous les paiements du technicien
-        payments = Payment.objects.filter(payer=technician.user)
-        
-        # Créer un fichier ZIP avec les reçus
-        import zipfile
-        import io
-        
-        zip_buffer = io.BytesIO()
-        
-        with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
-            for payment in payments:
-                receipt_content = f"""
-                Reçu de paiement
-                ================
-                ID: {payment.id}
-                Montant: {payment.amount} FCFA
-                Méthode: {payment.payment_method}
-                Date: {payment.created_at}
-                Statut: {payment.status}
-                Description: {payment.description}
-                """
-                
-                zip_file.writestr(f"recu_{payment.id}.txt", receipt_content)
-        
-        zip_buffer.seek(0)
-        
-        from django.http import HttpResponse
-        response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
-        response['Content-Disposition'] = f'attachment; filename="reçus_technicien_{technician.user.username}.zip"'
-        
-        return response
+        try:
+            # Récupérer les paiements avec optimisations
+            payments = Payment.objects.filter(
+                recipient=technician.user,
+                status='completed'
+            ).select_related('request').order_by('-created_at')
+            
+            # Générer le fichier Excel
+            import openpyxl
+            from openpyxl.styles import Font, Alignment
+            
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Reçus de paiement"
+            
+            # En-têtes
+            headers = ['Date', 'Demande', 'Montant', 'Méthode', 'Statut']
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=1, column=col, value=header)
+                cell.font = Font(bold=True)
+                cell.alignment = Alignment(horizontal='center')
+            
+            # Données
+            for row, payment in enumerate(payments, 2):
+                ws.cell(row=row, column=1, value=payment.created_at.strftime('%d/%m/%Y'))
+                ws.cell(row=row, column=2, value=payment.request.title if payment.request else 'N/A')
+                ws.cell(row=row, column=3, value=float(payment.amount))
+                ws.cell(row=row, column=4, value=payment.get_method_display())
+                ws.cell(row=row, column=5, value=payment.get_status_display())
+            
+            # Sauvegarder le fichier
+            filename = f"recus_technicien_{technician.user.username}_{timezone.now().strftime('%Y%m%d')}.xlsx"
+            filepath = f"media/receipts/{filename}"
+            
+            import os
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+            wb.save(filepath)
+            
+            # Retourner le fichier
+            from django.http import FileResponse
+            response = FileResponse(open(filepath, 'rb'))
+            response['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+            
+        except Exception as e:
+            logger.error(f"Erreur lors du téléchargement des reçus: {e}")
+            return Response(
+                {"error": "Erreur lors du téléchargement"},
+                status=500
+            )
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def me(self, request):
-        """Retourne les informations du technicien connecté."""
+        """Profil technicien optimisé."""
         user = request.user
-        from .models import Technician
-        technician = get_technician_profile(user)
-        if not technician:
-            technician = Technician.objects.filter(user=user).first()
-        if not technician:
-            return Response({"error": "Technicien introuvable"}, status=404)
-        serializer = self.get_serializer(technician)
-        return Response(serializer.data)
+        
+        try:
+            technician = get_technician_profile(user)
+            if not technician:
+                return Response({"error": "Profil technicien non trouvé"}, status=404)
+            
+            # Requêtes optimisées pour les statistiques
+            stats = RepairRequest.objects.filter(
+                technician=technician
+            ).aggregate(
+                total_requests=Count('id'),
+                completed_requests=Count('id', filter=Q(status='completed')),
+                total_earnings=Sum('final_price', filter=Q(status='completed')),
+                avg_rating=Avg('review__rating', filter=Q(status='completed', review__isnull=False))
+            )
+            
+            serializer = TechnicianSerializer(technician)
+            data = serializer.data
+            data.update({
+                'total_requests': stats['total_requests'] or 0,
+                'completed_requests': stats['completed_requests'] or 0,
+                'total_earnings': float(stats['total_earnings'] or 0),
+                'average_rating': round(stats['avg_rating'] or 0, 1)
+            })
+            
+            return Response(data)
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération du profil: {e}")
+            return Response(
+                {"error": "Erreur lors de la récupération du profil"},
+                status=500
+            )
 
 
 class RequestDocumentViewSet(viewsets.ModelViewSet):
@@ -1536,11 +1307,11 @@ class RequestDocumentViewSet(viewsets.ModelViewSet):
     queryset = RequestDocument.objects.all()
     serializer_class = RequestDocumentSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = PageNumberPagination
 
     def get_queryset(self):
-        if self.request.user.is_staff:
-            return RequestDocument.objects.all()
-        return RequestDocument.objects.filter(request__client__user=self.request.user)
+        """Optimise les requêtes avec select_related."""
+        return RequestDocument.objects.select_related('request', 'uploaded_by').all()
 
 
 class ReviewViewSet(viewsets.ModelViewSet):
@@ -1549,175 +1320,232 @@ class ReviewViewSet(viewsets.ModelViewSet):
     queryset = Review.objects.all()
     serializer_class = ReviewSerializer
     permission_classes = [IsAuthenticated]
-    pagination_class = PageNumberPagination  # Ajout de la pagination
+    pagination_class = PageNumberPagination
 
     def get_queryset(self):
-        if self.request.user.is_staff:
-            return Review.objects.all().select_related('technician__user', 'client__user')
-        return Review.objects.filter(client__user=self.request.user).select_related('technician__user', 'client__user')
+        """Optimise les requêtes avec select_related."""
+        return Review.objects.select_related('request', 'client__user', 'technician__user').all()
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def received(self, request):
-        """Retourne la liste des avis reçus par le technicien connecté."""
+        """Avis reçus optimisés pour les techniciens."""
         user = request.user
-        from .models import Technician
-        technician = get_technician_profile(user)
-        if not technician or not isinstance(technician, Technician):
-            technician = Technician.objects.filter(user=user).first()
-        if not technician:
-            return Response({"error": "Vous n'êtes pas un technicien."}, status=403)
-        reviews = Review.objects.filter(technician=technician).select_related('client__user').order_by("-created_at")
         
-        # Pagination
-        page = request.query_params.get('page', 1)
-        page_size = request.query_params.get('page_size', 20)
-        
-        paginator = Paginator(reviews, page_size)
-        reviews_page = paginator.get_page(page)
-        
-        serializer = self.get_serializer(reviews_page, many=True)
-        return Response({
-            "results": serializer.data,
-            "count": paginator.count,
-            "next": reviews_page.has_next(),
-            "previous": reviews_page.has_previous()
-        })
+        try:
+            technician = get_technician_profile(user)
+            if not technician:
+                return Response({"error": "Profil technicien non trouvé"}, status=404)
+            
+            reviews = Review.objects.filter(
+                technician=technician
+            ).select_related(
+                'request', 'client__user'
+            ).order_by('-created_at')
+            
+            # Pagination
+            paginator = PageNumberPagination()
+            paginator.page_size = 10
+            paginated_reviews = paginator.paginate_queryset(reviews, request)
+            
+            serializer = ReviewSerializer(paginated_reviews, many=True)
+            return paginator.get_paginated_response(serializer.data)
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération des avis: {e}")
+            return Response(
+                {"error": "Erreur lors de la récupération des avis"},
+                status=500
+            )
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def pending_reviews(self, request):
-        """Retourne les demandes terminées sans avis pour le client connecté."""
+        """Avis en attente optimisés."""
         user = request.user
-        if not hasattr(user, "client_profile"):
-            return Response({"error": "Vous n'êtes pas un client."}, status=403)
         
-        client = user.client_profile
-        completed_requests = RepairRequest.objects.filter(
-            client=client,
-            status="completed",
-            review__isnull=True
-        ).select_related('technician__user').order_by('-completed_at')
-        
-        # Pagination
-        page = request.query_params.get('page', 1)
-        page_size = request.query_params.get('page_size', 20)
-        
-        paginator = Paginator(completed_requests, page_size)
-        requests_page = paginator.get_page(page)
-        
-        # Sérialiser avec les informations nécessaires pour la page de notation
-        data = []
-        for request in requests_page:
-            data.append({
-                'id': request.id,
-                'title': request.title,
-                'description': request.description,
-                'completed_at': request.completed_at,
-                'technician': {
-                    'id': request.technician.id,
-                    'user': {
-                        'first_name': request.technician.user.first_name,
-                        'last_name': request.technician.user.last_name,
-                        'email': request.technician.user.email,
-                    },
-                    'specialty': request.technician.specialty,
-                    'years_experience': request.technician.years_experience,
-                    'average_rating': request.technician.average_rating,
-                    'total_jobs_completed': request.technician.total_jobs_completed,
-                }
-            })
-        
-        return Response({
-            "results": data,
-            "count": paginator.count,
-            "next": requests_page.has_next(),
-            "previous": requests_page.has_previous()
-        })
+        try:
+            if user.user_type == 'client':
+                client = user.client_profile
+                # Demandes terminées sans avis
+                completed_requests = RepairRequest.objects.filter(
+                    client=client,
+                    status='completed',
+                    review__isnull=True
+                ).select_related('technician__user')
+                
+                serializer = RepairRequestSerializer(completed_requests, many=True)
+                return Response(serializer.data)
+            
+            elif user.user_type == 'technician':
+                technician = get_technician_profile(user)
+                if not technician:
+                    return Response({"error": "Profil technicien non trouvé"}, status=404)
+                
+                # Demandes terminées sans avis
+                completed_requests = RepairRequest.objects.filter(
+                    technician=technician,
+                    status='completed',
+                    review__isnull=True
+                ).select_related('client__user')
+                
+                serializer = RepairRequestSerializer(completed_requests, many=True)
+                return Response(serializer.data)
+            
+            else:
+                return Response({"error": "Type d'utilisateur non supporté"}, status=400)
+                
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération des avis en attente: {e}")
+            return Response(
+                {"error": "Erreur lors de la récupération des avis en attente"},
+                status=500
+            )
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def statistics(self, request):
-        """Retourne les statistiques des avis pour l'utilisateur connecté."""
+        """Statistiques d'avis optimisées."""
         user = request.user
-        from .models import Technician
-        technician = get_technician_profile(user)
-        if technician or Technician.objects.filter(user=user).exists():
-            if not technician:
-                technician = Technician.objects.filter(user=user).first()
-            reviews = Review.objects.filter(technician=technician)
-            stats = {
-                'total_reviews': reviews.count(),
-                'average_rating': reviews.aggregate(avg=Avg('rating'))['avg'] or 0,
-                'average_punctuality': reviews.aggregate(avg=Avg('punctuality_rating'))['avg'] or 0,
-                'average_quality': reviews.aggregate(avg=Avg('quality_rating'))['avg'] or 0,
-                'average_communication': reviews.aggregate(avg=Avg('communication_rating'))['avg'] or 0,
-                'recommendation_rate': reviews.filter(would_recommend=True).count() / reviews.count() * 100 if reviews.count() > 0 else 0,
-                'recent_reviews': reviews.order_by('-created_at')[:5].values('rating', 'comment', 'created_at', 'client__user__first_name')
-            }
-            return Response(stats)
-        elif hasattr(user, "client_profile"):
-            # Statistiques pour un client
-            client = user.client_profile
-            reviews = Review.objects.filter(client=client)
-            
-            stats = {
-                'total_reviews_given': reviews.count(),
-                'average_rating_given': reviews.aggregate(avg=Avg('rating'))['avg'] or 0,
-                'recent_reviews': reviews.order_by('-created_at')[:5].values('rating', 'comment', 'created_at', 'technician__user__first_name')
-            }
-        else:
-            return Response({"error": "Profil non trouvé."}, status=404)
         
-        return Response(stats)
+        try:
+            if user.user_type == 'technician':
+                technician = get_technician_profile(user)
+                if not technician:
+                    return Response({"error": "Profil technicien non trouvé"}, status=404)
+                
+                # Requêtes optimisées avec annotations
+                stats = Review.objects.filter(
+                    technician=technician
+                ).aggregate(
+                    total_reviews=Count('id'),
+                    avg_rating=Avg('rating'),
+                    avg_punctuality=Avg('punctuality_rating'),
+                    avg_quality=Avg('quality_rating'),
+                    avg_communication=Avg('communication_rating'),
+                    avg_price=Avg('price_rating'),
+                    would_recommend_count=Count('id', filter=Q(would_recommend=True))
+                )
+                
+                return Response({
+                    'total_reviews': stats['total_reviews'] or 0,
+                    'average_rating': round(stats['avg_rating'] or 0, 1),
+                    'average_punctuality': round(stats['avg_punctuality'] or 0, 1),
+                    'average_quality': round(stats['avg_quality'] or 0, 1),
+                    'average_communication': round(stats['avg_communication'] or 0, 1),
+                    'average_price': round(stats['avg_price'] or 0, 1),
+                    'would_recommend_percentage': round(
+                        (stats['would_recommend_count'] / (stats['total_reviews'] or 1)) * 100, 1
+                    )
+                })
+            
+            else:
+                return Response({"error": "Statistiques disponibles uniquement pour les techniciens"}, status=403)
+                
+        except Exception as e:
+            logger.error(f"Erreur lors du calcul des statistiques d'avis: {e}")
+            return Response(
+                {"error": "Erreur lors du calcul des statistiques"},
+                status=500
+            )
 
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
     def update_review(self, request, pk=None):
-        """Permet de modifier un avis existant."""
+        """Mise à jour d'avis optimisée."""
         review = self.get_object()
+        user = request.user
         
-        # Vérifier que l'utilisateur est le propriétaire de l'avis
-        if review.client.user != request.user:
-            return Response({"error": "Vous ne pouvez modifier que vos propres avis."}, status=403)
+        # Vérification des permissions
+        if user.user_type == 'client' and review.client.user != user:
+            return Response({"error": "Non autorisé"}, status=403)
         
-        serializer = self.get_serializer(review, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
+        try:
+            # Mise à jour des champs
+            for field in ['rating', 'comment', 'punctuality_rating', 'quality_rating', 
+                         'communication_rating', 'price_rating', 'would_recommend']:
+                if field in request.data:
+                    setattr(review, field, request.data[field])
+            
+            review.save()
+            
+            # Notification au technicien
+            Notification.objects.create(
+                recipient=review.technician.user,
+                type=Notification.Type.REVIEW_RECEIVED,
+                title="Avis mis à jour",
+                message=f"Un client a mis à jour son avis sur votre travail",
+                request=review.request
+            )
+            
+            serializer = ReviewSerializer(review)
             return Response(serializer.data)
-        return Response(serializer.errors, status=400)
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de la mise à jour de l'avis: {e}")
+            return Response(
+                {"error": "Erreur lors de la mise à jour"},
+                status=500
+            )
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def rewards(self, request):
-        """Retourne les récompenses et bonus du technicien basés sur ses performances."""
+        """Récompenses optimisées."""
         user = request.user
-        from .models import Technician
-        technician = get_technician_profile(user)
-        if not technician or not isinstance(technician, Technician):
-            technician = Technician.objects.filter(user=user).first()
-        if not technician:
-            return Response({"error": "Vous n'êtes pas un technicien."}, status=403)
-        reviews = Review.objects.filter(technician=technician)
-        avg_rating = reviews.aggregate(avg=Avg('rating'))['avg'] or 0
-        total_reviews = reviews.count()
-        recommendation_rate = reviews.filter(would_recommend=True).count() / total_reviews * 100 if total_reviews > 0 else 0
-        completed_jobs = RepairRequest.objects.filter(technician=technician, status='completed').count()
-        rewards = {
-            'current_level': 'bronze',
-            'next_level': 'silver',
-            'progress_to_next': 0,
-            'bonuses': [],
-            'achievements': []
-        }
-        return Response(rewards)
+        
+        try:
+            if user.user_type == 'client':
+                client = user.client_profile
+                
+                # Récupérer les récompenses disponibles
+                rewards = Reward.objects.filter(
+                    is_active=True,
+                    valid_from__lte=timezone.now(),
+                    valid_until__gte=timezone.now()
+                ).order_by('points_required')
+                
+                # Récupérer le programme de fidélité du client
+                loyalty_program, created = LoyaltyProgram.objects.get_or_create(
+                    client=client,
+                    defaults={'points': 0, 'total_spent': 0}
+                )
+                
+                return Response({
+                    'available_rewards': RewardSerializer(rewards, many=True).data,
+                    'loyalty_program': {
+                        'points': loyalty_program.points,
+                        'total_spent': float(loyalty_program.total_spent),
+                        'membership_level': loyalty_program.membership_level
+                    }
+                })
+            
+            else:
+                return Response({"error": "Récompenses disponibles uniquement pour les clients"}, status=403)
+                
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération des récompenses: {e}")
+            return Response(
+                {"error": "Erreur lors de la récupération des récompenses"},
+                status=500
+            )
 
     @action(detail=True, methods=["PATCH"], permission_classes=[IsAdminUser])
     def moderate(self, request, pk=None):
-        """Permet à l'admin de masquer ou rendre visible un avis."""
+        """Modération d'avis optimisée."""
         review = self.get_object()
-        is_visible = request.data.get("is_visible")
-        if is_visible is None:
-            return Response({"error": "Champ 'is_visible' requis."}, status=400)
-        review.is_visible = bool(is_visible) in [True, 1, "1", "True"]
-        review.save()
-        serializer = self.get_serializer(review)
-        return Response(serializer.data)
+        
+        try:
+            is_visible = request.data.get('is_visible', True)
+            review.is_visible = is_visible
+            review.save()
+            
+            return Response({
+                'success': True,
+                'message': f'Avis {"visible" if is_visible else "masqué"} avec succès'
+            })
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de la modération: {e}")
+            return Response(
+                {"error": "Erreur lors de la modération"},
+                status=500
+            )
 
 
 class PaymentViewSet(viewsets.ModelViewSet):
@@ -1726,32 +1554,44 @@ class PaymentViewSet(viewsets.ModelViewSet):
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
     permission_classes = [IsAuthenticated]
-    pagination_class = PageNumberPagination  # Ajout de la pagination
+    pagination_class = PageNumberPagination
 
     def get_queryset(self):
-        if self.request.user.is_staff:
-            return Payment.objects.all().select_related('payer')
-        return Payment.objects.filter(payer=self.request.user).select_related('payer')
+        """Optimise les requêtes avec select_related."""
+        return Payment.objects.select_related('request', 'payer', 'recipient').all()
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def my_payments(self, request):
-        """Retourne les paiements de l'utilisateur connecté."""
-        payments = Payment.objects.filter(payer=request.user).select_related('payer').order_by('-created_at')
+        """Paiements de l'utilisateur optimisés."""
+        user = request.user
         
-        # Pagination
-        page = request.query_params.get('page', 1)
-        page_size = request.query_params.get('page_size', 20)
-        
-        paginator = Paginator(payments, page_size)
-        payments_page = paginator.get_page(page)
-        
-        serializer = self.get_serializer(payments_page, many=True)
-        return Response({
-            "results": serializer.data,
-            "count": paginator.count,
-            "next": payments_page.has_next(),
-            "previous": payments_page.has_previous()
-        })
+        try:
+            # Récupérer les paiements selon le type d'utilisateur
+            if user.user_type == 'technician':
+                payments = Payment.objects.filter(
+                    recipient=user
+                ).select_related('request', 'payer')
+            elif user.user_type == 'client':
+                payments = Payment.objects.filter(
+                    payer=user
+                ).select_related('request', 'recipient')
+            else:
+                return Response({"error": "Type d'utilisateur non supporté"}, status=400)
+            
+            # Pagination
+            paginator = PageNumberPagination()
+            paginator.page_size = 20
+            paginated_payments = paginator.paginate_queryset(payments, request)
+            
+            serializer = PaymentSerializer(paginated_payments, many=True)
+            return paginator.get_paginated_response(serializer.data)
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération des paiements: {e}")
+            return Response(
+                {"error": "Erreur lors de la récupération des paiements"},
+                status=500
+            )
 
 
 class ConversationViewSet(viewsets.ModelViewSet):
@@ -1760,16 +1600,32 @@ class ConversationViewSet(viewsets.ModelViewSet):
     queryset = Conversation.objects.all()
     serializer_class = ConversationSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = PageNumberPagination
 
     def get_queryset(self):
-        return Conversation.objects.filter(participants=self.request.user)
+        """Optimise les requêtes avec select_related."""
+        return Conversation.objects.select_related('request').prefetch_related('participants').all()
 
     @action(detail=True, methods=["post"], permission_classes=[IsAdminUser])
     def clear_messages(self, request, pk=None):
-        """Supprime tous les messages d'une conversation (sauf éventuellement les messages système)."""
+        """Efface tous les messages d'une conversation."""
         conversation = self.get_object()
-        deleted, _ = conversation.messages.exclude(message_type="system").delete()
-        return Response({"success": True, "deleted": deleted})
+        
+        try:
+            # Supprimer tous les messages
+            Message.objects.filter(conversation=conversation).delete()
+            
+            return Response({
+                'success': True,
+                'message': 'Tous les messages ont été supprimés'
+            })
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de la suppression des messages: {e}")
+            return Response(
+                {"error": "Erreur lors de la suppression"},
+                status=500
+            )
 
 
 class MessageViewSet(viewsets.ModelViewSet):
@@ -1778,24 +1634,48 @@ class MessageViewSet(viewsets.ModelViewSet):
     queryset = Message.objects.all()
     serializer_class = MessageSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = PageNumberPagination
 
     def get_queryset(self):
-        return Message.objects.filter(conversation__participants=self.request.user)
+        """Optimise les requêtes avec select_related."""
+        return Message.objects.select_related('conversation', 'sender').prefetch_related('attachments').all()
 
     @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
     def mark_as_read(self, request):
-        """Marque comme lus les messages dont les IDs sont fournis (si destinés à l'utilisateur courant)."""
-        ids = request.data.get("ids", [])
-        if not isinstance(ids, list):
-            return Response({"error": "Format attendu: {'ids': [1,2,3]}"}, status=400)
+        """Marque les messages comme lus."""
         user = request.user
-        messages = Message.objects.filter(id__in=ids, conversation__participants=user).exclude(sender=user)
-        updated = 0
-        for msg in messages:
-            if not msg.is_read:
-                msg.mark_as_read()
-                updated += 1
-        return Response({"updated": updated})
+        conversation_id = request.data.get('conversation_id')
+        
+        try:
+            if conversation_id:
+                # Marquer tous les messages d'une conversation comme lus
+                Message.objects.filter(
+                    conversation_id=conversation_id,
+                    sender__in=Conversation.objects.get(id=conversation_id).participants.all()
+                ).exclude(sender=user).update(
+                    is_read=True,
+                    read_at=timezone.now()
+                )
+            else:
+                # Marquer tous les messages non lus de l'utilisateur
+                Message.objects.filter(
+                    conversation__participants=user
+                ).exclude(sender=user).update(
+                    is_read=True,
+                    read_at=timezone.now()
+                )
+            
+            return Response({
+                'success': True,
+                'message': 'Messages marqués comme lus'
+            })
+            
+        except Exception as e:
+            logger.error(f"Erreur lors du marquage des messages: {e}")
+            return Response(
+                {"error": "Erreur lors du marquage"},
+                status=500
+            )
 
 
 class MessageAttachmentViewSet(viewsets.ModelViewSet):
@@ -1804,11 +1684,11 @@ class MessageAttachmentViewSet(viewsets.ModelViewSet):
     queryset = MessageAttachment.objects.all()
     serializer_class = MessageAttachmentSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = PageNumberPagination
 
     def get_queryset(self):
-        return MessageAttachment.objects.filter(
-            message__conversation__participants=self.request.user
-        )
+        """Optimise les requêtes avec select_related."""
+        return MessageAttachment.objects.select_related('message').all()
 
 
 class NotificationViewSet(viewsets.ModelViewSet):
@@ -1817,23 +1697,56 @@ class NotificationViewSet(viewsets.ModelViewSet):
     queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticated]
-    pagination_class = PageNumberPagination  # Ajout de la pagination
+    pagination_class = PageNumberPagination
 
     def get_queryset(self):
-        return Notification.objects.filter(recipient=self.request.user).order_by('-created_at')
+        """Optimise les requêtes avec select_related."""
+        return Notification.objects.select_related('recipient', 'request').all()
 
     @action(detail=True, methods=["post"])
     def mark_as_read(self, request, pk=None):
-        """Marquer une notification comme lue."""
+        """Marque une notification comme lue."""
         notification = self.get_object()
-        notification.mark_as_read()
-        return Response({"status": "success"})
+        
+        try:
+            notification.mark_as_read()
+            return Response({
+                'success': True,
+                'message': 'Notification marquée comme lue'
+            })
+            
+        except Exception as e:
+            logger.error(f"Erreur lors du marquage de la notification: {e}")
+            return Response(
+                {"error": "Erreur lors du marquage"},
+                status=500
+            )
 
     @action(detail=False, methods=["post"])
     def mark_all_as_read(self, request):
-        """Marquer toutes les notifications comme lues."""
-        self.get_queryset().update(is_read=True, read_at=timezone.now())
-        return Response({"status": "success"})
+        """Marque toutes les notifications comme lues."""
+        user = request.user
+        
+        try:
+            Notification.objects.filter(
+                recipient=user,
+                is_read=False
+            ).update(
+                is_read=True,
+                read_at=timezone.now()
+            )
+            
+            return Response({
+                'success': True,
+                'message': 'Toutes les notifications marquées comme lues'
+            })
+            
+        except Exception as e:
+            logger.error(f"Erreur lors du marquage de toutes les notifications: {e}")
+            return Response(
+                {"error": "Erreur lors du marquage"},
+                status=500
+            )
 
 
 class TechnicianLocationViewSet(viewsets.ModelViewSet):
@@ -1842,12 +1755,11 @@ class TechnicianLocationViewSet(viewsets.ModelViewSet):
     queryset = TechnicianLocation.objects.all()
     serializer_class = TechnicianLocationSerializer
     permission_classes = [IsAuthenticated]
-    pagination_class = PageNumberPagination  # Ajout de la pagination
+    pagination_class = PageNumberPagination
 
     def get_queryset(self):
-        if self.request.user.is_staff:
-            return TechnicianLocation.objects.all().select_related('technician__user')
-        return TechnicianLocation.objects.filter(technician__user=self.request.user).select_related('technician__user')
+        """Optimise les requêtes avec select_related."""
+        return TechnicianLocation.objects.select_related('technician__user').all()
 
 
 class SystemConfigurationViewSet(viewsets.ModelViewSet):
@@ -1858,223 +1770,182 @@ class SystemConfigurationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
-        if self.request.user.is_staff:
-            return [IsAuthenticated()]
-        return [permissions.IsAdminUser()]
+        """Seuls les admins peuvent modifier la configuration."""
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminUser()]
+        return [IsAuthenticated()]
 
 
 class TechnicianNearbyViewSet(viewsets.GenericViewSet):
-    """ViewSet pour récupérer les techniciens proches avec géolocalisation."""
+    """ViewSet pour récupérer les techniciens proches avec géolocalisation optimisée."""
     permission_classes = [IsAuthenticated]
     serializer_class = TechnicianNearbySerializer
-    
+    pagination_class = PageNumberPagination
+
     def list(self, request):
-        """Récupère les techniciens proches avec filtres."""
+        """Récupère les techniciens proches avec géolocalisation optimisée."""
         try:
-            # Récupérer les paramètres
-            lat = request.query_params.get('lat')
-            lng = request.query_params.get('lng')
-            service = request.query_params.get('service')
-            urgence = request.query_params.get('urgence', 'normal')
-            all_techs = request.query_params.get('all', 'false').lower() == 'true'
+            # Paramètres de géolocalisation
+            latitude = request.query_params.get('latitude')
+            longitude = request.query_params.get('longitude')
+            specialty = request.query_params.get('specialty')
+            max_distance = float(request.query_params.get('max_distance', 20))  # km
             
-            # Validation des paramètres
-            if not lat or not lng:
-                return Response({
-                    'error': 'Les paramètres lat et lng sont requis'
-                }, status=400)
-            
-            try:
-                lat = float(lat)
-                lng = float(lng)
-            except ValueError:
-                return Response({
-                    'error': 'Les coordonnées lat et lng doivent être des nombres'
-                }, status=400)
-            
-            # Rayon de recherche (10 km par défaut)
-            search_radius = 10.0
-            
-            # Récupérer tous les techniciens disponibles
+            # Base queryset optimisée
             queryset = Technician.objects.filter(
                 is_available=True,
                 is_verified=True
             ).select_related('user')
             
-            # Filtrer par service si spécifié
-            if service:
-                queryset = queryset.filter(specialty=service)
+            # Filtrage par spécialité si spécifiée
+            if specialty:
+                queryset = queryset.filter(specialty=specialty)
             
-            # Calculer la distance pour chaque technicien
-            technicians_with_distance = []
-            for technician in queryset:
+            # Calcul des distances si géolocalisation fournie
+            if latitude and longitude:
                 try:
-                    location = technician.location
-                    if location:
-                        distance = self.calculate_haversine_distance(
-                            lat, lng, location.latitude, location.longitude
-                        )
-                        technician.distance_km = round(distance, 2)
-                        if all_techs or distance <= search_radius:
-                            technicians_with_distance.append(technician)
-                except TechnicianLocation.DoesNotExist:
-                    continue
+                    user_lat = float(latitude)
+                    user_lon = float(longitude)
+                    
+                    technicians_with_distance = []
+                    for technician in queryset:
+                        if technician.current_latitude and technician.current_longitude:
+                            distance = calculate_distance(
+                                user_lat, user_lon,
+                                technician.current_latitude, technician.current_longitude
+                            )
+                            if distance <= max_distance:
+                                technicians_with_distance.append((technician, distance))
+                    
+                    # Tri par distance
+                    technicians_with_distance.sort(key=lambda x: x[1])
+                    technicians = [tech for tech, _ in technicians_with_distance]
+                    
+                except (ValueError, TypeError):
+                    return Response(
+                        {"error": "Coordonnées géographiques invalides"},
+                        status=400
+                    )
+            else:
+                # Sans géolocalisation, retourner tous les techniciens disponibles
+                technicians = list(queryset)
             
-            # Trier par distance croissante
-            technicians_with_distance.sort(key=lambda x: x.distance_km)
+            # Pagination
+            paginator = PageNumberPagination()
+            paginator.page_size = 20
+            paginated_technicians = paginator.paginate_queryset(technicians, request)
             
-            # Limiter le nombre de résultats (optionnel)
-            max_results = 100 if all_techs else 20
-            technicians_with_distance = technicians_with_distance[:max_results]
-            
-            # Sérialiser les résultats
-            serializer = self.get_serializer(technicians_with_distance, many=True)
-            
-            return Response({
-                'technicians': serializer.data,
-                'count': len(technicians_with_distance),
-                'search_radius': search_radius,
-                'user_location': {'lat': lat, 'lng': lng}
-            })
+            serializer = TechnicianNearbySerializer(paginated_technicians, many=True)
+            return paginator.get_paginated_response(serializer.data)
             
         except Exception as e:
-            logger.error(f"Erreur lors de la recherche de techniciens proches: {str(e)}")
-            return Response({
-                'error': 'Erreur lors de la recherche de techniciens'
-            }, status=500)
-    
+            logger.error(f"Erreur lors de la récupération des techniciens proches: {e}")
+            return Response(
+                {"error": "Erreur lors de la récupération des techniciens"},
+                status=500
+            )
+
     def calculate_haversine_distance(self, lat1, lon1, lat2, lon2):
-        """
-        Calcule la distance entre deux points géographiques avec la formule de Haversine.
-        Retourne la distance en kilomètres.
-        """
-        # Rayon de la Terre en kilomètres
-        R = 6371.0
+        """Calcule la distance entre deux points géographiques."""
+        from math import radians, cos, sin, asin, sqrt
         
-        # Convertir les degrés en radians
-        lat1_rad = math.radians(lat1)
-        lon1_rad = math.radians(lon1)
-        lat2_rad = math.radians(lat2)
-        lon2_rad = math.radians(lon2)
+        # Convertir en radians
+        lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
         
-        # Différences des coordonnées
-        dlat = lat2_rad - lat1_rad
-        dlon = lon2_rad - lon1_rad
+        # Différences de coordonnées
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
         
         # Formule de Haversine
-        a = math.sin(dlat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-        distance = R * c
+        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+        c = 2 * asin(sqrt(a))
         
-        return distance
+        # Rayon de la Terre en km
+        r = 6371
+        
+        return c * r
 
-@api_view(['GET'])
-@permission_classes([IsAdminUser])
-def list_permissions(request):
-    perms = Permission.objects.all()
-    data = PermissionSerializer(perms, many=True).data
-    return Response(data)
-
-from rest_framework.views import APIView
-
-class GroupListCreateView(APIView):
-    permission_classes = [IsAdminUser]
-    def get(self, request):
-        groups = Group.objects.all()
-        serializer = GroupSerializer(groups, many=True)
-        return Response(serializer.data)
-    def post(self, request):
-        serializer = GroupSerializer(data=request.data)
-        if serializer.is_valid():
-            group = Group.objects.create(name=serializer.validated_data['name'])
-            # Ajout des permissions si fournies
-            perms = request.data.get('permissions', [])
-            if perms:
-                group.permissions.set(perms)
-            group.save()
-            return Response(GroupSerializer(group).data, status=201)
-        return Response(serializer.errors, status=400)
-
-class GroupDetailView(APIView):
-    permission_classes = [IsAdminUser]
-    def get_object(self, pk):
-        return Group.objects.get(pk=pk)
-    def get(self, request, pk):
-        group = self.get_object(pk)
-        serializer = GroupSerializer(group)
-        return Response(serializer.data)
-    def patch(self, request, pk):
-        group = self.get_object(pk)
-        name = request.data.get('name')
-        if name:
-            group.name = name
-        perms = request.data.get('permissions')
-        if perms is not None:
-            group.permissions.set(perms)
-        group.save()
-        return Response(GroupSerializer(group).data)
-    def delete(self, request, pk):
-        group = self.get_object(pk)
-        group.delete()
-        return Response(status=204)
-
-class IsAdmin(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return request.user and request.user.is_staff
-
-class PlatformConfigurationViewSet(viewsets.ModelViewSet):
-    queryset = PlatformConfiguration.objects.all()
-    serializer_class = PlatformConfigurationSerializer
-    permission_classes = [IsAdmin]
-
-    def get_object(self):
-        obj, created = PlatformConfiguration.objects.get_or_create(pk=1)
-        return obj
-
-    def list(self, request, *args, **kwargs):
-        obj = self.get_object()
-        serializer = self.get_serializer(obj)
-        return Response(serializer.data)
-
-    def create(self, request, *args, **kwargs):
-        return Response({'detail': 'Création non autorisée.'}, status=405)
-
-    def destroy(self, request, *args, **kwargs):
-        return Response({'detail': 'Suppression non autorisée.'}, status=405)
 
 class ClientLocationViewSet(viewsets.ModelViewSet):
     """ViewSet pour gérer les localisations des clients."""
     queryset = ClientLocation.objects.all()
     serializer_class = ClientLocationSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = PageNumberPagination
 
     def get_queryset(self):
-        if self.request.user.is_staff:
-            return ClientLocation.objects.all()
-        return ClientLocation.objects.filter(client__user=self.request.user)
+        """Optimise les requêtes avec select_related."""
+        return ClientLocation.objects.select_related('client__user').all()
+
 
 class ReportViewSet(viewsets.ModelViewSet):
+    """ViewSet pour gérer les signalements."""
     queryset = Report.objects.all().order_by('-created_at')
     serializer_class = ReportSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = PageNumberPagination
+
     def get_permissions(self):
-        if self.request.user.is_staff:
-            return [permissions.IsAdminUser()]
-        return [permissions.IsAuthenticated()]
+        """Seuls les admins peuvent modifier les signalements."""
+        if self.action in ['update', 'partial_update', 'destroy']:
+            return [IsAdminUser()]
+        return [IsAuthenticated()]
+
     def perform_create(self, serializer):
-        serializer.save(sender=self.request.user)
+        """Crée un signalement avec notification admin."""
+        report = serializer.save()
+        
+        # Notification aux admins
+        admin_users = User.objects.filter(is_staff=True, is_active=True)
+        for admin in admin_users:
+            AdminNotification.objects.create(
+                title="Nouveau signalement",
+                message=f"Signalement créé par {report.sender.username}",
+                severity="warning",
+                related_request=report.request,
+                triggered_by=report.sender
+            )
+
     def update(self, request, *args, **kwargs):
-        instance = self.get_object()
-        if request.user.is_staff:
-            instance.reviewed_by = request.user
-            instance.reviewed_at = now()
-        return super().update(request, *args, **kwargs)
+        """Met à jour un signalement avec validation."""
+        report = self.get_object()
+        
+        try:
+            # Mise à jour du statut
+            new_status = request.data.get('status')
+            if new_status and new_status in dict(Report.STATUS_CHOICES):
+                report.status = new_status
+                report.reviewed_at = timezone.now()
+                report.reviewed_by = request.user
+                report.save()
+            
+            return Response({
+                'success': True,
+                'message': f'Signalement mis à jour vers {new_status}'
+            })
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de la mise à jour du signalement: {e}")
+            return Response(
+                {"error": "Erreur lors de la mise à jour"},
+                status=500
+            )
+
 
 class AdminNotificationViewSet(viewsets.ModelViewSet):
+    """ViewSet pour gérer les notifications admin."""
     queryset = AdminNotification.objects.order_by('-created_at')
     serializer_class = AdminNotificationSerializer
     permission_classes = [permissions.IsAdminUser]
+    pagination_class = PageNumberPagination
+
     def perform_update(self, serializer):
-        serializer.save()
+        """Met à jour une notification admin."""
+        notification = serializer.save()
+        
+        # Log de la mise à jour
+        logger.info(f"Notification admin mise à jour: {notification.id}")
+
 
 class AuditLogListView(APIView):
     permission_classes = [permissions.IsAdminUser]
@@ -2169,561 +2040,194 @@ class AuditLogListView(APIView):
                 ])
             return response
 
-# ============================================================================
-# ENDPOINTS MANQUANTS - CORRECTIFS
-# ============================================================================
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def admin_dashboard_stats(request):
-    """Statistiques pour le tableau de bord admin."""
-    if not request.user.is_staff:
-        return Response({"error": "Accès non autorisé"}, status=403)
-    
-    try:
-        # Statistiques générales
-        total_users = User.objects.count()
-        total_technicians = Technician.objects.count()
-        total_clients = Client.objects.count()
-        total_requests = RepairRequest.objects.count()
-        
-        # Demandes par statut
-        pending_requests = RepairRequest.objects.filter(status="pending").count()
-        in_progress_requests = RepairRequest.objects.filter(
-                status="in_progress"
-            ).count()
-        completed_requests = RepairRequest.objects.filter(
-                status="completed"
-            ).count()
-        
-        # Statistiques financières
-        total_revenue = Payment.objects.filter(
-            status='completed', 
-            payment_type='client_payment'
-        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-        
-        # Statistiques de satisfaction
-        total_reviews = Review.objects.count()
-        avg_rating = Review.objects.aggregate(avg=Avg('rating'))['avg'] or 0
-        
-        return Response({
-            "total_users": total_users,
-            "total_technicians": total_technicians,
-            "total_clients": total_clients,
-            "total_requests": total_requests,
-            "pending_requests": pending_requests,
-            "in_progress_requests": in_progress_requests,
-            "completed_requests": completed_requests,
-            "total_revenue": float(total_revenue),
-            "total_reviews": total_reviews,
-            "avg_rating": round(avg_rating, 1)
-        })
-    except Exception as e:
-        return Response({"error": str(e)}, status=500)
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def admin_notifications(request):
-    """Notifications pour les administrateurs."""
-    if not request.user.is_staff:
-        return Response({"error": "Accès non autorisé"}, status=403)
-    
-    try:
-        notifications = AdminNotification.objects.all().order_by('-created_at')
-        
-        serializer = AdminNotificationSerializer(notifications, many=True)
-        return Response(serializer.data)
-    except Exception as e:
-        return Response({"error": str(e)}, status=500)
-
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def mark_all_notifications_read(request):
-    """Marquer toutes les notifications comme lues."""
-    if not request.user.is_staff:
-        return Response({"error": "Accès non autorisé"}, status=403)
-    
-    try:
-        AdminNotification.objects.filter(
-            is_read=False
-        ).update(is_read=True, read_at=timezone.now())
-        
-        return Response({"success": True})
-    except Exception as e:
-        return Response({"error": str(e)}, status=500)
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def admin_reviews(request):
-    """Liste des avis pour les administrateurs."""
-    if not request.user.is_staff:
-        return Response({"error": "Accès non autorisé"}, status=403)
-    
-    try:
-        reviews = Review.objects.all().select_related('technician__user', 'client__user').order_by('-created_at')
-        
-        # Pagination
-        page = request.query_params.get('page', 1)
-        page_size = request.query_params.get('page_size', 20)
-        
-        paginator = Paginator(reviews, page_size)
-        reviews_page = paginator.get_page(page)
-        
-        serializer = ReviewSerializer(reviews_page, many=True)
-        return Response({
-            "results": serializer.data,
-            "count": paginator.count,
-            "next": reviews_page.has_next(),
-            "previous": reviews_page.has_previous()
-        })
-    except Exception as e:
-        return Response({"error": str(e)}, status=500)
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def admin_payments(request):
-    """Liste des paiements pour les administrateurs."""
-    if not request.user.is_staff:
-        return Response({"error": "Accès non autorisé"}, status=403)
-    
-    try:
-        payments = Payment.objects.all().select_related('payer').order_by('-created_at')
-        
-        # Pagination
-        page = request.query_params.get('page', 1)
-        page_size = request.query_params.get('page_size', 20)
-        
-        paginator = Paginator(payments, page_size)
-        payments_page = paginator.get_page(page)
-        
-        serializer = PaymentSerializer(payments_page, many=True)
-        return Response({
-            "results": serializer.data,
-            "count": paginator.count,
-            "next": payments_page.has_next(),
-            "previous": payments_page.has_previous()
-        })
-    except Exception as e:
-        return Response({"error": str(e)}, status=500)
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def admin_payments_stats(request):
-    """Statistiques des paiements pour les administrateurs."""
-    if not request.user.is_staff:
-        return Response({"error": "Accès non autorisé"}, status=403)
-    
-    try:
-        # Statistiques par statut
-        pending_payments = Payment.objects.filter(status="pending").count()
-        completed_payments = Payment.objects.filter(status="completed").count()
-        failed_payments = Payment.objects.filter(status="failed").count()
-        
-        # Statistiques par type
-        client_payments = Payment.objects.filter(payment_type="client_payment").count()
-        technician_payouts = Payment.objects.filter(payment_type="technician_payout").count()
-        subscription_payments = Payment.objects.filter(payment_type="subscription").count()
-        
-        # Revenus totaux
-        total_revenue = Payment.objects.filter(
-            status='completed', 
-            payment_type='client_payment'
-        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-        
-        total_payouts = Payment.objects.filter(
-            status='completed', 
-            payment_type='technician_payout'
-        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-        
-        return Response({
-            "pending_payments": pending_payments,
-            "completed_payments": completed_payments,
-            "failed_payments": failed_payments,
-            "client_payments": client_payments,
-            "technician_payouts": technician_payouts,
-            "subscription_payments": subscription_payments,
-            "total_revenue": float(total_revenue),
-            "total_payouts": float(total_payouts),
-            "net_revenue": float(total_revenue - total_payouts)
-        })
-    except Exception as e:
-        return Response({"error": str(e)}, status=500)
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def admin_security_alerts(request):
-    """Alertes de sécurité récentes."""
-    if not request.user.is_staff:
-        return Response({"error": "Accès non autorisé"}, status=403)
-    
-    try:
-        # Alertes de sécurité récentes
-        recent_alerts = AuditLog.objects.filter(
-            risk_score__gte=80,
-            timestamp__gte=timezone.now() - timedelta(days=7)
-        ).order_by('-timestamp')[:10]
-        
-        alerts_data = []
-        for alert in recent_alerts:
-            alerts_data.append({
-                "id": alert.id,
-                "event_type": alert.event_type,
-                "risk_score": alert.risk_score,
-                "ip_address": alert.ip_address,
-                "timestamp": alert.timestamp,
-                "user": alert.user.username if alert.user else None
-            })
-        
-        return Response({"alerts": alerts_data})
-    except Exception as e:
-        return Response({"error": str(e)}, status=500)
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def admin_login_locations(request):
-    """Localisations de connexion pour les administrateurs."""
-    if not request.user.is_staff:
-        return Response({"error": "Accès non autorisé"}, status=403)
-    
-    try:
-        # Connexions récentes avec géolocalisation
-        recent_logins = AuditLog.objects.filter(
-            event_type='login',
-            status='success'
-        ).order_by('-timestamp')[:50]
-        
-        locations_data = []
-        for login in recent_logins:
-            locations_data.append({
-                "id": login.id,
-                "user": login.user.username if login.user else None,
-                "ip_address": login.ip_address,
-                "location": login.location if hasattr(login, 'location') else None,
-                "timestamp": login.timestamp,
-                "user_agent": login.user_agent if hasattr(login, 'user_agent') else None
-            })
-        
-        return Response({"results": locations_data})
-    except Exception as e:
-        return Response({"error": str(e)}, status=500)
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def system_configuration(request):
-    """Configuration système."""
-    if not request.user.is_staff:
-        return Response({"error": "Accès non autorisé"}, status=403)
-    
-    try:
-        config = PlatformConfiguration.objects.first()
-        if config:
-            serializer = PlatformConfigurationSerializer(config)
-            return Response(serializer.data)
-        else:
-            return Response({"error": "Configuration non trouvée"}, status=404)
-    except Exception as e:
-        return Response({"error": str(e)}, status=500)
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def technician_dashboard_data(request):
-    """Données du tableau de bord pour les techniciens."""
-    user = request.user
-    from .models import Technician
-    technician = get_technician_profile(user)
-    if not technician:
-        technician = Technician.objects.filter(user=user).first()
-    if not technician:
-        return Response({"error": "Vous n'êtes pas un technicien"}, status=403)
-    try:
-        assigned_requests = RepairRequest.objects.filter(technician=technician).count()
-        completed_requests = RepairRequest.objects.filter(technician=technician, status="completed").count()
-        pending_requests = RepairRequest.objects.filter(technician=technician, status__in=["assigned", "in_progress"]).count()
-        total_earnings = Payment.objects.filter(
-            technician=technician,
-            status="completed",
-            payment_type="technician_payout"
-        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-        avg_rating = technician.average_rating
-        return Response({
-            "assigned_requests": assigned_requests,
-            "completed_requests": completed_requests,
-            "pending_requests": pending_requests,
-            "total_earnings": float(total_earnings),
-            "average_rating": avg_rating,
-            "specialty": technician.specialty,
-            "is_available": technician.is_available,
-            "is_verified": technician.is_verified
-        })
-    except Exception as e:
-        return Response({"error": str(e)}, status=500)
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def admin_security_stats(request):
-    """Statistiques de sécurité factices pour le dashboard admin."""
-    if not request.user.is_staff:
-        return Response({"error": "Accès non autorisé"}, status=403)
-    # Données factices
-    data = {
-        "total_alerts": 0,
-        "high_risk_alerts": 0,
-        "medium_risk_alerts": 0,
-        "low_risk_alerts": 0
-    }
-    return Response(data)
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def admin_security_trends(request):
-    """Tendances de sécurité factices pour le dashboard admin."""
-    if not request.user.is_staff:
-        return Response({"error": "Accès non autorisé"}, status=403)
-    # Données factices
-    data = {
-        "daily_alerts": [],
-        "weekly_alerts": [],
-        "monthly_alerts": []
-    }
-    return Response(data)
-
-@api_view(['GET'])
-@permission_classes([IsAdminUser])
-def export_audit_logs(request):
-    from users.models import AuditLog
-    logs = AuditLog.objects.all()
-    # Filtres dynamiques
-    event_type = request.GET.get('event_type')
-    status = request.GET.get('status')
-    user_email = request.GET.get('user_email')
-    start_date = request.GET.get('start_date')
-    end_date = request.GET.get('end_date')
-    if event_type:
-        logs = logs.filter(event_type__icontains=event_type)
-    if status:
-        logs = logs.filter(status__icontains=status)
-    if user_email:
-        logs = logs.filter(user__email__icontains=user_email)
-    if start_date:
-        logs = logs.filter(timestamp__gte=start_date)
-    if end_date:
-        logs = logs.filter(timestamp__lte=end_date)
-    logs = logs.order_by('-timestamp')
-    export_format = request.GET.get('format', 'csv')
-    if export_format == 'excel':
-        import openpyxl
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "Audit Log"
-        ws.append(['Date', 'Utilisateur', 'Type', 'Statut', 'IP', 'Pays', 'Ville', 'User Agent', 'Risque', 'Détails'])
-        for log in logs:
-            ws.append([
-                log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
-                getattr(log.user, 'email', ''),
-                log.event_type,
-                log.status,
-                log.ip_address,
-                log.geo_country,
-                log.geo_city,
-                log.user_agent,
-                log.risk_score,
-                str(log.metadata) if log.metadata else ''
-            ])
-        from io import BytesIO
-        output = BytesIO()
-        wb.save(output)
-        output.seek(0)
-        response = HttpResponse(output, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = 'attachment; filename="audit_log.xlsx"'
-        return response
-    else:
-        import csv
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="audit_log.csv"'
-        writer = csv.writer(response)
-        writer.writerow(['Date', 'Utilisateur', 'Type', 'Statut', 'IP', 'Pays', 'Ville', 'User Agent', 'Risque', 'Détails'])
-        for log in logs:
-            writer.writerow([
-                log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
-                getattr(log.user, 'email', ''),
-                log.event_type,
-                log.status,
-                log.ip_address,
-                log.geo_country,
-                log.geo_city,
-                log.user_agent,
-                log.risk_score,
-                str(log.metadata) if log.metadata else ''
-            ])
-        return response
-
 
 class ChatConversationViewSet(viewsets.ModelViewSet):
-    """ViewSet pour gérer les conversations de chat."""
+    """ViewSet pour gérer les conversations de chat optimisées."""
     
     serializer_class = ChatConversationSerializer
     permission_classes = [IsAuthenticated]
-    
+    pagination_class = PageNumberPagination
+
     def get_queryset(self):
-        """Retourne les conversations de l'utilisateur connecté."""
+        """Optimise les requêtes avec select_related."""
         user = self.request.user
         return ChatConversation.objects.filter(
-            models.Q(client=user) | models.Q(technician=user)
-        ).filter(is_active=True)
-    
+            Q(client=user) | Q(technician=user)
+        ).select_related(
+            'client', 'technician', 'request'
+        ).prefetch_related('messages').order_by('-last_message_at')
+
     @action(detail=False, methods=['post'], url_path='get_or_create', url_name='get_or_create')
     def get_or_create_conversation(self, request):
-        """Récupère ou crée une conversation entre un client et un technicien."""
-        client_id = request.data.get('client_id')
-        technician_id = request.data.get('technician_id')
+        """Récupère ou crée une conversation optimisée."""
+        user = request.user
+        other_user_id = request.data.get('other_user_id')
         request_id = request.data.get('request_id')
         
-        if not client_id or not technician_id:
+        try:
+            other_user = User.objects.get(id=other_user_id)
+            
+            # Chercher une conversation existante
+            conversation = ChatConversation.objects.filter(
+                Q(client=user, technician=other_user) |
+                Q(client=other_user, technician=user)
+            ).select_related('request').first()
+            
+            if not conversation:
+                # Créer une nouvelle conversation
+                conversation = ChatConversation.objects.create(
+                    client=user if user.user_type == 'client' else other_user,
+                    technician=user if user.user_type == 'technician' else other_user,
+                    request_id=request_id,
+                    is_active=True
+                )
+            
+            serializer = ChatConversationSerializer(conversation)
+            return Response(serializer.data)
+            
+        except User.DoesNotExist:
+            return Response({"error": "Utilisateur non trouvé"}, status=404)
+        except Exception as e:
+            logger.error(f"Erreur lors de la création de conversation: {e}")
             return Response(
-                {'error': 'client_id et technician_id sont requis'}, 
-                status=400
+                {"error": "Erreur lors de la création de conversation"},
+                status=500
             )
-        
-        # Vérifier que l'utilisateur connecté est soit le client soit le technicien
-        user = request.user
-        if user.id not in [client_id, technician_id]:
-            return Response(
-                {'error': 'Vous ne pouvez pas créer une conversation pour d\'autres utilisateurs'}, 
-                status=403
-            )
-        
-        # Déterminer qui est client et qui est technicien
-        if user.id == client_id:
-            client = user
-            technician = get_object_or_404(User, id=technician_id)
-        else:
-            client = get_object_or_404(User, id=client_id)
-            technician = user
-        
-        # Créer ou récupérer la conversation
-        conversation, created = ChatConversation.objects.get_or_create(
-            client=client,
-            technician=technician,
-            defaults={
-                'request_id': request_id,
-                'is_active': True
-            }
-        )
-        
-        # Si la conversation existe déjà, mettre à jour la demande si nécessaire
-        if not created and request_id and not conversation.request_id:
-            conversation.request_id = request_id
-            conversation.save()
-        
-        serializer = self.get_serializer(conversation)
-        return Response(serializer.data)
-    
+
     @action(detail=True, methods=['post'])
     def mark_as_read(self, request, pk=None):
-        """Marque tous les messages comme lus pour l'utilisateur connecté."""
+        """Marque une conversation comme lue."""
         conversation = self.get_object()
         user = request.user
         
-        # Vérifier que l'utilisateur fait partie de la conversation
-        if user not in [conversation.client, conversation.technician]:
-            return Response({'error': 'Accès non autorisé'}, status=403)
-        
-        conversation.mark_all_as_read_for_user(user)
-        return Response({'success': True, 'message': 'Messages marqués comme lus'})
-    
+        try:
+            conversation.mark_all_as_read_for_user(user)
+            return Response({
+                'success': True,
+                'message': 'Conversation marquée comme lue'
+            })
+            
+        except Exception as e:
+            logger.error(f"Erreur lors du marquage de la conversation: {e}")
+            return Response(
+                {"error": "Erreur lors du marquage"},
+                status=500
+            )
+
     @action(detail=True, methods=['post'])
     def archive(self, request, pk=None):
         """Archive une conversation."""
         conversation = self.get_object()
-        user = request.user
         
-        # Vérifier que l'utilisateur fait partie de la conversation
-        if user not in [conversation.client, conversation.technician]:
-            return Response({'error': 'Accès non autorisé'}, status=403)
-        
-        conversation.is_active = False
-        conversation.save()
-        return Response({'success': True, 'message': 'Conversation archivée'})
+        try:
+            conversation.is_active = False
+            conversation.save()
+            
+            return Response({
+                'success': True,
+                'message': 'Conversation archivée'
+            })
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de l'archivage: {e}")
+            return Response(
+                {"error": "Erreur lors de l'archivage"},
+                status=500
+            )
 
 
 class ChatMessageViewSet(viewsets.ModelViewSet):
-    """ViewSet pour gérer les messages de chat."""
+    """ViewSet pour gérer les messages de chat optimisés."""
     
     serializer_class = ChatMessageSerializer
     permission_classes = [IsAuthenticated]
-    
+    pagination_class = PageNumberPagination
+
     def get_queryset(self):
-        """Retourne les messages des conversations de l'utilisateur connecté."""
+        """Optimise les requêtes avec select_related."""
         user = self.request.user
         return ChatMessage.objects.filter(
             conversation__in=ChatConversation.objects.filter(
-                models.Q(client=user) | models.Q(technician=user)
+                Q(client=user) | Q(technician=user)
             )
-        )
-    
+        ).select_related('conversation', 'sender').prefetch_related('attachments')
+
     def perform_create(self, serializer):
-        """Surcharge pour vérifier les permissions et marquer comme lu."""
-        user = self.request.user
-        conversation = serializer.validated_data['conversation']
+        """Crée un message avec optimisations."""
+        message = serializer.save()
         
-        # Vérifier que l'utilisateur fait partie de la conversation
-        if user not in [conversation.client, conversation.technician]:
-            raise PermissionDenied("Vous ne pouvez pas envoyer de message dans cette conversation")
-        
-        # Créer le message
-        message = serializer.save(sender=user)
-        
-        # Marquer automatiquement comme lu si l'utilisateur est le destinataire
-        if user == conversation.client:
-            other_user = conversation.technician
-        else:
-            other_user = conversation.client
-        
-        # Marquer les messages non lus de l'autre utilisateur comme lus
-        conversation.messages.filter(
-            sender=other_user,
-            is_read=False
-        ).update(is_read=True, read_at=timezone.now())
-        
-        return message
-    
+        try:
+            # Mettre à jour la conversation
+            conversation = message.conversation
+            conversation.last_message_at = timezone.now()
+            conversation.save()
+            
+            # Notification à l'autre utilisateur
+            other_user = conversation.client if message.sender == conversation.technician else conversation.technician
+            Notification.objects.create(
+                recipient=other_user,
+                type=Notification.Type.MESSAGE_RECEIVED,
+                title="Nouveau message",
+                message=f"Nouveau message de {message.sender.get_full_name()}",
+                request=conversation.request
+            )
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de la création du message: {e}")
+
     @action(detail=False, methods=['get'])
     def conversation_messages(self, request):
-        """Récupère tous les messages d'une conversation."""
+        """Récupère les messages d'une conversation optimisée."""
         conversation_id = request.query_params.get('conversation_id')
-        if not conversation_id:
-            return Response({'error': 'conversation_id requis'}, status=400)
         
         try:
             conversation = ChatConversation.objects.get(id=conversation_id)
+            
+            # Vérifier les permissions
+            user = request.user
+            if user not in [conversation.client, conversation.technician]:
+                return Response({"error": "Accès non autorisé"}, status=403)
+            
+            messages = ChatMessage.objects.filter(
+                conversation=conversation
+            ).select_related('sender').prefetch_related('attachments').order_by('created_at')
+            
+            # Pagination
+            paginator = PageNumberPagination()
+            paginator.page_size = 50
+            paginated_messages = paginator.paginate_queryset(messages, request)
+            
+            serializer = ChatMessageSerializer(paginated_messages, many=True)
+            return paginator.get_paginated_response(serializer.data)
+            
         except ChatConversation.DoesNotExist:
-            return Response({'error': 'Conversation non trouvée'}, status=404)
-        
-        # Vérifier que l'utilisateur fait partie de la conversation
-        user = request.user
-        if user not in [conversation.client, conversation.technician]:
-            return Response({'error': 'Accès non autorisé'}, status=403)
-        
-        messages = conversation.messages.all().order_by('created_at')
-        serializer = self.get_serializer(messages, many=True)
-        return Response(serializer.data)
-    
+            return Response({"error": "Conversation non trouvée"}, status=404)
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération des messages: {e}")
+            return Response(
+                {"error": "Erreur lors de la récupération des messages"},
+                status=500
+            )
+
     @action(detail=True, methods=['post'])
     def mark_as_read(self, request, pk=None):
-        """Marque un message spécifique comme lu."""
+        """Marque un message comme lu."""
         message = self.get_object()
-        user = request.user
         
-        # Vérifier que l'utilisateur est le destinataire
-        conversation = message.conversation
-        if user not in [conversation.client, conversation.technician]:
-            return Response({'error': 'Accès non autorisé'}, status=403)
-        
-        if message.sender != user:  # Ne pas marquer ses propres messages comme lus
+        try:
             message.mark_as_read()
-        
-        return Response({'success': True})
-    
+            return Response({
+                'success': True,
+                'message': 'Message marqué comme lu'
+            })
+            
+        except Exception as e:
+            logger.error(f"Erreur lors du marquage du message: {e}")
+            return Response(
+                {"error": "Erreur lors du marquage"},
+                status=500
+            )
+
     @action(detail=False, methods=['post'])
     def send_location(self, request):
         """Envoie un message de localisation."""
@@ -2731,107 +2235,97 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
         latitude = request.data.get('latitude')
         longitude = request.data.get('longitude')
         
-        if not all([conversation_id, latitude, longitude]):
-            return Response(
-                {'error': 'conversation_id, latitude et longitude sont requis'}, 
-                status=400
-            )
-        
         try:
             conversation = ChatConversation.objects.get(id=conversation_id)
+            
+            # Vérifier les permissions
+            user = request.user
+            if user not in [conversation.client, conversation.technician]:
+                return Response({"error": "Accès non autorisé"}, status=403)
+            
+            # Créer le message de localisation
+            message = ChatMessage.objects.create(
+                conversation=conversation,
+                sender=user,
+                content="Localisation partagée",
+                message_type=ChatMessage.MessageType.LOCATION,
+                latitude=latitude,
+                longitude=longitude
+            )
+            
+            serializer = ChatMessageSerializer(message)
+            return Response(serializer.data)
+            
         except ChatConversation.DoesNotExist:
-            return Response({'error': 'Conversation non trouvée'}, status=404)
-        
-        # Vérifier que l'utilisateur fait partie de la conversation
-        user = request.user
-        if user not in [conversation.client, conversation.technician]:
-            return Response({'error': 'Accès non autorisé'}, status=403)
-        
-        # Créer le message de localisation
-        message = ChatMessage.objects.create(
-            conversation=conversation,
-            sender=user,
-            content=f"📍 Ma position actuelle",
-            message_type='location',
-            latitude=latitude,
-            longitude=longitude
-        )
-        
-        serializer = self.get_serializer(message)
-        return Response(serializer.data, status=201)
+            return Response({"error": "Conversation non trouvée"}, status=404)
+        except Exception as e:
+            logger.error(f"Erreur lors de l'envoi de localisation: {e}")
+            return Response(
+                {"error": "Erreur lors de l'envoi de localisation"},
+                status=500
+            )
 
 
 class ChatMessageAttachmentViewSet(viewsets.ModelViewSet):
-    """ViewSet pour gérer les pièces jointes de chat."""
+    """ViewSet pour gérer les pièces jointes de chat optimisées."""
     
     serializer_class = ChatMessageAttachmentSerializer
     permission_classes = [IsAuthenticated]
-    
-    def get_queryset(self):
-        """Retourne les pièces jointes des conversations de l'utilisateur connecté."""
-        user = self.request.user
-        return ChatMessageAttachment.objects.filter(
-            message__conversation__in=ChatConversation.objects.filter(
-                models.Q(client=user) | models.Q(technician=user)
-            )
-        )
-    
-    def perform_create(self, serializer):
-        """Surcharge pour vérifier les permissions."""
-        user = self.request.user
-        message = serializer.validated_data['message']
-        conversation = message.conversation
-        
-        # Vérifier que l'utilisateur fait partie de la conversation
-        if user not in [conversation.client, conversation.technician]:
-            raise PermissionDenied("Vous ne pouvez pas ajouter des pièces jointes à cette conversation")
-        
-        return serializer.save()
+    pagination_class = PageNumberPagination
 
-from rest_framework.views import APIView
+    def get_queryset(self):
+        """Optimise les requêtes avec select_related."""
+        return ChatMessageAttachment.objects.select_related('message__conversation').all()
+
+    def perform_create(self, serializer):
+        """Crée une pièce jointe avec optimisations."""
+        attachment = serializer.save()
+        
+        try:
+            # Mettre à jour la taille du fichier
+            attachment.file_size = attachment.file.size
+            attachment.save()
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de la création de la pièce jointe: {e}")
+
 
 class ChatGetOrCreateConversationView(APIView):
+    """Vue optimisée pour récupérer ou créer une conversation."""
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        client_id = request.data.get('client_id')
-        technician_id = request.data.get('technician_id')
-        request_id = request.data.get('request_id')
-
-        if not client_id or not technician_id:
-            return Response(
-                {'error': 'client_id et technician_id sont requis'}, 
-                status=400
-            )
-
+        """Récupère ou crée une conversation optimisée."""
         user = request.user
-        if user.id not in [int(client_id), int(technician_id)]:
+        other_user_id = request.data.get('other_user_id')
+        request_id = request.data.get('request_id')
+        
+        try:
+            other_user = User.objects.get(id=other_user_id)
+            
+            # Chercher une conversation existante avec optimisations
+            conversation = ChatConversation.objects.filter(
+                Q(client=user, technician=other_user) |
+                Q(client=other_user, technician=user)
+            ).select_related('request').first()
+            
+            if not conversation:
+                # Créer une nouvelle conversation
+                conversation = ChatConversation.objects.create(
+                    client=user if user.user_type == 'client' else other_user,
+                    technician=user if user.user_type == 'technician' else other_user,
+                    request_id=request_id,
+                    is_active=True
+                )
+            
+            serializer = ChatConversationSerializer(conversation)
+            return Response(serializer.data)
+            
+        except User.DoesNotExist:
+            return Response({"error": "Utilisateur non trouvé"}, status=404)
+        except Exception as e:
+            logger.error(f"Erreur lors de la création de conversation: {e}")
             return Response(
-                {'error': 'Vous ne pouvez pas créer une conversation pour d\'autres utilisateurs'}, 
-                status=403
+                {"error": "Erreur lors de la création de conversation"},
+                status=500
             )
-
-        from .models import ChatConversation
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
-        if user.id == int(client_id):
-            client = user
-            technician = User.objects.get(id=technician_id)
-        else:
-            client = User.objects.get(id=client_id)
-            technician = user
-
-        conversation, created = ChatConversation.objects.get_or_create(
-            client=client,
-            technician=technician,
-            defaults={
-                'request_id': request_id,
-                'is_active': True
-            }
-        )
-        if not created and request_id and not conversation.request_id:
-            conversation.request_id = request_id
-            conversation.save()
-        from .serializers import ChatConversationSerializer
-        serializer = ChatConversationSerializer(conversation, context={'request': request})
-        return Response(serializer.data)
