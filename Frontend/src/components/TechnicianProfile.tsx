@@ -56,24 +56,34 @@ const TechnicianProfile: React.FC<TechnicianProfileProps> = ({ technicianId }) =
     const fetchProfile = async () => {
         try {
             setLoading(true);
+            setError(null);
+
             const response = await fetchWithAuth(`http://127.0.0.1:8000/depannage/api/technicians/${technicianId}/`);
 
             if (response.ok) {
                 const data = await response.json();
                 setProfile(data);
                 setFormData({
-                    first_name: data.user.first_name,
-                    last_name: data.user.last_name,
-                    phone: data.phone,
-                    specialty: data.specialty,
-                    years_experience: data.years_experience,
-                    address: data.address,
-                    hourly_rate: data.hourly_rate,
+                    first_name: data.user?.first_name || '',
+                    last_name: data.user?.last_name || '',
+                    phone: data.phone || '',
+                    specialty: data.specialty || '',
+                    years_experience: data.years_experience || 0,
+                    address: data.address || '',
+                    hourly_rate: data.hourly_rate || 0,
                     bio: data.bio || ''
                 });
+            } else if (response.status === 404) {
+                setError('Profil technicien non trouvé');
+            } else if (response.status === 403) {
+                setError('Vous n\'avez pas les permissions pour accéder à ce profil');
+            } else {
+                const errorData = await response.json();
+                setError(errorData.error || `Erreur ${response.status}: ${response.statusText}`);
             }
         } catch (err) {
-            setError('Erreur lors du chargement du profil');
+            console.error('Erreur lors du chargement du profil:', err);
+            setError('Erreur réseau lors du chargement du profil');
         } finally {
             setLoading(false);
         }
@@ -90,21 +100,48 @@ const TechnicianProfile: React.FC<TechnicianProfileProps> = ({ technicianId }) =
         try {
             setSaving(true);
             setError(null);
+            setSuccess(null);
+
+            // Validation côté client
+            if (!formData.first_name.trim()) {
+                setError('Le prénom est requis');
+                return;
+            }
+            if (!formData.last_name.trim()) {
+                setError('Le nom est requis');
+                return;
+            }
+            if (!formData.phone.trim()) {
+                setError('Le téléphone est requis');
+                return;
+            }
+            if (!formData.specialty) {
+                setError('La spécialité est requise');
+                return;
+            }
+            if (formData.years_experience < 0) {
+                setError('Les années d\'expérience ne peuvent pas être négatives');
+                return;
+            }
+            if (formData.hourly_rate < 0) {
+                setError('Le tarif horaire ne peut pas être négatif');
+                return;
+            }
 
             const response = await fetchWithAuth(`http://127.0.0.1:8000/depannage/api/technicians/${technicianId}/`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     user: {
-                        first_name: formData.first_name,
-                        last_name: formData.last_name
+                        first_name: formData.first_name.trim(),
+                        last_name: formData.last_name.trim()
                     },
-                    phone: formData.phone,
+                    phone: formData.phone.trim(),
                     specialty: formData.specialty,
                     years_experience: formData.years_experience,
-                    address: formData.address,
+                    address: formData.address.trim(),
                     hourly_rate: formData.hourly_rate,
-                    bio: formData.bio
+                    bio: formData.bio.trim()
                 })
             });
 
@@ -114,10 +151,11 @@ const TechnicianProfile: React.FC<TechnicianProfileProps> = ({ technicianId }) =
                 fetchProfile(); // Recharger les données
             } else {
                 const errorData = await response.json();
-                setError(errorData.error || 'Erreur lors de la mise à jour');
+                setError(errorData.error || errorData.detail || 'Erreur lors de la mise à jour');
             }
         } catch (err) {
-            setError('Erreur réseau');
+            console.error('Erreur lors de la sauvegarde:', err);
+            setError('Erreur réseau lors de la sauvegarde');
         } finally {
             setSaving(false);
         }
@@ -127,6 +165,20 @@ const TechnicianProfile: React.FC<TechnicianProfileProps> = ({ technicianId }) =
         if (!selectedFile) return;
 
         try {
+            setError(null);
+            setSuccess(null);
+
+            // Validation du fichier
+            if (selectedFile.size > 5 * 1024 * 1024) { // 5MB
+                setError('Le fichier est trop volumineux (max 5MB)');
+                return;
+            }
+
+            if (!selectedFile.type.startsWith('image/')) {
+                setError('Seuls les fichiers image sont acceptés');
+                return;
+            }
+
             const formData = new FormData();
             formData.append('profile_picture', selectedFile);
 
@@ -136,14 +188,16 @@ const TechnicianProfile: React.FC<TechnicianProfileProps> = ({ technicianId }) =
             });
 
             if (response.ok) {
-                setSuccess('Photo de profil mise à jour !');
+                setSuccess('Photo de profil mise à jour avec succès !');
                 setSelectedFile(null);
                 fetchProfile();
             } else {
-                setError('Erreur lors du téléchargement de la photo');
+                const errorData = await response.json();
+                setError(errorData.error || 'Erreur lors du téléchargement de la photo');
             }
         } catch (err) {
-            setError('Erreur réseau');
+            console.error('Erreur lors de l\'upload de la photo:', err);
+            setError('Erreur réseau lors du téléchargement de la photo');
         }
     };
 
@@ -151,6 +205,21 @@ const TechnicianProfile: React.FC<TechnicianProfileProps> = ({ technicianId }) =
         if (!kycFile) return;
 
         try {
+            setError(null);
+            setSuccess(null);
+
+            // Validation du fichier
+            if (kycFile.size > 10 * 1024 * 1024) { // 10MB
+                setError('Le fichier est trop volumineux (max 10MB)');
+                return;
+            }
+
+            const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+            if (!allowedTypes.includes(kycFile.type)) {
+                setError('Format de fichier non supporté (PDF, JPG, PNG uniquement)');
+                return;
+            }
+
             const formData = new FormData();
             formData.append('kyc_document', kycFile);
 
@@ -164,10 +233,12 @@ const TechnicianProfile: React.FC<TechnicianProfileProps> = ({ technicianId }) =
                 setKycFile(null);
                 fetchProfile();
             } else {
-                setError('Erreur lors du téléchargement du document KYC');
+                const errorData = await response.json();
+                setError(errorData.error || 'Erreur lors du téléchargement du document KYC');
             }
         } catch (err) {
-            setError('Erreur réseau');
+            console.error('Erreur lors de l\'upload du document KYC:', err);
+            setError('Erreur réseau lors du téléchargement du document KYC');
         }
     };
 
@@ -219,13 +290,51 @@ const TechnicianProfile: React.FC<TechnicianProfileProps> = ({ technicianId }) =
             {/* Messages d'erreur et de succès */}
             {error && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <p className="text-red-800">{error}</p>
+                    <div className="flex items-center">
+                        <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                        </div>
+                        <div className="ml-3">
+                            <p className="text-red-800">{error}</p>
+                        </div>
+                        <div className="ml-auto pl-3">
+                            <button
+                                onClick={() => setError(null)}
+                                className="text-red-400 hover:text-red-600"
+                            >
+                                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 
             {success && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <p className="text-green-800">{success}</p>
+                    <div className="flex items-center">
+                        <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                        </div>
+                        <div className="ml-3">
+                            <p className="text-green-800">{success}</p>
+                        </div>
+                        <div className="ml-auto pl-3">
+                            <button
+                                onClick={() => setSuccess(null)}
+                                className="text-green-400 hover:text-green-600"
+                            >
+                                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -238,10 +347,27 @@ const TechnicianProfile: React.FC<TechnicianProfileProps> = ({ technicianId }) =
                     </h3>
                     <button
                         onClick={() => setEditing(!editing)}
-                        className="inline-flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
+                        disabled={saving}
+                        className="inline-flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
                     >
-                        {editing ? <Save className="h-4 w-4 mr-2" /> : <Edit className="h-4 w-4 mr-2" />}
-                        {editing ? 'Sauvegarder' : 'Modifier'}
+                        {editing ? (
+                            saving ? (
+                                <>
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                    Sauvegarde...
+                                </>
+                            ) : (
+                                <>
+                                    <Save className="h-4 w-4 mr-2" />
+                                    Sauvegarder
+                                </>
+                            )
+                        ) : (
+                            <>
+                                <Edit className="h-4 w-4 mr-2" />
+                                Modifier
+                            </>
+                        )}
                     </button>
                 </div>
 
@@ -346,11 +472,15 @@ const TechnicianProfile: React.FC<TechnicianProfileProps> = ({ technicianId }) =
                                         onChange={(e) => handleInputChange('specialty', e.target.value)}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                     >
-                                        <option value="plomberie">Plomberie</option>
-                                        <option value="électricité">Électricité</option>
-                                        <option value="climatisation">Climatisation</option>
-                                        <option value="réparation">Réparation générale</option>
-                                        <option value="maintenance">Maintenance</option>
+                                        <option value="">Sélectionner une spécialité</option>
+                                        <option value="electrician">Électricien</option>
+                                        <option value="plumber">Plombier</option>
+                                        <option value="mechanic">Mécanicien</option>
+                                        <option value="it">Informatique</option>
+                                        <option value="air_conditioning">Climatisation</option>
+                                        <option value="appliance_repair">Électroménager</option>
+                                        <option value="locksmith">Serrurier</option>
+                                        <option value="other">Autre</option>
                                     </select>
                                 ) : (
                                     <p className="text-gray-900">{profile.specialty}</p>
@@ -437,15 +567,32 @@ const TechnicianProfile: React.FC<TechnicianProfileProps> = ({ technicianId }) =
                     <div className="space-y-3">
                         <div className="flex justify-between">
                             <span className="text-gray-600">Note moyenne</span>
-                            <span className="font-semibold">{typeof profile.average_rating === 'number' ? profile.average_rating.toFixed(1) : 'N/A'}/5</span>
+                            <span className="font-semibold">
+                                {typeof profile.average_rating === 'number' && profile.average_rating > 0
+                                    ? `${profile.average_rating.toFixed(1)}/5`
+                                    : 'Aucune note'}
+                            </span>
                         </div>
                         <div className="flex justify-between">
                             <span className="text-gray-600">Missions terminées</span>
-                            <span className="font-semibold">{profile.total_jobs_completed}</span>
+                            <span className="font-semibold">{profile.total_jobs_completed || 0}</span>
                         </div>
                         <div className="flex justify-between">
                             <span className="text-gray-600">Années d'expérience</span>
-                            <span className="font-semibold">{profile.years_experience} ans</span>
+                            <span className="font-semibold">{profile.years_experience || 0} ans</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Tarif horaire</span>
+                            <span className="font-semibold">{profile.hourly_rate || 0} FCFA/h</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Statut</span>
+                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${profile.is_verified
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                {profile.is_verified ? 'Vérifié' : 'En attente'}
+                            </span>
                         </div>
                     </div>
                 </div>

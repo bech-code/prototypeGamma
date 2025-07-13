@@ -470,6 +470,14 @@ const TechnicianDashboard: React.FC = () => {
   // Charger les avis reçus au montage ou quand l'onglet est activé
   useEffect(() => {
     if (activeTab === 'reviews' && receivedReviews.length === 0 && !loadingReviews) {
+      // Vérifier que l'utilisateur est un technicien
+      if (!user?.technician) {
+        console.warn('Utilisateur non technicien - pas d\'avis à charger');
+        setReceivedReviews([]);
+        setLoadingReviews(false);
+        return;
+      }
+
       setLoadingReviews(true);
       fetchWithAuth('/depannage/api/reviews/received/', {
         headers: {
@@ -477,12 +485,27 @@ const TechnicianDashboard: React.FC = () => {
           'Content-Type': 'application/json',
         },
       })
-        .then(res => res.json())
-        .then(data => setReceivedReviews(data))
-        .catch(() => setReceivedReviews([]))
+        .then(res => {
+          if (res.ok) {
+            return res.json();
+          } else {
+            // Gérer les erreurs (403, 404, etc.)
+            console.warn(`Erreur API avis: ${res.status} - ${res.statusText}`);
+            return { results: [] }; // Retourner un tableau vide en cas d'erreur
+          }
+        })
+        .then(data => {
+          // S'assurer que data est un tableau (gestion de la pagination DRF)
+          const reviews = Array.isArray(data) ? data : (data?.results || []);
+          setReceivedReviews(reviews);
+        })
+        .catch((error) => {
+          console.error('Erreur lors du chargement des avis:', error);
+          setReceivedReviews([]); // Toujours initialiser avec un tableau vide
+        })
         .finally(() => setLoadingReviews(false));
     }
-  }, [activeTab, token]);
+  }, [activeTab, token, user?.technician]);
 
   // Filtrage période + note (comme admin)
   function filterByPeriod<T extends { created_at?: string }>(arr: T[], period: 'all' | '7d' | '30d') {
@@ -533,33 +556,51 @@ const TechnicianDashboard: React.FC = () => {
     setAvgQuality(avgQuality);
     setAvgCommunication(avgCommunication);
 
-    // Calculate top clients
-    const map = new Map<string, number>();
-    filteredAndPeriodReviews.forEach(r => {
-      if (r.client_name) map.set(r.client_name, (map.get(r.client_name) || 0) + 1);
-    });
-    const topClients = Array.from(map.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
-    setTopClients(topClients);
-
     // Calculate review stats
-    const avg = filteredAndPeriodReviews.length ? Number((filteredAndPeriodReviews.reduce((sum, r) => sum + r.rating, 0) / filteredAndPeriodReviews.length).toFixed(2)) : 0;
-    const reviewStats: ReviewStats = {
+    const avgRating = filteredAndPeriodReviews.length ? (filteredAndPeriodReviews.reduce((sum, r) => sum + r.rating, 0) / filteredAndPeriodReviews.length) : 0;
+    const recommendCount = filteredAndPeriodReviews.filter(r => r.would_recommend).length;
+    const recommendRate = filteredAndPeriodReviews.length ? (recommendCount / filteredAndPeriodReviews.length) * 100 : 0;
+
+    // Calculate rating distribution
+    const byNote = [0, 0, 0, 0, 0];
+    filteredAndPeriodReviews.forEach(r => {
+      if (r.rating >= 1 && r.rating <= 5) {
+        byNote[r.rating - 1]++;
+      }
+    });
+
+    // Calculate date distribution (last 30 days)
+    const byDate: [string, number][] = [];
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      const count = filteredAndPeriodReviews.filter(r => {
+        const reviewDate = new Date(r.created_at || '');
+        return reviewDate.toISOString().split('T')[0] === dateStr;
+      }).length;
+      byDate.push([dateStr, count]);
+    }
+
+    setReviewStats({
+      avg: Math.round(avgRating * 10) / 10,
       count: filteredAndPeriodReviews.length,
-      avg,
-      recommend: filteredAndPeriodReviews.length ? Math.round(filteredAndPeriodReviews.filter(r => r.would_recommend).length * 100 / filteredAndPeriodReviews.length) : 0,
-      byNote: [1, 2, 3, 4, 5].map(n => filteredAndPeriodReviews.filter(r => r.rating === n).length),
-      byDate: (() => {
-        const map = new Map<string, number>();
-        filteredAndPeriodReviews.forEach(r => {
-          if (r.created_at) {
-            const d = new Date(r.created_at).toLocaleDateString('fr-FR');
-            map.set(d, (map.get(d) || 0) + 1);
-          }
-        });
-        return Array.from(map.entries()).sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime());
-      })()
-    };
-    setReviewStats(reviewStats);
+      recommend: Math.round(recommendRate * 10) / 10,
+      byNote,
+      byDate,
+    });
+
+    // Calculate top clients
+    const clientCounts: Record<string, number> = {};
+    filteredAndPeriodReviews.forEach(r => {
+      const clientName = r.client_name || 'Client inconnu';
+      clientCounts[clientName] = (clientCounts[clientName] || 0) + 1;
+    });
+    const topClientsArray = Object.entries(clientCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5);
+    setTopClients(topClientsArray);
+
   }, [filteredReviews, reviewPeriod, reviewSort, reviewPage]);
 
   // Fonction d'export Excel
@@ -1572,6 +1613,30 @@ const TechnicianDashboard: React.FC = () => {
                 {activeTab === 'reviews' && (
                   <div>
                     <h2 className="text-xl font-semibold mb-4 text-gray-800">Avis reçus</h2>
+
+                    {/* Message pour les utilisateurs non-techniciens */}
+                    {!user?.technician && (
+                      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="ml-3">
+                            <h3 className="text-sm font-medium text-blue-800">
+                              Accès limité
+                            </h3>
+                            <div className="mt-2 text-sm text-blue-700">
+                              <p>
+                                Cette section est réservée aux techniciens. Seuls les techniciens peuvent voir les avis reçus de leurs clients.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Filtres synchronisés admin/statistiques */}
                     <div className="flex flex-wrap gap-4 mb-4 items-end">
                       <input
@@ -1781,7 +1846,27 @@ const TechnicianDashboard: React.FC = () => {
                 {activeTab === 'rewards' && (
                   <div>
                     <h2 className="text-xl font-semibold mb-4 text-gray-800">Système de Récompenses</h2>
-                    <RewardsPanel technicianId={user?.technician?.id || 0} />
+                    {user?.technician?.id ? (
+                      <RewardsPanel technicianId={user.technician.id} />
+                    ) : (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="ml-3">
+                            <h3 className="text-sm font-medium text-yellow-800">
+                              Récompenses non disponibles
+                            </h3>
+                            <div className="mt-2 text-sm text-yellow-700">
+                              <p>Vous devez être connecté en tant que technicien pour accéder à cette fonctionnalité.</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1799,14 +1884,54 @@ const TechnicianDashboard: React.FC = () => {
                     </div>
 
                     {/* Panel de gestion d'abonnement */}
-                    <SubscriptionPanel technicianId={user?.technician?.id || 0} />
+                    {user?.technician?.id ? (
+                      <SubscriptionPanel technicianId={user.technician.id} />
+                    ) : (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="ml-3">
+                            <h3 className="text-sm font-medium text-yellow-800">
+                              Abonnement non disponible
+                            </h3>
+                            <div className="mt-2 text-sm text-yellow-700">
+                              <p>Vous devez être connecté en tant que technicien pour accéder à cette fonctionnalité.</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {activeTab === 'profile' && (
                   <div>
                     <h2 className="text-xl font-semibold mb-4 text-gray-800">Gestion du Profil</h2>
-                    <TechnicianProfile technicianId={user?.technician?.id || 0} />
+                    {user?.technician?.id ? (
+                      <TechnicianProfile technicianId={user.technician.id} />
+                    ) : (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="ml-3">
+                            <h3 className="text-sm font-medium text-yellow-800">
+                              Profil technicien non disponible
+                            </h3>
+                            <div className="mt-2 text-sm text-yellow-700">
+                              <p>Vous devez être connecté en tant que technicien pour accéder à cette fonctionnalité.</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

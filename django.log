@@ -7252,3 +7252,413 @@ WARNING 2025-07-13 02:51:50,553 log 63333 6141456384 Not Found: /depannage/api/a
 ERROR 2025-07-13 02:54:04,260 log 63333 6141456384 Internal Server Error: /depannage/api/admin/notifications/
 ERROR 2025-07-13 02:59:31,660 log 63333 6141456384 Internal Server Error: /depannage/api/admin/notifications/
 ERROR 2025-07-13 02:59:54,309 log 63333 6141456384 Internal Server Error: /depannage/api/admin/notifications/
+WARNING 2025-07-13 03:21:39,203 log 77306 6199881728 Unauthorized: /depannage/api/chat/conversations/
+WARNING 2025-07-13 03:21:39,206 log 77306 6199881728 Unauthorized: /depannage/api/chat/messages/
+WARNING 2025-07-13 03:21:39,208 log 77306 6199881728 Unauthorized: /depannage/api/chat/attachments/
+WARNING 2025-07-13 03:22:18,143 log 77306 6199881728 Bad Request: /users/login/
+WARNING 2025-07-13 03:22:32,727 log 77306 6199881728 Unauthorized: /users/login/
+WARNING 2025-07-13 03:24:34,335 log 77306 6199881728 Not Found: /users/login/
+WARNING 2025-07-13 03:25:45,026 log 77306 6199881728 Method Not Allowed: /depannage/api/chat/conversations/get_or_create/
+WARNING 2025-07-13 03:26:38,050 log 77306 6199881728 Method Not Allowed: /depannage/api/chat/conversations/get_or_create/
+WARNING 2025-07-13 03:26:59,071 log 77306 6199881728 Unauthorized: /depannage/api/
+WARNING 2025-07-13 03:27:02,256 log 77306 6199881728 Unauthorized: /depannage/api/
+WARNING 2025-07-13 03:27:09,932 log 77306 6199881728 Unauthorized: /depannage/api/
+WARNING 2025-07-13 03:28:17,702 log 77306 6199881728 Method Not Allowed: /depannage/api/chat/conversations/get_or_create/
+WARNING 2025-07-13 03:28:30,515 log 77306 6199881728 Unauthorized: /depannage/api/chat/conversations/get_or_create/
+INFO 2025-07-13 03:28:55,032 views 77306 6183055360 [DEBUG] get_technician_profile: Aucun profil technicien trouvé pour user client2 (Client)
+WARNING 2025-07-13 03:28:55,037 log 77306 6199881728 Not Found: /depannage/api/technicians/me/
+WARNING 2025-07-13 03:28:55,042 log 77306 6199881728 Method Not Allowed: /depannage/api/chat/conversations/get_or_create/
+ERROR 2025-07-13 03:29:00,611 log 77306 6199881728 Internal Server Error: /depannage/api/chat/conversations/get_or_create/
+Traceback (most recent call last):
+  File "/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend/venv/lib/python3.13/site-packages/asgiref/sync.py", line 518, in thread_handler
+    raise exc_info[1]
+  File "/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend/venv/lib/python3.13/site-packages/django/core/handlers/exception.py", line 42, in inner
+    response = await get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend/venv/lib/python3.13/site-packages/asgiref/sync.py", line 518, in thread_handler
+    raise exc_info[1]
+  File "/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend/venv/lib/python3.13/site-packages/django/core/handlers/base.py", line 253, in _get_response_async
+    response = await wrapped_callback(
+               ^^^^^^^^^^^^^^^^^^^^^^^
+        request, *callback_args, **callback_kwargs
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend/venv/lib/python3.13/site-packages/asgiref/sync.py", line 468, in __call__
+    ret = await asyncio.shield(exec_coro)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend/venv/lib/python3.13/site-packages/asgiref/current_thread_executor.py", line 40, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend/venv/lib/python3.13/site-packages/asgiref/sync.py", line 522, in thread_handler
+    return func(*args, **kwargs)
+  File "/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend/venv/lib/python3.13/site-packages/django/views/decorators/csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend/venv/lib/python3.13/site-packages/rest_framework/viewsets.py", line 125, in view
+    return self.dispatch(request, *args, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend/venv/lib/python3.13/site-packages/rest_framework/views.py", line 515, in dispatch
+    response = self.handle_exception(exc)
+  File "/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend/venv/lib/python3.13/site-packages/rest_framework/views.py", line 475, in handle_exception
+    self.raise_uncaught_exception(exc)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend/venv/lib/python3.13/site-packages/rest_framework/views.py", line 486, in raise_uncaught_exception
+    raise exc
+  File "/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend/venv/lib/python3.13/site-packages/rest_framework/views.py", line 512, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend/venv/lib/python3.13/site-packages/rest_framework/views.py", line 526, in options
+    data = self.metadata_class().determine_metadata(request, self)
+  File "/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend/venv/lib/python3.13/site-packages/rest_framework/metadata.py", line 67, in determine_metadata
+    actions = self.determine_actions(request, view)
+  File "/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend/venv/lib/python3.13/site-packages/rest_framework/metadata.py", line 86, in determine_actions
+    view.get_object()
+    ~~~~~~~~~~~~~~~^^
+  File "/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend/venv/lib/python3.13/site-packages/rest_framework/generics.py", line 87, in get_object
+    queryset = self.filter_queryset(self.get_queryset())
+                                    ~~~~~~~~~~~~~~~~~^^
+  File "/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend/depannage/views.py", line 2576, in get_queryset
+    models.Q(client=user) | models.Q(technician=user)
+    ^^^^^^
+NameError: name 'models' is not defined
+INFO 2025-07-13 03:29:21,804 views 77306 6183055360 [DEBUG] get_technician_profile: Aucun profil technicien trouvé pour user client2 (Client)
+WARNING 2025-07-13 03:29:21,806 log 77306 6199881728 Not Found: /depannage/api/technicians/me/
+WARNING 2025-07-13 03:29:21,811 log 77306 6199881728 Method Not Allowed: /depannage/api/chat/conversations/get_or_create/
+INFO 2025-07-13 03:29:47,295 views 77306 6183055360 [DEBUG] get_technician_profile: Aucun profil technicien trouvé pour user client2 (Client)
+WARNING 2025-07-13 03:29:47,296 log 77306 6199881728 Not Found: /depannage/api/technicians/me/
+WARNING 2025-07-13 03:29:47,300 log 77306 6199881728 Method Not Allowed: /depannage/api/chat/conversations/get_or_create_explicit/
+INFO 2025-07-13 03:33:18,276 views 82268 6113292288 [DEBUG] get_technician_profile: Aucun profil technicien trouvé pour user client2 (Client)
+WARNING 2025-07-13 03:33:18,279 log 82268 6130118656 Not Found: /depannage/api/technicians/me/
+WARNING 2025-07-13 03:33:18,283 log 82268 6130118656 Forbidden: /depannage/api/chat/conversations/get_or_create_explicit/
+WARNING 2025-07-13 03:35:10,278 log 82268 6130118656 Unauthorized: /users/login/
+WARNING 2025-07-13 03:35:30,976 log 82268 6130118656 Unauthorized: /users/login/
+INFO 2025-07-13 03:35:49,204 views 82268 6113292288 [DEBUG] get_technician_profile: Aucun profil technicien trouvé pour user client2 (Client)
+WARNING 2025-07-13 03:35:49,206 log 82268 6130118656 Not Found: /depannage/api/technicians/me/
+WARNING 2025-07-13 03:37:15,224 log 85279 6200750080 Not Found: /favicon.ico
+WARNING 2025-07-13 03:37:17,379 log 85279 6200750080 Not Found: /favicon.ico
+INFO 2025-07-13 03:37:27,427 views 85279 6234402816 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:37:27,428 views 85279 6234402816 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:37:27,443 views 85279 6284881920 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:37:27,443 views 85279 6284881920 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:37:27,446 log 85279 6200750080 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-13 03:37:27,446 log 85279 6234402816 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-13 03:37:27,463 views 85279 6301708288 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:37:27,463 views 85279 6301708288 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:37:27,466 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:37:27,466 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:39:12,009 log 85279 6200750080 Not Found: /depannage/api/technicians/dashboard/
+WARNING 2025-07-13 03:39:12,016 log 85279 6234402816 Not Found: /depannage/api/technicians/dashboard/
+INFO 2025-07-13 03:39:19,918 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+WARNING 2025-07-13 03:39:19,918 log 85279 6200750080 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-13 03:39:19,918 log 85279 6234402816 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-13 03:39:19,919 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:39:19,931 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:39:19,932 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:39:19,940 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:39:19,941 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:39:19,953 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:39:19,954 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:39:27,973 log 85279 6200750080 Not Found: /depannage/api/technicians/dashboard/
+WARNING 2025-07-13 03:39:27,973 log 85279 6234402816 Not Found: /depannage/api/technicians/dashboard/
+INFO 2025-07-13 03:39:30,420 views 85279 6268055552 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:39:30,420 views 85279 6268055552 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:39:30,422 log 85279 6200750080 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-13 03:39:30,423 log 85279 6234402816 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-13 03:39:30,433 views 85279 6301708288 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:39:30,433 views 85279 6301708288 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:39:30,447 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:39:30,447 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:39:30,459 views 85279 6268055552 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:39:30,460 views 85279 6268055552 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:39:35,779 log 85279 6200750080 Not Found: /depannage/api/technicians/dashboard/
+WARNING 2025-07-13 03:39:35,779 log 85279 6234402816 Not Found: /depannage/api/technicians/dashboard/
+WARNING 2025-07-13 03:39:37,600 log 85279 6200750080 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-13 03:39:37,607 views 85279 6268055552 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:39:37,608 views 85279 6268055552 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:39:37,611 log 85279 6234402816 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-13 03:39:37,628 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:39:37,628 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:39:37,645 views 85279 6268055552 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:39:37,646 views 85279 6268055552 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:39:37,659 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:39:37,660 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:39:39,968 log 85279 6200750080 Not Found: /depannage/api/technicians/dashboard/
+WARNING 2025-07-13 03:39:39,968 log 85279 6234402816 Not Found: /depannage/api/technicians/dashboard/
+INFO 2025-07-13 03:39:41,501 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:39:41,502 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:39:41,504 log 85279 6200750080 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-13 03:39:41,504 log 85279 6234402816 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-13 03:39:41,518 views 85279 6301708288 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:39:41,519 views 85279 6301708288 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:39:41,519 views 85279 6318534656 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:39:41,520 views 85279 6318534656 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:39:41,544 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:39:41,544 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:39:43,741 log 85279 6200750080 Not Found: /depannage/api/technicians/dashboard/
+WARNING 2025-07-13 03:39:43,741 log 85279 6234402816 Not Found: /depannage/api/technicians/dashboard/
+INFO 2025-07-13 03:39:58,165 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:39:58,166 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:39:58,168 log 85279 6200750080 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-13 03:39:58,168 log 85279 6234402816 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-13 03:39:58,182 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:39:58,182 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:39:58,201 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:39:58,202 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:39:58,203 views 85279 6284881920 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:39:58,203 views 85279 6284881920 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:40:01,744 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+WARNING 2025-07-13 03:41:22,086 log 85279 6200750080 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-13 03:41:22,087 log 85279 6234402816 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-13 03:41:22,095 views 85279 6284881920 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:41:22,095 views 85279 6284881920 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:41:22,119 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:41:22,119 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:41:22,134 views 85279 6268055552 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:41:22,134 views 85279 6268055552 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:41:22,150 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:41:22,150 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:41:25,279 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:41:29,313 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:41:42,451 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:41:42,462 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:41:46,588 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:41:46,588 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:41:46,599 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:41:46,599 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:42:09,380 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:42:09,391 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:42:14,133 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:42:14,133 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:42:14,144 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:42:14,144 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:42:16,166 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:42:16,166 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:42:18,126 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:42:18,126 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:42:18,696 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:42:18,697 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:42:22,606 log 85279 6200750080 Not Found: /depannage/api/technicians/0/
+WARNING 2025-07-13 03:42:22,616 log 85279 6234402816 Not Found: /depannage/api/technicians/0/
+WARNING 2025-07-13 03:42:29,096 log 85279 6200750080 Not Found: /depannage/api/technicians/0/
+WARNING 2025-07-13 03:42:29,096 log 85279 6234402816 Not Found: /depannage/api/technicians/0/
+WARNING 2025-07-13 03:42:42,359 log 85279 6200750080 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-13 03:42:42,359 log 85279 6234402816 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-13 03:42:42,366 views 85279 6318534656 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:42:42,366 views 85279 6318534656 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:42:42,386 views 85279 6268055552 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:42:42,386 views 85279 6268055552 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:42:42,409 views 85279 6284881920 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:42:42,410 views 85279 6284881920 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:42:42,428 views 85279 6268055552 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:42:42,428 views 85279 6268055552 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:42:48,387 log 85279 6234402816 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-13 03:42:48,387 log 85279 6200750080 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-13 03:42:48,396 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:42:48,396 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:42:48,403 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:42:48,403 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:42:48,408 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:42:48,408 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:42:48,416 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:42:48,417 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:42:59,492 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:43:01,227 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+WARNING 2025-07-13 03:44:38,324 log 85279 6234402816 Not Found: /depannage/api/technicians/dashboard/
+WARNING 2025-07-13 03:44:38,324 log 85279 6200750080 Not Found: /depannage/api/technicians/dashboard/
+INFO 2025-07-13 03:44:41,559 views 85279 6268055552 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:44:41,560 views 85279 6268055552 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:44:41,586 views 85279 6301708288 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:44:41,586 views 85279 6301708288 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:44:41,586 log 85279 6234402816 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-13 03:44:41,595 log 85279 6200750080 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-13 03:44:41,608 views 85279 6268055552 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:44:41,608 views 85279 6268055552 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:44:41,624 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:44:41,624 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:44:44,730 log 85279 6234402816 Not Found: /depannage/api/technicians/dashboard/
+WARNING 2025-07-13 03:44:44,730 log 85279 6200750080 Not Found: /depannage/api/technicians/dashboard/
+WARNING 2025-07-13 03:44:47,759 log 85279 6200750080 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-13 03:44:47,760 log 85279 6234402816 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-13 03:44:47,767 views 85279 6301708288 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:44:47,768 views 85279 6301708288 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:44:47,783 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:44:47,784 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:44:47,802 views 85279 6268055552 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:44:47,802 views 85279 6268055552 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:44:47,814 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:44:47,815 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:44:55,099 log 85279 6234402816 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-13 03:44:55,104 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:44:55,105 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:44:55,109 log 85279 6200750080 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-13 03:44:55,124 views 85279 6268055552 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:44:55,124 views 85279 6268055552 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:44:55,133 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:44:55,133 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:44:55,144 views 85279 6268055552 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:44:55,145 views 85279 6268055552 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:44:58,528 views 85279 6301708288 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:44:58,529 views 85279 6301708288 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:44:58,529 log 85279 6234402816 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-13 03:44:58,530 log 85279 6200750080 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-13 03:44:58,544 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:44:58,545 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:44:58,560 views 85279 6268055552 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:44:58,560 views 85279 6268055552 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:44:58,576 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:44:58,576 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:45:07,580 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:48:55,165 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:48:55,920 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:48:55,932 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:48:56,638 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:48:56,638 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:48:56,650 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:48:56,650 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:48:57,379 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:48:57,393 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:49:03,049 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:49:04,949 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:49:04,949 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:49:04,961 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:49:04,961 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:49:20,844 views 85279 6183923712 [DEBUG] get_technician_profile: Aucun profil technicien trouvé pour user client2 (Client)
+WARNING 2025-07-13 03:49:20,845 log 85279 6234402816 Forbidden: /depannage/api/reviews/received/
+WARNING 2025-07-13 03:49:26,553 log 85279 6200750080 Unauthorized: /users/login/
+INFO 2025-07-13 03:49:34,985 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:49:34,985 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:49:38,391 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:49:50,104 views 85279 6183923712 [DEBUG] get_technician_profile: Aucun profil technicien trouvé pour user client2 (Client)
+WARNING 2025-07-13 03:49:50,108 log 85279 6234402816 Forbidden: /depannage/api/reviews/received/
+INFO 2025-07-13 03:49:50,113 views 85279 6183923712 [DEBUG] get_technician_profile: Aucun profil technicien trouvé pour user client2 (Client)
+WARNING 2025-07-13 03:49:50,246 log 85279 6200750080 Unauthorized: /users/login/
+WARNING 2025-07-13 03:49:50,379 log 85279 6234402816 Unauthorized: /users/login/
+INFO 2025-07-13 03:50:06,697 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:50:06,698 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:50:06,700 log 85279 6200750080 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-13 03:50:06,716 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:50:06,716 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:50:19,554 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:50:19,567 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:50:19,574 log 85279 6234402816 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-13 03:50:19,589 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:50:19,589 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:50:33,668 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:50:33,670 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:50:33,678 log 85279 6200750080 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-13 03:50:33,695 views 85279 6268055552 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:50:33,696 views 85279 6268055552 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:50:49,822 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:50:49,823 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:50:49,824 log 85279 6234402816 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-13 03:50:49,836 views 85279 6268055552 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:50:49,839 views 85279 6268055552 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:51:22,082 views 85279 6183923712 [DEBUG] get_technician_profile: Aucun profil technicien trouvé pour user client2 (Client)
+WARNING 2025-07-13 03:51:22,084 log 85279 6200750080 Forbidden: /depannage/api/reviews/received/
+INFO 2025-07-13 03:51:22,089 views 85279 6183923712 [DEBUG] get_technician_profile: Aucun profil technicien trouvé pour user client2 (Client)
+WARNING 2025-07-13 03:51:22,268 log 85279 6234402816 Unauthorized: /users/login/
+WARNING 2025-07-13 03:51:22,274 log 85279 6200750080 Not Found: /users/login/
+WARNING 2025-07-13 03:52:19,598 log 85279 6234402816 Unauthorized: /depannage/api/repair-requests/project_statistics/
+WARNING 2025-07-13 03:52:19,606 log 85279 6200750080 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-13 03:52:19,608 views 85279 6301708288 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:52:19,608 views 85279 6301708288 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:52:19,658 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:52:19,661 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:52:19,743 views 85279 6268055552 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:52:19,745 views 85279 6284881920 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:52:19,747 views 85279 6268055552 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:52:19,747 views 85279 6284881920 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:52:57,157 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:52:57,166 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:52:59,177 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:52:59,179 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:52:59,179 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:52:59,179 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:53:06,793 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:53:06,803 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:53:07,450 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:53:07,450 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:53:07,460 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:53:07,460 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:53:09,231 log 85279 6234402816 Not Found: /depannage/api/technicians/0/
+WARNING 2025-07-13 03:53:09,231 log 85279 6200750080 Not Found: /depannage/api/technicians/0/
+INFO 2025-07-13 03:54:20,236 views 85279 6183923712 [DEBUG] get_technician_profile: Aucun profil technicien trouvé pour user client2 (Client)
+WARNING 2025-07-13 03:54:20,238 log 85279 6234402816 Not Found: /depannage/api/technicians/me/
+WARNING 2025-07-13 03:54:20,243 log 85279 6200750080 Not Found: /depannage/api/technicians/87/
+WARNING 2025-07-13 03:54:20,370 log 85279 6234402816 Unauthorized: /users/login/
+WARNING 2025-07-13 03:54:20,376 log 85279 6200750080 Not Found: /users/login/
+WARNING 2025-07-13 03:54:43,235 log 85279 6234402816 Not Found: /depannage/api/technicians/0/
+WARNING 2025-07-13 03:54:52,946 log 85279 6200750080 Not Found: /depannage/api/technicians/0/
+WARNING 2025-07-13 03:55:15,754 log 85279 6234402816 Not Found: /depannage/api/technicians/0/
+WARNING 2025-07-13 03:55:31,339 log 85279 6200750080 Not Found: /depannage/api/technicians/0/
+WARNING 2025-07-13 03:55:52,921 log 85279 6234402816 Not Found: /depannage/api/technicians/0/
+WARNING 2025-07-13 03:56:03,999 log 85279 6200750080 Not Found: /depannage/api/technicians/0/
+WARNING 2025-07-13 03:56:13,244 log 85279 6234402816 Not Found: /depannage/api/technicians/0/
+INFO 2025-07-13 03:57:02,151 views 85279 6183923712 [DEBUG] get_technician_profile: Aucun profil technicien trouvé pour user client2 (Client)
+WARNING 2025-07-13 03:57:02,154 log 85279 6200750080 Not Found: /depannage/api/technicians/me/
+WARNING 2025-07-13 03:57:02,322 log 85279 6234402816 Unauthorized: /users/login/
+WARNING 2025-07-13 03:57:02,328 log 85279 6200750080 Not Found: /users/login/
+INFO 2025-07-13 03:58:39,563 views 85279 6183923712 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:58:39,565 views 85279 6183923712 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:58:39,567 log 85279 6234402816 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-13 03:58:39,574 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:58:39,574 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:59:00,325 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:59:00,325 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:59:00,328 log 85279 6200750080 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-13 03:59:00,339 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:59:00,340 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:59:04,744 views 85279 6251229184 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:59:04,745 views 85279 6251229184 Technicien 87 - Accès gratuit activé
+WARNING 2025-07-13 03:59:04,750 log 85279 6234402816 Unauthorized: /depannage/api/repair-requests/project_statistics/
+INFO 2025-07-13 03:59:04,755 views 85279 6284881920 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 03:59:04,756 views 85279 6284881920 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 03:59:37,226 views 85279 6183923712 [DEBUG] get_technician_profile: Aucun profil technicien trouvé pour user client2 (Client)
+WARNING 2025-07-13 03:59:37,228 log 85279 6200750080 Not Found: /depannage/api/technicians/me/
+WARNING 2025-07-13 03:59:37,232 log 85279 6234402816 Not Found: /depannage/api/technicians/0/
+WARNING 2025-07-13 03:59:37,371 log 85279 6200750080 Unauthorized: /users/login/
+WARNING 2025-07-13 03:59:37,378 log 85279 6234402816 Not Found: /users/login/
+WARNING 2025-07-13 04:02:15,088 log 91487 6153859072 Bad Request: /users/login/
+WARNING 2025-07-13 04:02:15,092 log 91487 6153859072 Bad Request: /users/login/
+WARNING 2025-07-13 04:02:34,594 log 91487 6153859072 Unauthorized: /users/login/
+INFO 2025-07-13 04:02:34,731 views 91487 6137032704 [DEBUG] get_technician_profile: Aucun profil technicien trouvé pour user client2 (Client)
+WARNING 2025-07-13 04:02:34,732 log 91487 6153859072 Forbidden: /depannage/api/reviews/received/
+INFO 2025-07-13 04:04:20,980 views 91487 6137032704 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 04:04:21,115 views 91487 6137032704 [DEBUG] get_technician_profile: Aucun profil technicien trouvé pour user client2 (Client)
+WARNING 2025-07-13 04:04:21,115 log 91487 6153859072 Forbidden: /depannage/api/reviews/received/
+INFO 2025-07-13 04:04:21,173 views 91487 6137032704 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 04:04:21,179 views 91487 6137032704 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 04:04:21,187 views 91487 6137032704 [DEBUG] get_technician_profile: technician_depannage trouvé: Bechir Ballo - Plombier (type: <class 'depannage.models.Technician'>)
+INFO 2025-07-13 04:04:21,187 views 91487 6137032704 Technicien 87 - Accès gratuit activé
+INFO 2025-07-13 04:09:06,464 views 91487 6137032704 [DEBUG] Body reçu pour création RepairRequest: {'title': 'Panne électrique urgente', 'description': 'Problème électrique dans la salle de bain, prise qui fait des étincelles', 'address': '123 Rue de la Paix, Bamako', 'latitude': 12.6508, 'longitude': -8.0, 'urgency_level': 'high', 'category': 'electricity'}
+ERROR 2025-07-13 04:09:06,471 views 91487 6137032704 [DEBUG][EXCEPTION] {'urgency_level': [ErrorDetail(string='"high" is not a valid choice.', code='invalid_choice')]}
+Traceback (most recent call last):
+  File "/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend/depannage/views.py", line 1007, in create
+    serializer.is_valid(raise_exception=True)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend/venv/lib/python3.13/site-packages/rest_framework/serializers.py", line 233, in is_valid
+    raise ValidationError(self.errors)
+rest_framework.exceptions.ValidationError: {'urgency_level': [ErrorDetail(string='"high" is not a valid choice.', code='invalid_choice')]}
+
+ERROR 2025-07-13 04:09:06,472 log 91487 6153859072 Internal Server Error: /depannage/api/repair-requests/
+INFO 2025-07-13 04:09:20,789 views 91487 6137032704 [DEBUG] Body reçu pour création RepairRequest: {'title': 'Panne électrique urgente', 'description': 'Problème électrique dans la salle de bain, prise qui fait des étincelles', 'address': '123 Rue de la Paix, Bamako', 'latitude': 12.6508, 'longitude': -8.0, 'urgency_level': 'urgent', 'specialty_needed': 'electrician'}
+INFO 2025-07-13 04:09:20,822 views 91487 6137032704 Nouvelle demande créée: 586 par client2
+INFO 2025-07-13 04:09:50,403 views 91487 6137032704 [DEBUG] Body reçu pour création RepairRequest: {'title': 'Panne électrique urgente', 'description': 'Problème électrique dans la salle de bain, prise qui fait des étincelles', 'address': '123 Rue de la Paix, Bamako', 'latitude': 12.6508, 'longitude': -8.0, 'urgency_level': 'urgent', 'specialty_needed': 'electrician'}
+INFO 2025-07-13 04:09:50,440 views 91487 6137032704 Nouvelle demande créée: 587 par client2
+WARNING 2025-07-13 04:09:50,541 log 91487 6153859072 Not Found: /depannage/api/repair-requests/587/accept/
+INFO 2025-07-13 04:10:54,771 views 91487 6137032704 [DEBUG] Body reçu pour création RepairRequest: {'title': 'Panne électrique urgente', 'description': 'Problème électrique dans la salle de bain, prise qui fait des étincelles', 'address': '123 Rue de la Paix, Bamako', 'latitude': 12.6508, 'longitude': -8.0, 'urgency_level': 'urgent', 'specialty_needed': 'electrician'}
+INFO 2025-07-13 04:10:54,797 views 91487 6137032704 Nouvelle demande créée: 588 par client2
+WARNING 2025-07-13 04:10:54,860 log 91487 6153859072 Not Found: /depannage/api/repair-requests/588/assign_technician/
+INFO 2025-07-13 04:11:44,670 views 91487 6137032704 [DEBUG] Body reçu pour création RepairRequest: {'title': 'Panne électrique urgente', 'description': 'Problème électrique dans la salle de bain, prise qui fait des étincelles', 'address': '123 Rue de la Paix, Bamako', 'latitude': 12.6508, 'longitude': -8.0, 'urgency_level': 'urgent', 'specialty_needed': 'electrician'}
+INFO 2025-07-13 04:11:44,691 views 91487 6137032704 Nouvelle demande créée: 589 par client2
+WARNING 2025-07-13 04:11:44,749 log 91487 6153859072 Not Found: /depannage/api/repair-requests/589/assign_technician/
+INFO 2025-07-13 04:19:59,237 views 91487 6137032704 Tentative de mise à jour - Demande: 587, Utilisateur: 3 (client), Nouveau statut: cancelled
+INFO 2025-07-13 04:19:59,240 views 91487 6137032704 Client autorisé à annuler sa demande: True
+INFO 2025-07-13 04:19:59,240 views 91487 6137032704 Changement de statut de pending vers cancelled
+INFO 2025-07-13 04:19:59,250 views 91487 6137032704 Statut mis à jour avec succès vers cancelled
+INFO 2025-07-13 04:20:08,777 views 91487 6137032704 Tentative de mise à jour - Demande: 588, Utilisateur: 3 (client), Nouveau statut: cancelled
+INFO 2025-07-13 04:20:08,779 views 91487 6137032704 Client autorisé à annuler sa demande: True
+INFO 2025-07-13 04:20:08,779 views 91487 6137032704 Changement de statut de pending vers cancelled
+INFO 2025-07-13 04:20:08,787 views 91487 6137032704 Statut mis à jour avec succès vers cancelled
+INFO 2025-07-13 04:20:11,575 views 91487 6137032704 Tentative de mise à jour - Demande: 589, Utilisateur: 3 (client), Nouveau statut: cancelled
+INFO 2025-07-13 04:20:11,576 views 91487 6137032704 Client autorisé à annuler sa demande: True
+INFO 2025-07-13 04:20:11,576 views 91487 6137032704 Changement de statut de pending vers cancelled
+INFO 2025-07-13 04:20:11,578 views 91487 6137032704 Statut mis à jour avec succès vers cancelled

@@ -26,6 +26,11 @@ from .views import (
     AdminNotificationViewSet,
     AuditLogListView,
     # SubscriptionRequestViewSet,  # Supprimé - plus de demandes d'abonnement
+    # Nouveaux ViewSets pour le chat
+    ChatConversationViewSet,
+    ChatMessageViewSet,
+    ChatMessageAttachmentViewSet,
+    ChatGetOrCreateConversationView,
     # Nouveaux endpoints
     admin_dashboard_stats,
     admin_notifications,
@@ -66,7 +71,15 @@ router.register(r'reports', ReportViewSet, basename='reports')
 router.register(r'admin-notifications', AdminNotificationViewSet, basename='admin-notifications')
 # router.register(r'subscription-requests', SubscriptionRequestViewSet, basename='subscription-request')  # Supprimé
 
+# Nouvelles routes pour le chat
+router.register(r'chat/conversations', ChatConversationViewSet, basename='chat-conversation')
+router.register(r'chat/messages', ChatMessageViewSet, basename='chat-message')
+router.register(r'chat/attachments', ChatMessageAttachmentViewSet, basename='chat-attachment')
+
 urlpatterns = [
+    # Endpoint explicite pour get_or_create conversation (AVANT le router)
+    path("api/chat/conversations/get_or_create_explicit/", ChatGetOrCreateConversationView.as_view(), name="chat-get-or-create-conversation-explicit"),
+    
     # Endpoint de notification CinetPay supprimé - plus de paiements
     
     path("api/", include(router.urls)),

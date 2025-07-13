@@ -92,6 +92,7 @@ const TechnicianMap: React.FC<TechnicianMapProps> = ({ showOnlyIncoherent }) => 
   const [urgentMode, setUrgentMode] = useState<boolean>(false);
   const [refreshWarning, setRefreshWarning] = useState<string | null>(null);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [showAll, setShowAll] = useState(false);
 
   const findNearestTechnician = useCallback(() => {
     setLoading(true);
@@ -119,6 +120,7 @@ const TechnicianMap: React.FC<TechnicianMapProps> = ({ showOnlyIncoherent }) => 
                 min_experience_level: minExperience,
                 min_rating: minRating,
                 urgence: urgentMode ? 'urgent' : 'normal',
+                all: showAll ? 'true' : undefined,
               },
               headers: token ? { Authorization: `Bearer ${token}` } : {},
             }
@@ -138,7 +140,7 @@ const TechnicianMap: React.FC<TechnicianMapProps> = ({ showOnlyIncoherent }) => 
         setLoading(false);
       }
     );
-  }, [minExperience, minRating, urgentMode]);
+  }, [minExperience, minRating, urgentMode, showAll]);
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
@@ -210,6 +212,16 @@ const TechnicianMap: React.FC<TechnicianMapProps> = ({ showOnlyIncoherent }) => 
             className="h-4 w-4"
           />
           <label className="font-medium">Mode urgence</label>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={showAll}
+            onChange={e => setShowAll(e.target.checked)}
+            className="h-4 w-4"
+          />
+          <label className="font-medium">Voir tous les techniciens</label>
         </div>
 
         <div className="flex flex-col gap-2">

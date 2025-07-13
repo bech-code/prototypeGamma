@@ -4,6 +4,7 @@ import rest_framework.status as rf_status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
+from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.conf import settings
 from django.utils import timezone
@@ -54,10 +55,14 @@ from .serializers import (
     AuditLogSerializer,
     SubscriptionPaymentRequestSerializer,
     TechnicianSubscriptionSerializer,
+    ChatConversationSerializer,
+    ChatMessageSerializer,
+    ChatMessageAttachmentSerializer,
 )
 from .models import (
     Client, Technician, RepairRequest, RequestDocument, Review, Payment, Conversation, Message, Notification, MessageAttachment, TechnicianLocation, SystemConfiguration, CinetPayPayment, PlatformConfiguration, ClientLocation,
     Report, AdminNotification, SubscriptionPaymentRequest, TechnicianSubscription,
+    ChatConversation, ChatMessage, ChatMessageAttachment,
 )
 from rest_framework.views import APIView
 from users.models import AuditLog
@@ -1871,6 +1876,7 @@ class TechnicianNearbyViewSet(viewsets.GenericViewSet):
             lng = request.query_params.get('lng')
             service = request.query_params.get('service')
             urgence = request.query_params.get('urgence', 'normal')
+            all_techs = request.query_params.get('all', 'false').lower() == 'true'
             
             # Validation des paramètres
             if not lat or not lng:
@@ -1902,29 +1908,23 @@ class TechnicianNearbyViewSet(viewsets.GenericViewSet):
             # Calculer la distance pour chaque technicien
             technicians_with_distance = []
             for technician in queryset:
-                # Récupérer la localisation du technicien
                 try:
                     location = technician.location
                     if location:
-                        # Calculer la distance avec la formule de Haversine
                         distance = self.calculate_haversine_distance(
                             lat, lng, location.latitude, location.longitude
                         )
-                        
-                        # Filtrer par rayon de recherche
-                        if distance <= search_radius:
-                            technician.distance_km = round(distance, 2)
+                        technician.distance_km = round(distance, 2)
+                        if all_techs or distance <= search_radius:
                             technicians_with_distance.append(technician)
                 except TechnicianLocation.DoesNotExist:
-                    # Si pas de localisation, on peut utiliser une distance par défaut
-                    # ou ignorer le technicien
                     continue
             
             # Trier par distance croissante
             technicians_with_distance.sort(key=lambda x: x.distance_km)
             
             # Limiter le nombre de résultats (optionnel)
-            max_results = 20
+            max_results = 100 if all_techs else 20
             technicians_with_distance = technicians_with_distance[:max_results]
             
             # Sérialiser les résultats
@@ -2556,3 +2556,282 @@ def export_audit_logs(request):
                 str(log.metadata) if log.metadata else ''
             ])
         return response
+
+
+class ChatConversationViewSet(viewsets.ModelViewSet):
+    """ViewSet pour gérer les conversations de chat."""
+    
+    serializer_class = ChatConversationSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        """Retourne les conversations de l'utilisateur connecté."""
+        user = self.request.user
+        return ChatConversation.objects.filter(
+            models.Q(client=user) | models.Q(technician=user)
+        ).filter(is_active=True)
+    
+    @action(detail=False, methods=['post'], url_path='get_or_create', url_name='get_or_create')
+    def get_or_create_conversation(self, request):
+        """Récupère ou crée une conversation entre un client et un technicien."""
+        client_id = request.data.get('client_id')
+        technician_id = request.data.get('technician_id')
+        request_id = request.data.get('request_id')
+        
+        if not client_id or not technician_id:
+            return Response(
+                {'error': 'client_id et technician_id sont requis'}, 
+                status=400
+            )
+        
+        # Vérifier que l'utilisateur connecté est soit le client soit le technicien
+        user = request.user
+        if user.id not in [client_id, technician_id]:
+            return Response(
+                {'error': 'Vous ne pouvez pas créer une conversation pour d\'autres utilisateurs'}, 
+                status=403
+            )
+        
+        # Déterminer qui est client et qui est technicien
+        if user.id == client_id:
+            client = user
+            technician = get_object_or_404(User, id=technician_id)
+        else:
+            client = get_object_or_404(User, id=client_id)
+            technician = user
+        
+        # Créer ou récupérer la conversation
+        conversation, created = ChatConversation.objects.get_or_create(
+            client=client,
+            technician=technician,
+            defaults={
+                'request_id': request_id,
+                'is_active': True
+            }
+        )
+        
+        # Si la conversation existe déjà, mettre à jour la demande si nécessaire
+        if not created and request_id and not conversation.request_id:
+            conversation.request_id = request_id
+            conversation.save()
+        
+        serializer = self.get_serializer(conversation)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def mark_as_read(self, request, pk=None):
+        """Marque tous les messages comme lus pour l'utilisateur connecté."""
+        conversation = self.get_object()
+        user = request.user
+        
+        # Vérifier que l'utilisateur fait partie de la conversation
+        if user not in [conversation.client, conversation.technician]:
+            return Response({'error': 'Accès non autorisé'}, status=403)
+        
+        conversation.mark_all_as_read_for_user(user)
+        return Response({'success': True, 'message': 'Messages marqués comme lus'})
+    
+    @action(detail=True, methods=['post'])
+    def archive(self, request, pk=None):
+        """Archive une conversation."""
+        conversation = self.get_object()
+        user = request.user
+        
+        # Vérifier que l'utilisateur fait partie de la conversation
+        if user not in [conversation.client, conversation.technician]:
+            return Response({'error': 'Accès non autorisé'}, status=403)
+        
+        conversation.is_active = False
+        conversation.save()
+        return Response({'success': True, 'message': 'Conversation archivée'})
+
+
+class ChatMessageViewSet(viewsets.ModelViewSet):
+    """ViewSet pour gérer les messages de chat."""
+    
+    serializer_class = ChatMessageSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        """Retourne les messages des conversations de l'utilisateur connecté."""
+        user = self.request.user
+        return ChatMessage.objects.filter(
+            conversation__in=ChatConversation.objects.filter(
+                models.Q(client=user) | models.Q(technician=user)
+            )
+        )
+    
+    def perform_create(self, serializer):
+        """Surcharge pour vérifier les permissions et marquer comme lu."""
+        user = self.request.user
+        conversation = serializer.validated_data['conversation']
+        
+        # Vérifier que l'utilisateur fait partie de la conversation
+        if user not in [conversation.client, conversation.technician]:
+            raise PermissionDenied("Vous ne pouvez pas envoyer de message dans cette conversation")
+        
+        # Créer le message
+        message = serializer.save(sender=user)
+        
+        # Marquer automatiquement comme lu si l'utilisateur est le destinataire
+        if user == conversation.client:
+            other_user = conversation.technician
+        else:
+            other_user = conversation.client
+        
+        # Marquer les messages non lus de l'autre utilisateur comme lus
+        conversation.messages.filter(
+            sender=other_user,
+            is_read=False
+        ).update(is_read=True, read_at=timezone.now())
+        
+        return message
+    
+    @action(detail=False, methods=['get'])
+    def conversation_messages(self, request):
+        """Récupère tous les messages d'une conversation."""
+        conversation_id = request.query_params.get('conversation_id')
+        if not conversation_id:
+            return Response({'error': 'conversation_id requis'}, status=400)
+        
+        try:
+            conversation = ChatConversation.objects.get(id=conversation_id)
+        except ChatConversation.DoesNotExist:
+            return Response({'error': 'Conversation non trouvée'}, status=404)
+        
+        # Vérifier que l'utilisateur fait partie de la conversation
+        user = request.user
+        if user not in [conversation.client, conversation.technician]:
+            return Response({'error': 'Accès non autorisé'}, status=403)
+        
+        messages = conversation.messages.all().order_by('created_at')
+        serializer = self.get_serializer(messages, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def mark_as_read(self, request, pk=None):
+        """Marque un message spécifique comme lu."""
+        message = self.get_object()
+        user = request.user
+        
+        # Vérifier que l'utilisateur est le destinataire
+        conversation = message.conversation
+        if user not in [conversation.client, conversation.technician]:
+            return Response({'error': 'Accès non autorisé'}, status=403)
+        
+        if message.sender != user:  # Ne pas marquer ses propres messages comme lus
+            message.mark_as_read()
+        
+        return Response({'success': True})
+    
+    @action(detail=False, methods=['post'])
+    def send_location(self, request):
+        """Envoie un message de localisation."""
+        conversation_id = request.data.get('conversation_id')
+        latitude = request.data.get('latitude')
+        longitude = request.data.get('longitude')
+        
+        if not all([conversation_id, latitude, longitude]):
+            return Response(
+                {'error': 'conversation_id, latitude et longitude sont requis'}, 
+                status=400
+            )
+        
+        try:
+            conversation = ChatConversation.objects.get(id=conversation_id)
+        except ChatConversation.DoesNotExist:
+            return Response({'error': 'Conversation non trouvée'}, status=404)
+        
+        # Vérifier que l'utilisateur fait partie de la conversation
+        user = request.user
+        if user not in [conversation.client, conversation.technician]:
+            return Response({'error': 'Accès non autorisé'}, status=403)
+        
+        # Créer le message de localisation
+        message = ChatMessage.objects.create(
+            conversation=conversation,
+            sender=user,
+            content=f"📍 Ma position actuelle",
+            message_type='location',
+            latitude=latitude,
+            longitude=longitude
+        )
+        
+        serializer = self.get_serializer(message)
+        return Response(serializer.data, status=201)
+
+
+class ChatMessageAttachmentViewSet(viewsets.ModelViewSet):
+    """ViewSet pour gérer les pièces jointes de chat."""
+    
+    serializer_class = ChatMessageAttachmentSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        """Retourne les pièces jointes des conversations de l'utilisateur connecté."""
+        user = self.request.user
+        return ChatMessageAttachment.objects.filter(
+            message__conversation__in=ChatConversation.objects.filter(
+                models.Q(client=user) | models.Q(technician=user)
+            )
+        )
+    
+    def perform_create(self, serializer):
+        """Surcharge pour vérifier les permissions."""
+        user = self.request.user
+        message = serializer.validated_data['message']
+        conversation = message.conversation
+        
+        # Vérifier que l'utilisateur fait partie de la conversation
+        if user not in [conversation.client, conversation.technician]:
+            raise PermissionDenied("Vous ne pouvez pas ajouter des pièces jointes à cette conversation")
+        
+        return serializer.save()
+
+from rest_framework.views import APIView
+
+class ChatGetOrCreateConversationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        client_id = request.data.get('client_id')
+        technician_id = request.data.get('technician_id')
+        request_id = request.data.get('request_id')
+
+        if not client_id or not technician_id:
+            return Response(
+                {'error': 'client_id et technician_id sont requis'}, 
+                status=400
+            )
+
+        user = request.user
+        if user.id not in [int(client_id), int(technician_id)]:
+            return Response(
+                {'error': 'Vous ne pouvez pas créer une conversation pour d\'autres utilisateurs'}, 
+                status=403
+            )
+
+        from .models import ChatConversation
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        if user.id == int(client_id):
+            client = user
+            technician = User.objects.get(id=technician_id)
+        else:
+            client = User.objects.get(id=client_id)
+            technician = user
+
+        conversation, created = ChatConversation.objects.get_or_create(
+            client=client,
+            technician=technician,
+            defaults={
+                'request_id': request_id,
+                'is_active': True
+            }
+        )
+        if not created and request_id and not conversation.request_id:
+            conversation.request_id = request_id
+            conversation.save()
+        from .serializers import ChatConversationSerializer
+        serializer = ChatConversationSerializer(conversation, context={'request': request})
+        return Response(serializer.data)

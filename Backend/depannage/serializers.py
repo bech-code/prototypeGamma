@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import (
     Client, Technician, RepairRequest, RequestDocument, Review, 
     Payment, Conversation, Message, MessageAttachment, 
-    Notification, TechnicianLocation, SystemConfiguration, CinetPayPayment, PlatformConfiguration, ClientLocation, Report, AdminNotification, SubscriptionPaymentRequest, TechnicianSubscription
+    Notification, TechnicianLocation, SystemConfiguration, CinetPayPayment, PlatformConfiguration, ClientLocation, Report, AdminNotification, SubscriptionPaymentRequest, TechnicianSubscription, ChatConversation, ChatMessage, ChatMessageAttachment
 )
 from django.conf import settings
 from django.contrib.auth.models import Permission, Group
@@ -654,3 +654,95 @@ class TechnicianSubscriptionSerializer(serializers.ModelSerializer):
             'end_date', 'is_active', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
+
+class ChatConversationSerializer(serializers.ModelSerializer):
+    """Serializer pour les conversations de chat."""
+    
+    client_name = serializers.CharField(source='client.get_full_name', read_only=True)
+    technician_name = serializers.CharField(source='technician.get_full_name', read_only=True)
+    last_message = serializers.SerializerMethodField()
+    unread_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = ChatConversation
+        fields = [
+            'id', 'client', 'technician', 'client_name', 'technician_name',
+            'request', 'is_active', 'last_message_at', 'last_message', 
+            'unread_count', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'last_message_at']
+    
+    def get_last_message(self, obj):
+        last_msg = obj.latest_message
+        if last_msg:
+            return {
+                'id': last_msg.id,
+                'content': last_msg.content,
+                'message_type': last_msg.message_type,
+                'created_at': last_msg.created_at.isoformat(),
+                'sender_id': last_msg.sender.id,
+                'sender_name': last_msg.sender.get_full_name()
+            }
+        return None
+    
+    def get_unread_count(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.unread_count_for_user(request.user)
+        return 0
+
+
+class ChatMessageSerializer(serializers.ModelSerializer):
+    """Serializer pour les messages de chat."""
+    
+    sender_name = serializers.CharField(source='sender.get_full_name', read_only=True)
+    sender_avatar = serializers.SerializerMethodField()
+    attachments = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = ChatMessage
+        fields = [
+            'id', 'conversation', 'sender', 'sender_name', 'sender_avatar',
+            'content', 'message_type', 'is_read', 'read_at', 'attachments',
+            'latitude', 'longitude', 'created_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'read_at']
+    
+    def get_sender_avatar(self, obj):
+        # Placeholder pour avatar - à implémenter selon vos besoins
+        return None
+    
+    def get_attachments(self, obj):
+        attachments = obj.attachments.all()
+        return [
+            {
+                'id': att.id,
+                'file_name': att.file_name,
+                'file_size': att.file_size,
+                'content_type': att.content_type,
+                'file_url': att.file.url if att.file else None
+            }
+            for att in attachments
+        ]
+
+
+class ChatMessageAttachmentSerializer(serializers.ModelSerializer):
+    """Serializer pour les pièces jointes de chat."""
+    
+    class Meta:
+        model = ChatMessageAttachment
+        fields = ['id', 'message', 'file', 'file_name', 'file_size', 'content_type']
+        read_only_fields = ['id', 'file_size', 'content_type']
+    
+    def validate_file(self, value):
+        """Validation du fichier uploadé."""
+        if value.size > 10 * 1024 * 1024:  # 10MB max
+            raise serializers.ValidationError("Le fichier ne peut pas dépasser 10MB.")
+        return value
+    
+    def create(self, validated_data):
+        """Surcharge pour calculer automatiquement file_size et content_type."""
+        file_obj = validated_data['file']
+        validated_data['file_size'] = file_obj.size
+        validated_data['content_type'] = file_obj.content_type
+        return super().create(validated_data)

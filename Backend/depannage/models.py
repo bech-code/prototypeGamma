@@ -501,9 +501,141 @@ class Payment(BaseTimeStampModel):
 
 
 # ============================================================================
-# SYSTÈME DE MESSAGERIE
+# SYSTÈME DE MESSAGERIE - NOUVELLE LOGIQUE
 # ============================================================================
 
+class ChatConversation(BaseTimeStampModel):
+    """Conversation directe entre un client et un technicien."""
+    
+    client = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='client_chat_conversations'
+    )
+    technician = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='technician_chat_conversations'
+    )
+    request = models.ForeignKey(
+        RepairRequest, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name="chat_conversation"
+    )
+    is_active = models.BooleanField("Active", default=True)
+    last_message_at = models.DateTimeField("Dernier message", null=True, blank=True)
+
+    class Meta:
+        unique_together = ('client', 'technician')
+        verbose_name = "Conversation de chat"
+        verbose_name_plural = "Conversations de chat"
+        ordering = ["-last_message_at", "-created_at"]
+
+    def __str__(self):
+        return f"Chat: {self.client.get_full_name()} ↔ {self.technician.get_full_name()}"
+
+    @property
+    def latest_message(self):
+        return self.messages.order_by('-created_at').first()
+
+    def unread_count_for_user(self, user):
+        return self.messages.filter(is_read=False).exclude(sender=user).count()
+
+    def mark_all_as_read_for_user(self, user):
+        """Marque tous les messages comme lus pour un utilisateur."""
+        unread_messages = self.messages.filter(is_read=False).exclude(sender=user)
+        unread_messages.update(is_read=True, read_at=timezone.now())
+
+
+class ChatMessage(BaseTimeStampModel):
+    """Message dans une conversation de chat."""
+    
+    class MessageType(models.TextChoices):
+        TEXT = "text", "Texte"
+        IMAGE = "image", "Image"
+        FILE = "file", "Fichier"
+        SYSTEM = "system", "Système"
+        LOCATION = "location", "Localisation"
+
+    conversation = models.ForeignKey(
+        ChatConversation, 
+        on_delete=models.CASCADE, 
+        related_name="messages"
+    )
+    sender = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name="sent_chat_messages"
+    )
+    content = models.TextField("Contenu")
+    message_type = models.CharField(
+        "Type", 
+        max_length=20, 
+        choices=MessageType.choices, 
+        default=MessageType.TEXT
+    )
+    is_read = models.BooleanField("Lu", default=False)
+    read_at = models.DateTimeField("Lu le", null=True, blank=True)
+    
+    # Pour les messages de localisation
+    latitude = models.FloatField("Latitude", null=True, blank=True)
+    longitude = models.FloatField("Longitude", null=True, blank=True)
+
+    def __str__(self):
+        return f"Message de {self.sender.get_full_name()} - {self.created_at}"
+
+    def mark_as_read(self):
+        """Marque le message comme lu."""
+        if not self.is_read:
+            self.is_read = True
+            self.read_at = timezone.now()
+            self.save()
+
+    def save(self, *args, **kwargs):
+        """Met à jour last_message_at de la conversation."""
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        
+        if is_new:
+            # Mettre à jour le timestamp du dernier message
+            self.conversation.last_message_at = self.created_at
+            self.conversation.save(update_fields=['last_message_at'])
+
+    class Meta:
+        verbose_name = "Message de chat"
+        verbose_name_plural = "Messages de chat"
+        ordering = ["created_at"]
+
+
+class ChatMessageAttachment(BaseTimeStampModel):
+    """Pièce jointe d'un message de chat."""
+    
+    def get_upload_path(self, filename):
+        return f"chat_attachments/{self.message.conversation.id}/{filename}"
+
+    message = models.ForeignKey(
+        ChatMessage, 
+        on_delete=models.CASCADE, 
+        related_name="attachments"
+    )
+    file = models.FileField("Fichier", upload_to=get_upload_path)
+    file_name = models.CharField("Nom du fichier", max_length=255)
+    file_size = models.PositiveIntegerField("Taille du fichier")
+    content_type = models.CharField("Type MIME", max_length=100)
+
+    def __str__(self):
+        return f"Pièce jointe - {self.file_name}"
+
+    class Meta:
+        verbose_name = "Pièce jointe de chat"
+        verbose_name_plural = "Pièces jointes de chat"
+
+
+# ============================================================================
+# SYSTÈME DE MESSAGERIE (ANCIEN - À DÉPRÉCIER)
+# ============================================================================
 
 class Conversation(BaseTimeStampModel):
     """Conversation entre utilisateurs liée à une demande."""
