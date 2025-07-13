@@ -72,6 +72,7 @@ function App() {
           <Route path="/" element={<MainLayout />}>
             <Route index element={<Home />} />
             <Route path="service/:serviceId" element={<ServiceDetails />} />
+            <Route path="services" element={<Home />} />
             <Route path="booking" element={<BookingForm />} />
             <Route path="login" element={<Login />} />
             <Route path="register" element={<Register />} />
@@ -86,6 +87,17 @@ function App() {
                     return <Navigate to="/technician/dashboard" replace />;
                   }
                   return <CustomerDashboard />;
+                }}
+              </PrivateRoute>
+            } />
+
+            <Route path="customer-dashboard" element={
+              <PrivateRoute>
+                {({ user }) => {
+                  if (user.user_type === 'client') {
+                    return <CustomerDashboard />;
+                  }
+                  return <Navigate to="/dashboard" replace />;
                 }}
               </PrivateRoute>
             } />

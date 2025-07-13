@@ -850,7 +850,7 @@ const BookingForm: React.FC = () => {
       // Afficher un message de confirmation à l'utilisateur
       setError(null);
       alert('Votre demande a bien été envoyée et est en attente de mise en relation avec un technicien. Le paiement sera effectué en main propre au technicien lors de la réalisation de la prestation.');
-      navigate('/customer-dashboard');
+      navigate('/dashboard');
 
     } catch (error: unknown) {
       console.error('Erreur lors de la soumission:', error);
