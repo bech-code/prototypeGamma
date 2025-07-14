@@ -11,7 +11,8 @@ from .models import (
     Client, Technician, RepairRequest, RequestDocument, Review, 
     Payment, Conversation, Message, MessageAttachment, 
     Notification, TechnicianLocation, SystemConfiguration, CinetPayPayment, ClientLocation, Report, AdminNotification,
-    TechnicianSubscription, SubscriptionPaymentRequest
+    TechnicianSubscription, SubscriptionPaymentRequest, ChatConversation, ChatMessage, ChatMessageAttachment, CommunicationStats, CommunicationSession, CommunicationNotification, CommunicationSettings, LocationHistory,
+    ServiceZone, Route, PointOfInterest, GeolocationAlert, GeolocationSettings
 )
 
 
@@ -673,21 +674,331 @@ class MessageAttachmentAdmin(admin.ModelAdmin):
 
 @admin.register(TechnicianLocation)
 class TechnicianLocationAdmin(admin.ModelAdmin):
-    """Configuration de l'admin pour la localisation des techniciens."""
-    list_display = ('technician', 'latitude', 'longitude', 'technician_availability', 'updated_at')
-    list_filter = ('technician__is_available',)
-    search_fields = ('technician__user__username', 'technician__user__first_name')
-    readonly_fields = ('created_at', 'updated_at')
+    """Admin pour la localisation des techniciens."""
+    
+    list_display = [
+        'technician', 'latitude', 'longitude', 'accuracy', 'is_moving',
+        'battery_level', 'location_source', 'city', 'created_at'
+    ]
+    list_filter = [
+        'is_moving', 'location_source', 'city', 'country',
+        'created_at', 'updated_at'
+    ]
+    search_fields = [
+        'technician__user__first_name', 'technician__user__last_name',
+        'technician__user__email', 'address', 'city'
+    ]
+    readonly_fields = ['created_at', 'updated_at']
+    list_per_page = 20
+    
+    fieldsets = (
+        ('Technicien', {
+            'fields': ('technician',)
+        }),
+        ('Coordonnées', {
+            'fields': ('latitude', 'longitude', 'accuracy', 'altitude')
+        }),
+        ('Mouvement', {
+            'fields': ('speed', 'heading', 'is_moving')
+        }),
+        ('Dispositif', {
+            'fields': ('battery_level', 'location_source')
+        }),
+        ('Adresse', {
+            'fields': ('address', 'city', 'country')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
 
-    @admin.display(description='Disponibilité', boolean=True)
-    def technician_availability(self, obj):
-        """Affiche la disponibilité du technicien lié."""
-        return obj.technician.is_available
 
-# Assurez-vous que les autres modèles sont aussi enregistrés si nécessaire
-# admin.site.register(Client)
-# admin.site.register(Technician)
-# ... etc
+@admin.register(ClientLocation)
+class ClientLocationAdmin(admin.ModelAdmin):
+    """Admin pour la localisation des clients."""
+    
+    list_display = [
+        'client', 'latitude', 'longitude', 'accuracy', 'is_moving',
+        'battery_level', 'location_source', 'city', 'created_at'
+    ]
+    list_filter = [
+        'is_moving', 'location_source', 'city', 'country',
+        'created_at', 'updated_at'
+    ]
+    search_fields = [
+        'client__user__first_name', 'client__user__last_name',
+        'client__user__email', 'address', 'city'
+    ]
+    readonly_fields = ['created_at', 'updated_at']
+    list_per_page = 20
+    
+    fieldsets = (
+        ('Client', {
+            'fields': ('client',)
+        }),
+        ('Coordonnées', {
+            'fields': ('latitude', 'longitude', 'accuracy', 'altitude')
+        }),
+        ('Mouvement', {
+            'fields': ('speed', 'heading', 'is_moving')
+        }),
+        ('Dispositif', {
+            'fields': ('battery_level', 'location_source')
+        }),
+        ('Adresse', {
+            'fields': ('address', 'city', 'country')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(LocationHistory)
+class LocationHistoryAdmin(admin.ModelAdmin):
+    """Admin pour l'historique de localisation."""
+    list_display = [
+        'user', 'latitude', 'longitude', 'accuracy', 'is_moving',
+        'location_source', 'city', 'created_at'
+    ]
+    list_filter = [
+        'is_moving', 'location_source', 'city', 'country',
+        'created_at'
+    ]
+    search_fields = [
+        'user__first_name', 'user__last_name', 'user__email',
+        'address', 'city'
+    ]
+    readonly_fields = ['created_at']
+    list_per_page = 50
+    date_hierarchy = 'created_at'
+    fieldsets = (
+        ('Localisation', {
+            'fields': ('user', 'latitude', 'longitude', 'accuracy', 'is_moving', 'location_source', 'city', 'country', 'address')
+        }),
+        ('Statut', {
+            'fields': ('created_at',),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(ServiceZone)
+class ServiceZoneAdmin(admin.ModelAdmin):
+    """Admin pour les zones de service."""
+    
+    list_display = [
+        'name', 'center_latitude', 'center_longitude', 'radius_km',
+        'is_active', 'technician_count', 'created_at'
+    ]
+    list_filter = ['is_active', 'created_at', 'updated_at']
+    search_fields = ['name', 'description']
+    readonly_fields = ['created_at', 'updated_at']
+    filter_horizontal = ['technicians']
+    
+    fieldsets = (
+        ('Informations générales', {
+            'fields': ('name', 'description', 'is_active', 'color')
+        }),
+        ('Géométrie', {
+            'fields': ('center_latitude', 'center_longitude', 'radius_km')
+        }),
+        ('Techniciens', {
+            'fields': ('technicians',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def technician_count(self, obj):
+        """Retourne le nombre de techniciens dans la zone."""
+        return obj.technicians.count()
+    technician_count.short_description = "Nombre de techniciens"
+
+
+@admin.register(Route)
+class RouteAdmin(admin.ModelAdmin):
+    """Admin pour les itinéraires."""
+    
+    list_display = [
+        'name', 'technician', 'request', 'route_type', 'distance_km',
+        'estimated_duration_minutes', 'is_active', 'created_at'
+    ]
+    list_filter = [
+        'route_type', 'is_active', 'created_at', 'updated_at'
+    ]
+    search_fields = [
+        'name', 'description', 'technician__user__first_name',
+        'technician__user__last_name', 'request__title'
+    ]
+    readonly_fields = ['created_at', 'updated_at']
+    
+    fieldsets = (
+        ('Informations générales', {
+            'fields': ('name', 'description', 'is_active', 'route_type')
+        }),
+        ('Relations', {
+            'fields': ('request', 'technician')
+        }),
+        ('Point de départ', {
+            'fields': ('start_latitude', 'start_longitude')
+        }),
+        ('Point d\'arrivée', {
+            'fields': ('end_latitude', 'end_longitude')
+        }),
+        ('Métriques', {
+            'fields': ('distance_km', 'estimated_duration_minutes')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(PointOfInterest)
+class PointOfInterestAdmin(admin.ModelAdmin):
+    """Admin pour les points d'intérêt."""
+    
+    list_display = [
+        'name', 'poi_type', 'latitude', 'longitude', 'is_active',
+        'rating', 'created_at'
+    ]
+    list_filter = [
+        'poi_type', 'is_active', 'rating', 'created_at', 'updated_at'
+    ]
+    search_fields = [
+        'name', 'description', 'address', 'phone', 'website'
+    ]
+    readonly_fields = ['created_at', 'updated_at']
+    
+    fieldsets = (
+        ('Informations générales', {
+            'fields': ('name', 'description', 'poi_type', 'is_active', 'rating')
+        }),
+        ('Coordonnées', {
+            'fields': ('latitude', 'longitude')
+        }),
+        ('Contact', {
+            'fields': ('address', 'phone', 'website')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(GeolocationAlert)
+class GeolocationAlertAdmin(admin.ModelAdmin):
+    """Admin pour les alertes de géolocalisation."""
+    
+    list_display = [
+        'alert_type', 'user', 'severity', 'is_read', 'created_at'
+    ]
+    list_filter = [
+        'alert_type', 'severity', 'is_read', 'created_at', 'updated_at'
+    ]
+    search_fields = [
+        'title', 'message', 'user__first_name', 'user__last_name',
+        'user__email'
+    ]
+    readonly_fields = ['created_at', 'updated_at', 'read_at']
+    list_per_page = 50
+    date_hierarchy = 'created_at'
+    
+    fieldsets = (
+        ('Alerte', {
+            'fields': ('alert_type', 'title', 'message', 'severity')
+        }),
+        ('Utilisateur', {
+            'fields': ('user', 'request')
+        }),
+        ('Localisation', {
+            'fields': ('latitude', 'longitude', 'extra_data')
+        }),
+        ('Statut', {
+            'fields': ('is_read', 'read_at')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    actions = ['mark_as_read', 'mark_as_unread']
+    
+    def mark_as_read(self, request, queryset):
+        """Marque les alertes comme lues."""
+        updated = queryset.update(is_read=True, read_at=timezone.now())
+        self.message_user(
+            request,
+            f"{updated} alerte(s) marquée(s) comme lue(s)."
+        )
+    mark_as_read.short_description = "Marquer comme lues"
+    
+    def mark_as_unread(self, request, queryset):
+        """Marque les alertes comme non lues."""
+        updated = queryset.update(is_read=False, read_at=None)
+        self.message_user(
+            request,
+            f"{updated} alerte(s) marquée(s) comme non lue(s)."
+        )
+    mark_as_unread.short_description = "Marquer comme non lues"
+
+
+@admin.register(GeolocationSettings)
+class GeolocationSettingsAdmin(admin.ModelAdmin):
+    """Admin pour les paramètres de géolocalisation."""
+    
+    list_display = [
+        'user', 'location_sharing_enabled', 'background_location_enabled',
+        'high_accuracy_mode', 'map_provider', 'created_at'
+    ]
+    list_filter = [
+        'location_sharing_enabled', 'background_location_enabled',
+        'high_accuracy_mode', 'geofencing_enabled', 'alert_notifications_enabled',
+        'show_traffic', 'show_pois', 'map_provider', 'created_at', 'updated_at'
+    ]
+    search_fields = [
+        'user__first_name', 'user__last_name', 'user__email'
+    ]
+    readonly_fields = ['created_at', 'updated_at']
+    
+    fieldsets = (
+        ('Utilisateur', {
+            'fields': ('user',)
+        }),
+        ('Partage de localisation', {
+            'fields': (
+                'location_sharing_enabled', 'background_location_enabled',
+                'high_accuracy_mode', 'location_update_interval_seconds'
+            )
+        }),
+        ('Historique', {
+            'fields': ('max_location_history_days',)
+        }),
+        ('Géofencing', {
+            'fields': ('geofencing_enabled',)
+        }),
+        ('Limites', {
+            'fields': ('speed_limit_kmh', 'battery_threshold_percent', 'accuracy_threshold_meters')
+        }),
+        ('Notifications', {
+            'fields': ('alert_notifications_enabled',)
+        }),
+        ('Carte', {
+            'fields': ('map_provider', 'default_zoom_level', 'show_traffic', 'show_pois')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
 
 
 @admin.register(SystemConfiguration)
@@ -796,13 +1107,6 @@ class CinetPayPaymentAdmin(admin.ModelAdmin):
             )
         return mark_safe('<span style="color:#888;">Aucune notification stockée</span>')
     notification_data_pretty.short_description = "Notification CinetPay (JSON)"
-
-
-@admin.register(ClientLocation)
-class ClientLocationAdmin(admin.ModelAdmin):
-    list_display = ('client', 'latitude', 'longitude', 'created_at', 'updated_at')
-    search_fields = ('client__user__username', 'client__user__first_name', 'client__user__last_name')
-    readonly_fields = ('created_at', 'updated_at')
 
 
 @admin.register(Report)
@@ -1034,3 +1338,201 @@ class SubscriptionPaymentRequestAdmin(admin.ModelAdmin):
         )
         self.message_user(request, f"{updated} demande(s) annulée(s).")
     cancel_requests.short_description = "Annuler les demandes sélectionnées"
+
+
+@admin.register(ChatConversation)
+class ChatConversationAdmin(admin.ModelAdmin):
+    list_display = ['id', 'client', 'technician', 'is_active', 'last_message_at', 'is_pinned', 'last_activity_type']
+    list_filter = ['is_active', 'is_pinned', 'last_activity_type', 'created_at']
+    search_fields = ['client__user__first_name', 'client__user__last_name', 'technician__user__first_name', 'technician__user__last_name']
+    readonly_fields = ['created_at', 'updated_at', 'last_message_at']
+    ordering = ['-last_message_at']
+    
+    fieldsets = (
+        ('Informations de base', {
+            'fields': ('client', 'technician', 'request', 'is_active')
+        }),
+        ('Paramètres avancés', {
+            'fields': ('is_pinned', 'muted_until', 'last_activity_type')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at', 'last_message_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(ChatMessage)
+class ChatMessageAdmin(admin.ModelAdmin):
+    list_display = ['id', 'conversation', 'sender', 'message_type', 'content_preview', 'is_read', 'created_at']
+    list_filter = ['message_type', 'is_read', 'is_edited', 'created_at']
+    search_fields = ['content', 'sender__first_name', 'sender__last_name']
+    readonly_fields = ['created_at', 'updated_at', 'read_at', 'edited_at']
+    ordering = ['-created_at']
+    
+    def content_preview(self, obj):
+        return obj.content[:50] + '...' if len(obj.content) > 50 else obj.content
+    content_preview.short_description = 'Aperçu du contenu'
+    
+    fieldsets = (
+        ('Informations de base', {
+            'fields': ('conversation', 'sender', 'content', 'message_type')
+        }),
+        ('Localisation', {
+            'fields': ('latitude', 'longitude'),
+            'classes': ('collapse',)
+        }),
+        ('Message vocal', {
+            'fields': ('voice_duration',),
+            'classes': ('collapse',)
+        }),
+        ('Modification', {
+            'fields': ('is_edited', 'edited_at', 'reply_to'),
+            'classes': ('collapse',)
+        }),
+        ('Statut', {
+            'fields': ('is_read', 'read_at')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(ChatMessageAttachment)
+class ChatMessageAttachmentAdmin(admin.ModelAdmin):
+    list_display = ['id', 'message', 'file_name', 'file_size', 'content_type', 'is_processed', 'created_at']
+    list_filter = ['content_type', 'is_processed', 'created_at']
+    search_fields = ['file_name', 'message__content']
+    readonly_fields = ['created_at', 'updated_at', 'file_size', 'content_type']
+    ordering = ['-created_at']
+    
+    fieldsets = (
+        ('Informations de base', {
+            'fields': ('message', 'file', 'file_name')
+        }),
+        ('Métadonnées', {
+            'fields': ('file_size', 'content_type', 'duration')
+        }),
+        ('Traitement', {
+            'fields': ('thumbnail', 'is_processed')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(CommunicationStats)
+class CommunicationStatsAdmin(admin.ModelAdmin):
+    list_display = ['id', 'conversation', 'total_messages', 'avg_response_time_minutes', 'last_message_at']
+    list_filter = ['created_at', 'updated_at']
+    search_fields = ['conversation__client__user__first_name', 'conversation__technician__user__first_name']
+    readonly_fields = ['created_at', 'updated_at']
+    ordering = ['-updated_at']
+    
+    fieldsets = (
+        ('Conversation', {
+            'fields': ('conversation',)
+        }),
+        ('Compteurs de messages', {
+            'fields': ('total_messages', 'text_messages', 'voice_messages', 'location_shares', 'file_shares')
+        }),
+        ('Métriques de performance', {
+            'fields': ('avg_response_time_minutes', 'last_message_at', 'first_message_at')
+        }),
+        ('Temps en ligne', {
+            'fields': ('client_online_time', 'technician_online_time')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(CommunicationSession)
+class CommunicationSessionAdmin(admin.ModelAdmin):
+    list_display = ['id', 'user', 'conversation', 'is_active', 'messages_sent', 'messages_received', 'started_at']
+    list_filter = ['is_active', 'started_at', 'ended_at']
+    search_fields = ['user__first_name', 'user__last_name']
+    readonly_fields = ['created_at', 'updated_at', 'started_at']
+    ordering = ['-started_at']
+    
+    fieldsets = (
+        ('Informations de base', {
+            'fields': ('conversation', 'user', 'is_active')
+        }),
+        ('Durée', {
+            'fields': ('started_at', 'ended_at')
+        }),
+        ('Métriques', {
+            'fields': ('messages_sent', 'messages_received')
+        }),
+        ('Informations techniques', {
+            'fields': ('device_info', 'ip_address'),
+            'classes': ('collapse',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(CommunicationNotification)
+class CommunicationNotificationAdmin(admin.ModelAdmin):
+    list_display = ['id', 'recipient', 'notification_type', 'title', 'is_read', 'created_at']
+    list_filter = ['notification_type', 'is_read', 'created_at']
+    search_fields = ['title', 'message', 'recipient__first_name', 'recipient__last_name']
+    readonly_fields = ['created_at', 'updated_at', 'read_at']
+    ordering = ['-created_at']
+    
+    fieldsets = (
+        ('Informations de base', {
+            'fields': ('recipient', 'conversation', 'notification_type')
+        }),
+        ('Contenu', {
+            'fields': ('title', 'message', 'extra_data')
+        }),
+        ('Statut', {
+            'fields': ('is_read', 'read_at')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(CommunicationSettings)
+class CommunicationSettingsAdmin(admin.ModelAdmin):
+    list_display = ['id', 'user', 'auto_read_receipts', 'typing_indicators', 'sound_notifications', 'language']
+    list_filter = ['auto_read_receipts', 'typing_indicators', 'sound_notifications', 'language', 'theme']
+    search_fields = ['user__first_name', 'user__last_name', 'user__email']
+    readonly_fields = ['created_at', 'updated_at']
+    
+    fieldsets = (
+        ('Utilisateur', {
+            'fields': ('user',)
+        }),
+        ('Paramètres de notification', {
+            'fields': ('auto_read_receipts', 'typing_indicators', 'sound_notifications', 'vibration_notifications', 'message_preview')
+        }),
+        ('Paramètres de médias', {
+            'fields': ('auto_download_media', 'max_file_size_mb', 'allowed_file_types')
+        }),
+        ('Heures silencieuses', {
+            'fields': ('quiet_hours_start', 'quiet_hours_end'),
+            'classes': ('collapse',)
+        }),
+        ('Paramètres d\'interface', {
+            'fields': ('language', 'theme')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )

@@ -25,7 +25,7 @@ def test_hooks_fix():
             
     except Exception as e:
         print(f"❌ Frontend non accessible: {e}")
-        return False
+        assert False, "Hooks fix test failed"
     
     # Test du backend
     try:
@@ -69,7 +69,7 @@ def test_hooks_fix():
     print("  appelés dans le même ordre à chaque rendu.")
     
     print("\n✅ Test de la correction des hooks terminé !")
-    return True
+    assert True, "Hooks fix test failed"
 
 if __name__ == "__main__":
     test_hooks_fix() 

@@ -927,55 +927,91 @@ const BookingForm: React.FC = () => {
     });
   }, [profile, user]);
 
+  const [serviceSearch, setServiceSearch] = useState('');
+
   const getStepContent = () => {
     switch (step) {
       case 1:
+        // Filtrage des services selon la recherche
+        const filteredServices = services.filter(service =>
+          service.name.toLowerCase().includes(serviceSearch.toLowerCase()) ||
+          service.shortDescription.toLowerCase().includes(serviceSearch.toLowerCase())
+        );
         return (
           <div>
-            <h3 className="text-xl font-semibold mb-4">Sélectionnez un service</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {services.map(service => (
+            <h3 className="text-xl font-semibold mb-4 text-center">Sélectionnez un service</h3>
+            <div className="mb-6 flex justify-center">
+              <input
+                type="text"
+                value={serviceSearch}
+                onChange={e => setServiceSearch(e.target.value)}
+                placeholder="Rechercher un service (ex: Plomberie, Électricité...)"
+                className="w-full max-w-md px-4 py-3 border border-gray-300 rounded-full shadow focus:outline-none focus:ring-2 focus:ring-blue-400 text-lg transition-all"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredServices.length === 0 && (
+                <div className="col-span-full text-center text-gray-500 py-8">Aucun service trouvé</div>
+              )}
+              {filteredServices.map(service => (
                 <div
                   key={service.id}
                   onClick={() => handleServiceSelect(service.id)}
-                  className="border border-gray-200 rounded-lg p-4 cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors"
+                  className={`relative group border-2 rounded-2xl p-5 cursor-pointer bg-white shadow-md transition-all duration-200 hover:shadow-xl hover:border-blue-400 focus-within:border-blue-500 ${formData.serviceId === service.id ? 'border-blue-700 ring-2 ring-blue-200 scale-105' : 'border-gray-200'}`}
+                  tabIndex={0}
+                  aria-label={`Choisir le service ${service.name}`}
                 >
-                  <div className="h-32 mb-3 overflow-hidden rounded-md">
+                  <div className="h-28 mb-3 overflow-hidden rounded-xl flex items-center justify-center bg-gradient-to-br from-blue-50 to-orange-50">
                     <img
                       src={service.imageUrl}
                       alt={service.name}
-                      className="w-full h-full object-cover"
+                      className="w-24 h-24 object-cover drop-shadow-lg group-hover:scale-110 transition-transform duration-200"
                     />
                   </div>
-                  <h4 className="font-semibold">{service.name}</h4>
-                  <p className="text-sm text-gray-600 mt-1">{service.shortDescription}</p>
+                  <h4 className="font-semibold text-lg text-blue-900 mb-1 flex items-center justify-between">
+                    {service.name}
+                    {formData.serviceId === service.id && (
+                      <span className="ml-2 inline-flex items-center justify-center bg-blue-600 text-white rounded-full w-6 h-6 animate-bounce">
+                        <CheckCircle className="w-4 h-4" />
+                      </span>
+                    )}
+                  </h4>
+                  <p className="text-sm text-gray-600 mb-2 min-h-[40px]">{service.shortDescription}</p>
                   <p className="text-blue-700 font-medium mt-2">À partir de {service.startingPrice.toLocaleString()} FCFA</p>
                 </div>
               ))}
             </div>
+            {formData.serviceId && (
+              <div className="flex justify-end mt-8">
+                <button
+                  type="button"
+                  onClick={() => setStep(2)}
+                  className="px-8 py-3 bg-blue-700 hover:bg-blue-800 text-white font-semibold rounded-full shadow-lg text-lg transition-colors animate-fade-in"
+                >
+                  Continuer
+                </button>
+              </div>
+            )}
           </div>
         );
 
       case 2: {
         const selectedService = services.find(s => s.id === formData.serviceId);
-
-        // Vérifier si la géolocalisation a été acceptée
-        // Cette logique est déjà gérée au niveau supérieur du composant
-
         return (
           <form onSubmit={(e) => { e.preventDefault(); setStep(3); }}>
-            <h3 className="text-xl font-semibold mb-4">Détails du Service</h3>
-
+            {/* Rappel du service sélectionné */}
             {selectedService && (
-              <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-                <h4 className="font-semibold text-lg">{selectedService.name}</h4>
-                <p className="text-gray-700">{selectedService.description}</p>
-                <p className="text-blue-700 font-medium mt-2">Prix de départ: {selectedService.startingPrice.toLocaleString()} FCFA</p>
+              <div className="mb-8 flex items-center gap-4 bg-gradient-to-r from-blue-50 to-orange-50 rounded-xl p-4 shadow animate-fade-in-slow">
+                <img src={selectedService.imageUrl} alt={selectedService.name} className="w-16 h-16 rounded-lg object-cover border-2 border-blue-200 shadow" />
+                <div>
+                  <h4 className="font-semibold text-lg text-blue-900">{selectedService.name}</h4>
+                  <p className="text-gray-700 text-sm">{selectedService.shortDescription}</p>
+                </div>
               </div>
             )}
 
             {/* Information sur le paiement en main propre */}
-            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg animate-fade-in-slow">
               <div className="flex items-start">
                 <CheckCircle className="h-6 w-6 text-green-600 mt-1 mr-3 flex-shrink-0" />
                 <div>
@@ -997,11 +1033,10 @@ const BookingForm: React.FC = () => {
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-6">
+              {/* Adresse */}
               <div>
-                <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
-                  Adresse
-                </label>
+                <label htmlFor="address" className="block text-base font-medium text-gray-700 mb-1">Adresse</label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                   <input
@@ -1010,14 +1045,14 @@ const BookingForm: React.FC = () => {
                     name="address"
                     value={formData.address}
                     onChange={handleAddressChange}
-                    className="pl-10 w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="pl-10 w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg transition-all focus:shadow-lg"
                     placeholder="Adresse de rue"
                     required
                     readOnly={!locationPermissionGranted}
                     disabled={!locationPermissionGranted}
                   />
                   {!locationPermissionGranted && (
-                    <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                    <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md animate-fade-in">
                       <p className="text-yellow-800 text-sm">
                         <AlertCircle className="h-4 w-4 inline mr-1" />
                         Vous devez d'abord autoriser la géolocalisation pour remplir l'adresse automatiquement.
@@ -1031,13 +1066,13 @@ const BookingForm: React.FC = () => {
                       </button>
                     </div>
                   )}
-                  {/* Suggestions d'adresse */}
+                  {/* Suggestions d'adresse modernisées */}
                   {showAddressSuggestions && addressSuggestions.length > 0 && (
-                    <div ref={addressSuggestionsRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-60 overflow-y-auto">
+                    <div ref={addressSuggestionsRef} className="absolute z-10 left-0 right-0 bg-white border border-blue-200 rounded-b-xl shadow-2xl max-h-60 overflow-y-auto animate-fade-in">
                       {addressSuggestions.map((s, idx) => (
                         <div
                           key={s.place_id}
-                          className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+                          className="px-4 py-3 hover:bg-blue-50 cursor-pointer text-base border-b last:border-b-0 border-gray-100 transition-colors"
                           onClick={() => handleAddressSuggestionClick(s)}
                         >
                           {s.display_name}
@@ -1046,32 +1081,32 @@ const BookingForm: React.FC = () => {
                     </div>
                   )}
                 </div>
+                <p className="text-xs text-gray-500 mt-2 animate-fade-in-slow">Votre position n’est jamais partagée sans votre accord. Elle sert uniquement à trouver le technicien le plus proche.</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              {/* Ville et Code Postal */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
-                  <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
-                    Ville
-                  </label>
+                  <label htmlFor="city" className="block text-base font-medium text-gray-700 mb-1">Ville</label>
                   <input
                     type="text"
                     id="city"
                     name="city"
                     value={formData.city}
                     onChange={handleCityChange}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg transition-all focus:shadow-lg"
                     placeholder="Ville"
                     required
                     readOnly={!locationPermissionGranted}
                     disabled={!locationPermissionGranted}
                   />
-                  {/* Suggestions de ville (Bamako et alentours) */}
+                  {/* Suggestions de ville modernisées */}
                   {showCitySuggestions && citySuggestions.length > 0 && (
-                    <div ref={citySuggestionsRef} className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-b shadow-lg max-h-60 overflow-y-auto">
+                    <div ref={citySuggestionsRef} className="absolute z-10 left-0 right-0 bg-white border border-blue-200 rounded-b-xl shadow-2xl max-h-60 overflow-y-auto animate-fade-in">
                       {Array.from(new Set(citySuggestions)).map((city, idx) => (
                         <div
                           key={city}
-                          className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+                          className="px-4 py-3 hover:bg-blue-50 cursor-pointer text-base border-b last:border-b-0 border-gray-100 transition-colors"
                           onClick={() => handleCitySuggestionClick(city)}
                         >
                           {city}
@@ -1080,21 +1115,18 @@ const BookingForm: React.FC = () => {
                     </div>
                   )}
                   {cityError && (
-                    <p className="text-red-600 text-sm mt-1">{cityError}</p>
+                    <p className="text-red-600 text-sm mt-1 animate-fade-in">{cityError}</p>
                   )}
                 </div>
-
                 <div>
-                  <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-1">
-                    Code Postal
-                  </label>
+                  <label htmlFor="postalCode" className="block text-base font-medium text-gray-700 mb-1">Code Postal</label>
                   <input
                     type="text"
                     id="postalCode"
                     name="postalCode"
                     value={formData.postalCode}
                     onChange={handleInputChange}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg transition-all focus:shadow-lg"
                     placeholder="Code postal"
                     required
                     readOnly={!locationPermissionGranted}
@@ -1103,18 +1135,12 @@ const BookingForm: React.FC = () => {
                 </div>
               </div>
 
-              {/* Ajout Quartier et Commune */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Quartier et Commune */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
-                  <label htmlFor="quartier" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                    Quartier
+                  <label htmlFor="quartier" className="block text-base font-medium text-gray-700 mb-1 flex items-center">Quartier
                     {formData.quartier && (
-                      <span
-                        className="ml-2 inline-block bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full font-semibold cursor-help"
-                        title={"Ce champ a été automatiquement rempli grâce à la géolocalisation ou à l'auto-complétion.\n- Si vous avez utilisé 'Obtenir ma position', la valeur provient de votre position GPS et des données cartographiques.\n- Si vous avez choisi une suggestion d'adresse, la valeur provient de la base de données d'adresses.\n\nVérifiez que l'information est correcte : vous pouvez la modifier si besoin avant de valider votre demande."}
-                      >
-                        Pré-rempli
-                      </span>
+                      <span className="ml-2 inline-block bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full font-semibold cursor-help" title={"Ce champ a été automatiquement rempli grâce à la géolocalisation ou à l'auto-complétion.\nVérifiez que l'information est correcte : vous pouvez la modifier si besoin avant de valider votre demande."}>Pré-rempli</span>
                     )}
                   </label>
                   <input
@@ -1123,22 +1149,16 @@ const BookingForm: React.FC = () => {
                     name="quartier"
                     value={formData.quartier}
                     onChange={handleInputChange}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg transition-all focus:shadow-lg"
                     placeholder="Quartier"
                     readOnly={!locationPermissionGranted}
                     disabled={!locationPermissionGranted}
                   />
                 </div>
                 <div>
-                  <label htmlFor="commune" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                    Commune
+                  <label htmlFor="commune" className="block text-base font-medium text-gray-700 mb-1 flex items-center">Commune
                     {formData.commune && (
-                      <span
-                        className="ml-2 inline-block bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full font-semibold cursor-help"
-                        title={"Ce champ a été automatiquement rempli grâce à la géolocalisation ou à l'auto-complétion.\n- Si vous avez utilisé 'Obtenir ma position', la valeur provient de votre position GPS et des données cartographiques.\n- Si vous avez choisi une suggestion d'adresse, la valeur provient de la base de données d'adresses.\n\nVérifiez que l'information est correcte : vous pouvez la modifier si besoin avant de valider votre demande."}
-                      >
-                        Pré-rempli
-                      </span>
+                      <span className="ml-2 inline-block bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full font-semibold cursor-help" title={"Ce champ a été automatiquement rempli grâce à la géolocalisation ou à l'auto-complétion.\nVérifiez que l'information est correcte : vous pouvez la modifier si besoin avant de valider votre demande."}>Pré-rempli</span>
                     )}
                   </label>
                   <input
@@ -1147,7 +1167,7 @@ const BookingForm: React.FC = () => {
                     name="commune"
                     value={formData.commune}
                     onChange={handleInputChange}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg transition-all focus:shadow-lg"
                     placeholder="Commune"
                     readOnly={!locationPermissionGranted}
                     disabled={!locationPermissionGranted}
@@ -1155,10 +1175,9 @@ const BookingForm: React.FC = () => {
                 </div>
               </div>
 
+              {/* Téléphone */}
               <div>
-                <label htmlFor="phone-input" className="block text-sm font-medium text-gray-700">
-                  Numéro de téléphone (format Mali)
-                </label>
+                <label htmlFor="phone-input" className="block text-base font-medium text-gray-700">Numéro de téléphone (format Mali)</label>
                 <input
                   id="phone-input"
                   name="phone"
@@ -1167,41 +1186,39 @@ const BookingForm: React.FC = () => {
                   required
                   pattern="\+223 ?\d{2} ?\d{2} ?\d{2} ?\d{2}"
                   placeholder="+223 XX XX XX XX"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                  className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-lg p-4 bg-gray-100 cursor-not-allowed"
                   value={profile && profile.type === 'client' && profile.phone ? profile.phone : (user && user.client && user.client.phone ? user.client.phone : '')}
                   readOnly
                   disabled
                 />
                 {profile && profile.type === 'client' && (
-                  <p className="text-blue-600 text-xs mt-1">
+                  <p className="text-blue-600 text-xs mt-1 animate-fade-in-slow">
                     Ce numéro est celui de votre profil et sera utilisé pour la demande et le paiement.<br />
                     Pour le modifier, rendez-vous sur <a href="/profile" className="underline text-blue-700">votre profil</a>.
                   </p>
                 )}
-                {phoneError && <p className="text-red-600 text-xs mt-1">{phoneError}</p>}
+                {phoneError && <p className="text-red-600 text-xs mt-1 animate-fade-in">{phoneError}</p>}
               </div>
 
+              {/* Description */}
               <div>
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                  Description du Problème
-                </label>
+                <label htmlFor="description" className="block text-base font-medium text-gray-700 mb-1">Description du Problème</label>
                 <textarea
                   id="description"
                   name="description"
                   value={formData.description}
                   onChange={handleInputChange}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg transition-all focus:shadow-lg"
                   placeholder="Veuillez décrire le problème en détail"
                   rows={4}
                   required
                 />
               </div>
 
+              {/* Photos */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Photos (Optionnel)
-                </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-md p-4 text-center">
+                <label className="block text-base font-medium text-gray-700 mb-1">Photos (Optionnel)</label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center bg-gray-50">
                   <input
                     type="file"
                     id="photos"
@@ -1216,7 +1233,6 @@ const BookingForm: React.FC = () => {
                     <p className="mt-1 text-sm text-gray-500">Cliquez pour télécharger des photos du problème</p>
                   </label>
                 </div>
-
                 {formData.photosPreviews.length > 0 && (
                   <div className="mt-3 grid grid-cols-3 gap-3">
                     {formData.photosPreviews.map((preview, index) => (
@@ -1239,6 +1255,7 @@ const BookingForm: React.FC = () => {
                 )}
               </div>
 
+              {/* Urgence */}
               <div>
                 <div className="flex items-center">
                   <input
@@ -1249,24 +1266,24 @@ const BookingForm: React.FC = () => {
                     onChange={handleInputChange}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500"
                   />
-                  <label htmlFor="isUrgent" className="ml-2 text-sm text-gray-700">
-                    C\'est une urgence (des frais d\'urgence supplémentaires peuvent s\'appliquer)
+                  <label htmlFor="isUrgent" className="ml-2 text-base text-gray-700">
+                    C'est une urgence (des frais d'urgence supplémentaires peuvent s'appliquer)
                   </label>
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 flex justify-between">
+            <div className="mt-8 flex justify-between">
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="py-2 px-4 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                className="py-2 px-6 border border-gray-300 rounded-full text-gray-700 hover:bg-gray-50 text-lg"
               >
                 Retour
               </button>
               <button
                 type="submit"
-                className="py-2 px-6 bg-blue-700 text-white rounded-md hover:bg-blue-800"
+                className="py-2 px-8 bg-blue-700 text-white rounded-full hover:bg-blue-800 text-lg font-semibold shadow-lg"
               >
                 Continuer
               </button>
@@ -1276,127 +1293,116 @@ const BookingForm: React.FC = () => {
       }
 
       case 3:
+        const selectedService = services.find(s => s.id === formData.serviceId);
         return (
           <form onSubmit={handleSubmit}>
-            <h3 className="text-xl font-semibold mb-4">Planifier le Rendez-vous</h3>
-
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
-                  Date Préférée
-                </label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="date"
-                    id="date"
-                    name="date"
-                    value={formData.date}
-                    onChange={handleInputChange}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="pl-10 w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
+            <h3 className="text-2xl font-bold text-blue-900 mb-8 text-center animate-fade-in">Planifier le Rendez-vous</h3>
+            <div className="space-y-6">
+              {/* Date et heure */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="date" className="block text-base font-medium text-gray-700 mb-1">Date Préférée</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="date"
+                      id="date"
+                      name="date"
+                      value={formData.date}
+                      onChange={handleInputChange}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="pl-10 w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg transition-all focus:shadow-lg"
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="time" className="block text-base font-medium text-gray-700 mb-1">Heure Préférée</label>
+                  <div className="relative">
+                    <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <select
+                      id="time"
+                      name="time"
+                      value={formData.time}
+                      onChange={handleInputChange}
+                      className="pl-10 w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg transition-all focus:shadow-lg"
+                      required
+                    >
+                      <option value="">Sélectionnez un créneau horaire</option>
+                      <option value="morning">Matin (8:00 - 12:00)</option>
+                      <option value="afternoon">Après-midi (12:00 - 16:00)</option>
+                      <option value="evening">Soirée (16:00 - 20:00)</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label htmlFor="time" className="block text-sm font-medium text-gray-700 mb-1">
-                  Heure Préférée
-                </label>
-                <div className="relative">
-                  <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                  <select
-                    id="time"
-                    name="time"
-                    value={formData.time}
-                    onChange={handleInputChange}
-                    className="pl-10 w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  >
-                    <option value="">Sélectionnez un créneau horaire</option>
-                    <option value="morning">Matin (8:00 - 12:00)</option>
-                    <option value="afternoon">Après-midi (12:00 - 16:00)</option>
-                    <option value="evening">Soirée (16:00 - 20:00)</option>
-                  </select>
+              {/* Récapitulatif visuel */}
+              <div className="mt-8 p-6 bg-gradient-to-br from-blue-50 to-orange-50 rounded-2xl shadow-xl animate-fade-in-slow">
+                <div className="flex items-center gap-4 mb-4">
+                  {selectedService && (
+                    <img src={selectedService.imageUrl} alt={selectedService.name} className="w-16 h-16 rounded-lg object-cover border-2 border-blue-200 shadow" />
+                  )}
+                  <div>
+                    <h4 className="font-semibold text-lg text-blue-900 mb-1">{selectedService?.name}</h4>
+                    <p className="text-gray-700 text-sm">{selectedService?.shortDescription}</p>
+                  </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Résumé de la réservation */}
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-              <h4 className="font-medium text-lg mb-2">Résumé de la Réservation</h4>
-              <ul className="space-y-2">
-                <li className="flex">
-                  <span className="font-medium w-1/3">Service:</span>
-                  <span>{services.find(s => s.id === formData.serviceId)?.name}</span>
-                </li>
-                <li className="flex">
-                  <span className="font-medium w-1/3">Adresse:</span>
-                  <span>{formData.address}, {formData.city}, {formData.postalCode}</span>
-                </li>
-                <li className="flex">
-                  <span className="font-medium w-1/3">Date:</span>
-                  <span>{formData.date} ({formData.time})</span>
-                </li>
-                <li className="flex">
-                  <span className="font-medium w-1/3">Urgence:</span>
-                  <span>{formData.isUrgent ? 'Oui' : 'Non'}</span>
-                </li>
-              </ul>
-
-              <div className="mt-4 border-t pt-4">
-                <div className="flex justify-between">
-                  <span className="font-medium">Prix Estimé:</span>
-                  <span className="text-blue-700 font-semibold">
-                    {((services.find(s => s.id === formData.serviceId)?.startingPrice || 0) +
-                      (formData.isUrgent ? 25000 : 0)).toLocaleString()} FCFA
+                <ul className="space-y-2 text-base">
+                  <li className="flex"><span className="font-medium w-1/3">Adresse :</span><span>{formData.address}, {formData.city}, {formData.postalCode}</span></li>
+                  <li className="flex"><span className="font-medium w-1/3">Date :</span><span>{formData.date} ({formData.time === 'morning' ? 'Matin' : formData.time === 'afternoon' ? 'Après-midi' : formData.time === 'evening' ? 'Soirée' : formData.time})</span></li>
+                  <li className="flex"><span className="font-medium w-1/3">Urgence :</span><span>{formData.isUrgent ? 'Oui' : 'Non'}</span></li>
+                </ul>
+                <div className="mt-4 border-t pt-4 flex items-center justify-between">
+                  <span className="font-medium text-lg">Prix Estimé :</span>
+                  <span className="text-blue-700 font-bold text-2xl">
+                    {((selectedService?.startingPrice || 0) + (formData.isUrgent ? 25000 : 0)).toLocaleString()} FCFA
                   </span>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Le prix final peut varier selon la complexité de la réparation
+                <p className="text-xs text-gray-500 mt-1">Le prix final peut varier selon la complexité de la réparation</p>
+              </div>
+
+              {/* Message de confort */}
+              <div className="mt-6 p-4 bg-orange-50 border border-orange-200 rounded-lg flex items-center animate-fade-in-slow">
+                <Info className="text-orange-500 h-5 w-5 mr-2 flex-shrink-0" />
+                <p className="text-sm text-orange-800">
+                  En complétant cette réservation, vous acceptez nos conditions de service et notre politique d'annulation.<br />
+                  Un technicien sera assigné à votre demande et vous recevrez une confirmation sous peu.<br />
+                  <span className="font-semibold text-blue-700">Aucun paiement en ligne, vous payez seulement si satisfait !</span>
                 </p>
               </div>
-            </div>
 
-            <div className="mt-6 p-4 bg-orange-50 border border-orange-200 rounded-lg flex">
-              <Info className="text-orange-500 h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-orange-800">
-                En complétant cette réservation, vous acceptez nos conditions de service et notre politique d'annulation.
-                Un technicien sera assigné à votre demande et vous recevrez une confirmation sous peu.
-              </p>
-            </div>
+              {error && (
+                <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg animate-fade-in">
+                  <p className="text-red-800 text-sm">{error}</p>
+                </div>
+              )}
 
-            {error && (
-              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-red-800 text-sm">{error}</p>
-              </div>
-            )}
-
-            <div className="mt-6 flex justify-between">
-              <button
-                type="button"
-                onClick={() => setStep(2)}
-                className="py-2 px-4 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-              >
-                Retour
-              </button>
-              <div className="flex gap-4 mt-8">
-                <button
-                  type="submit"
-                  className="inline-flex items-center px-6 py-3 bg-blue-700 hover:bg-blue-800 text-white font-semibold rounded-lg shadow transition-colors disabled:opacity-60"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? 'Envoi en cours...' : 'Envoyer la demande'}
-                </button>
+              <div className="mt-10 flex flex-col sm:flex-row justify-between gap-4">
                 <button
                   type="button"
-                  onClick={handleSaveDraft}
-                  className="inline-flex items-center px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg shadow transition-colors disabled:opacity-60"
-                  disabled={isSubmitting}
+                  onClick={() => setStep(2)}
+                  className="py-3 px-8 border border-gray-300 rounded-full text-gray-700 hover:bg-gray-50 text-lg font-semibold shadow"
                 >
-                  {isSubmitting ? 'Sauvegarde...' : 'Sauvegarder le brouillon'}
+                  Retour
                 </button>
+                <div className="flex gap-4">
+                  <button
+                    type="submit"
+                    className="inline-flex items-center px-8 py-3 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-full shadow-lg text-lg transition-colors disabled:opacity-60 animate-fade-in"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? 'Envoi en cours...' : 'Envoyer la demande'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveDraft}
+                    className="inline-flex items-center px-8 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-full shadow text-lg transition-colors disabled:opacity-60 animate-fade-in"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? 'Sauvegarde...' : 'Sauvegarder le brouillon'}
+                  </button>
+                </div>
               </div>
             </div>
           </form>
@@ -1408,41 +1414,32 @@ const BookingForm: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-orange-50">
       {/* Affichage d'erreur global */}
       {error && (
         <div className="bg-red-600 text-white text-center py-3 px-4 font-bold text-lg mb-4">
           {error}
         </div>
       )}
-      {/* Section Hero */}
-      <div className="relative h-[400px] bg-cover bg-center" style={{ backgroundImage: 'url("https://images.pexels.com/photos/4489732/pexels-photo-4489732.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2")' }}>
-        <div className="absolute inset-0 bg-black bg-opacity-50"></div>
-        <div className="relative container mx-auto px-4 h-full flex flex-col justify-center">
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-            Besoin d'un service à domicile ?
-          </h1>
-          <p className="text-xl text-white mb-6 max-w-2xl">
-            Nos experts qualifiés sont à votre disposition pour tous vos besoins en réparation et maintenance.
+      {/* En-tête modernisé */}
+      <div className="relative h-[420px] bg-gradient-to-r from-blue-600 via-blue-400 to-orange-400 flex items-center justify-center shadow-lg">
+        <div className="absolute inset-0 bg-black bg-opacity-30"></div>
+        <div className="relative z-10 flex flex-col items-center justify-center text-center px-4">
+          <img src="/favicon.ico" alt="Confort" className="w-20 h-20 mb-4 rounded-full shadow-lg border-4 border-white" />
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-3 drop-shadow-lg animate-fade-in">Besoin d’un service à domicile ?</h1>
+          <p className="text-lg md:text-2xl text-white mb-6 max-w-2xl animate-fade-in-slow">
+            Réservez en quelques clics, nos experts qualifiés s’occupent de tout. Aucun paiement en ligne, vous payez seulement si satisfait !
           </p>
-          <div className="flex gap-4">
-            <button
-              onClick={() => document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth' })}
-              className="bg-orange-500 text-white px-6 py-3 rounded-md hover:bg-orange-600 transition-colors"
-            >
-              Réserver maintenant
-            </button>
-            <button
-              onClick={() => window.location.href = '/services'}
-              className="bg-white text-gray-900 px-6 py-3 rounded-md hover:bg-gray-100 transition-colors"
-            >
-              Découvrir nos services
-            </button>
-          </div>
+          <button
+            onClick={() => document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth' })}
+            className="bg-orange-500 text-white px-8 py-3 rounded-full font-semibold text-lg shadow-lg hover:bg-orange-600 transition-colors animate-bounce"
+          >
+            Commencer ma demande
+          </button>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 -mt-16 relative z-10">
+      <div className="container mx-auto px-4 -mt-20 relative z-10">
         {/* Liste des demandes de réparation */}
         {repairRequests.length > 0 && (
           <div className="mb-8">
@@ -1467,26 +1464,25 @@ const BookingForm: React.FC = () => {
           </div>
         )}
 
-        <div id="booking-form" className="max-w-3xl mx-auto bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Réserver un Service</h2>
+        <div id="booking-form" className="max-w-3xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden border border-blue-100 animate-fade-in-slow">
+          <div className="p-8">
+            <h2 className="text-3xl font-bold text-blue-900 mb-8 text-center tracking-tight animate-fade-in">Créer une demande</h2>
 
-            {/* Indicateurs d'étapes */}
-            <div className="flex mb-8">
-              <div className={`flex-1 border-b-2 pb-2 ${step >= 1 ? 'border-blue-700 text-blue-700' : 'border-gray-300 text-gray-500'}`}>
-                <span className={`rounded-full h-6 w-6 inline-flex items-center justify-center mr-2 text-sm ${step >= 1 ? 'bg-blue-700 text-white' : 'bg-gray-300 text-gray-700'
-                  }`}>1</span>
-                Service
+            {/* Indicateurs d’étapes modernisés */}
+            <div className="flex mb-10 justify-between items-center">
+              <div className="flex-1 flex flex-col items-center">
+                <div className={`rounded-full h-10 w-10 flex items-center justify-center text-lg font-bold border-4 transition-all duration-300 ${step === 1 ? 'bg-blue-700 text-white border-blue-700 scale-110 shadow-lg animate-pulse' : step > 1 ? 'bg-blue-500 text-white border-blue-500' : 'bg-gray-200 text-gray-400 border-gray-200'}`}>1</div>
+                <span className={`mt-2 text-sm font-medium ${step >= 1 ? 'text-blue-700' : 'text-gray-400'}`}>Service</span>
               </div>
-              <div className={`flex-1 border-b-2 pb-2 text-center ${step >= 2 ? 'border-blue-700 text-blue-700' : 'border-gray-300 text-gray-500'}`}>
-                <span className={`rounded-full h-6 w-6 inline-flex items-center justify-center mr-2 text-sm ${step >= 2 ? 'bg-blue-700 text-white' : 'bg-gray-300 text-gray-700'
-                  }`}>2</span>
-                Détails
+              <div className={`flex-1 h-1 mx-2 rounded-full transition-all duration-300 ${step >= 2 ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
+              <div className="flex-1 flex flex-col items-center">
+                <div className={`rounded-full h-10 w-10 flex items-center justify-center text-lg font-bold border-4 transition-all duration-300 ${step === 2 ? 'bg-blue-700 text-white border-blue-700 scale-110 shadow-lg animate-pulse' : step > 2 ? 'bg-blue-500 text-white border-blue-500' : 'bg-gray-200 text-gray-400 border-gray-200'}`}>2</div>
+                <span className={`mt-2 text-sm font-medium ${step >= 2 ? 'text-blue-700' : 'text-gray-400'}`}>Détails</span>
               </div>
-              <div className={`flex-1 border-b-2 pb-2 text-right ${step >= 3 ? 'border-blue-700 text-blue-700' : 'border-gray-300 text-gray-500'}`}>
-                <span className={`rounded-full h-6 w-6 inline-flex items-center justify-center mr-2 text-sm ${step >= 3 ? 'bg-blue-700 text-white' : 'bg-gray-300 text-gray-700'
-                  }`}>3</span>
-                Planification
+              <div className={`flex-1 h-1 mx-2 rounded-full transition-all duration-300 ${step >= 3 ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
+              <div className="flex-1 flex flex-col items-center">
+                <div className={`rounded-full h-10 w-10 flex items-center justify-center text-lg font-bold border-4 transition-all duration-300 ${step === 3 ? 'bg-blue-700 text-white border-blue-700 scale-110 shadow-lg animate-pulse' : 'bg-gray-200 text-gray-400 border-gray-200'}`}>3</div>
+                <span className={`mt-2 text-sm font-medium ${step >= 3 ? 'text-blue-700' : 'text-gray-400'}`}>Planification</span>
               </div>
             </div>
 

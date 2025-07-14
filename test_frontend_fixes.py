@@ -12,20 +12,22 @@ def test_backend_health():
     try:
         response = requests.get('http://127.0.0.1:8000/depannage/api/test/', timeout=5)
         print(f"✅ Backend ASGI fonctionne (status: {response.status_code})")
+        assert response.status_code == 200, "Backend ASGI ne répond pas avec le code 200"
         return True
     except Exception as e:
         print(f"❌ Backend ASGI non accessible: {e}")
-        return False
+        assert False, f"Backend ASGI non accessible: {e}"
 
 def test_frontend_health():
     """Test de santé du frontend"""
     try:
         response = requests.get('http://127.0.0.1:5173', timeout=5)
         print(f"✅ Frontend React fonctionne (status: {response.status_code})")
+        assert response.status_code == 200, "Frontend React ne répond pas avec le code 200"
         return True
     except Exception as e:
         print(f"❌ Frontend React non accessible: {e}")
-        return False
+        assert False, f"Frontend React non accessible: {e}"
 
 def test_websocket_endpoint():
     """Test de l'endpoint WebSocket"""
@@ -33,10 +35,11 @@ def test_websocket_endpoint():
         # Test de l'endpoint de notifications WebSocket
         response = requests.get('http://127.0.0.1:8000/ws/notifications/', timeout=5)
         print(f"✅ Endpoint WebSocket accessible (status: {response.status_code})")
+        assert response.status_code == 200, "Endpoint WebSocket ne répond pas avec le code 200"
         return True
     except Exception as e:
         print(f"⚠️ Endpoint WebSocket: {e}")
-        return False
+        assert False, f"Endpoint WebSocket non accessible: {e}"
 
 def main():
     """Test principal"""

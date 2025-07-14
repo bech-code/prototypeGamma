@@ -381,6 +381,11 @@ LOGGING = {
             'level': 'INFO',
             'propagate': True,
         },
+        'websocket_consumers': {
+            'handlers': ['file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
     },
 }
 

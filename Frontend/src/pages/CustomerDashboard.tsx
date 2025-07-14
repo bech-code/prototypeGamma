@@ -511,7 +511,7 @@ const CustomerDashboard = () => {
             {/* Bouton Suivre la demande */}
             <button
               className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs font-semibold shadow"
-              onClick={() => navigate(`/requests/${assignedRequest.id}`)}
+              onClick={() => navigate(`/tracking/${assignedRequest.id}`)}
             >
               Suivre la demande
             </button>
@@ -757,6 +757,15 @@ const CustomerDashboard = () => {
                                 <div className="text-sm text-gray-500 mb-1">{formatDate(request.created_at)}</div>
                               </div>
                               <div className="flex gap-2">
+                                {(request.status === 'assigned' || request.status === 'in_progress') && request.technician && (
+                                  <button
+                                    onClick={() => navigate(`/tracking/${request.id}`)}
+                                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 transition-colors text-sm font-semibold shadow"
+                                  >
+                                    <Navigation className="h-4 w-4 mr-2" />
+                                    Suivre en temps réel
+                                  </button>
+                                )}
                                 {request.status === 'pending' && (
                                   <button
                                     onClick={async () => {

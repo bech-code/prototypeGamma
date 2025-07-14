@@ -8,6 +8,7 @@ import sys
 import django
 import requests
 import json
+import time
 
 # Configuration Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Backend.auth.settings')
@@ -123,5 +124,4 @@ def test_production_mode():
     print("✅ Vérifiez les notifications webhook")
 
 if __name__ == "__main__":
-    import time
     test_production_mode() 

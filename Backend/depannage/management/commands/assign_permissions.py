@@ -33,7 +33,7 @@ CLIENT_PERMS = [
     ("depannage", "client", "view_client"),
     ("depannage", "client", "change_client"),
     # ("depannage", "payment", "add_payment"),  # Désactivé côté client
-    ("depannage", "payment", "view_payment"),
+    # ("depannage", "payment", "view_payment"),  # Supprimé pour le client
     ("depannage", "notification", "add_notification"),
     ("depannage", "notification", "view_notification"),
     ("depannage", "message", "add_message"),

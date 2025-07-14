@@ -121,13 +121,13 @@ def test_final_success():
         print("   ✅ Le technicien peut accéder à son dashboard")
         print("   ✅ Le technicien peut recevoir des demandes")
         print("   ✅ Les abonnements sont correctement gérés")
-        return True
+        assert True, "Succès complet : tous les endpoints fonctionnent"
     elif success_count > 0:
         print(f"\n⚠️  SUCCÈS PARTIEL : {success_count}/{total_tests} endpoints fonctionnent")
-        return True
+        assert True, f"Succès partiel : {success_count}/{total_tests} endpoints fonctionnent"
     else:
         print("\n❌ ÉCHEC : Aucun endpoint ne fonctionne")
-        return False
+        assert False, "Échec : aucun endpoint ne fonctionne"
 
 if __name__ == "__main__":
     success = test_final_success()

@@ -1,0 +1,11 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.13.5, pytest-8.4.1, pluggy-1.6.0 -- /Users/mohamedbechirdiarra/Downloads/prototypeGamma/venv/bin/python3.13
+cachedir: .pytest_cache
+rootdir: /Users/mohamedbechirdiarra/Downloads/prototypeGamma
+plugins: asyncio-1.0.0
+asyncio: mode=Mode.STRICT, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 1 item
+
+Backend/test_websocket.py::test_websocket PASSED                         [100%]
+
+============================== 1 passed in 0.07s ===============================

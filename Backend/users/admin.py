@@ -38,6 +38,19 @@ class CustomUserAdmin(UserAdmin):
     full_name.short_description = "Nom complet"
     full_name.admin_order_field = 'first_name'
 
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        from django.contrib.auth.models import Group
+        group_name = None
+        if obj.user_type == 'client':
+            group_name = 'Client'
+        elif obj.user_type == 'technician':
+            group_name = 'Technicien'
+        if group_name:
+            group, _ = Group.objects.get_or_create(name=group_name)
+            if group not in obj.groups.all():
+                obj.groups.add(group)
+
 @admin.register(AuditLog)
 class AuditLogAdmin(admin.ModelAdmin):
     list_display = ('timestamp', 'user', 'event_type', 'status', 'ip_address', 'geo_country', 'risk_score')

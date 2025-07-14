@@ -60,6 +60,10 @@ const UserManagement: React.FC = () => {
     const [paymentStatus, setPaymentStatus] = useState<string>('all');
     const [technicianSubscriptions, setTechnicianSubscriptions] = useState<{ [key: number]: any }>({});
 
+    // États pour l'affichage/masquage du mot de passe lors de la création
+    const [showCreatePassword, setShowCreatePassword] = useState(false); // Affiche/masque le mot de passe
+    const [showCreatePassword2, setShowCreatePassword2] = useState(false); // Affiche/masque la confirmation
+
     // États pour les toasts et feedback
     const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info', message: string } | null>(null);
     const [actionLoading, setActionLoading] = useState<{ type: string, userId: number } | null>(null);
@@ -516,7 +520,13 @@ const UserManagement: React.FC = () => {
                                 </div>
                             </div>
                             {createError && (
-                                <div className="text-red-600 text-sm">{typeof createError === 'string' ? createError : Object.entries(createError).map(([k, v]) => <div key={k}>{k}: {v}</div>)}</div>
+                                <div className="text-red-600 text-sm">
+                                    {typeof createError === 'string'
+                                        ? createError
+                                        : Object.entries(createError as Record<string, any>).map(([k, v]) => (
+                                            <div key={k}>{k}: {Array.isArray(v) ? v.join(', ') : v}</div>
+                                        ))}
+                                </div>
                             )}
                             <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded font-semibold hover:bg-blue-700" disabled={createLoading}>
                                 {createLoading ? 'Création...' : 'Créer'}
@@ -561,7 +571,13 @@ const UserManagement: React.FC = () => {
                                 <input name="phone_number" type="text" value={editForm.phone_number} onChange={handleEditChange} className="w-full border rounded px-3 py-2" />
                             </div>
                             {editError && (
-                                <div className="text-red-600 text-sm">{typeof editError === 'string' ? editError : Object.entries(editError).map(([k, v]) => <div key={k}>{k}: {v}</div>)}</div>
+                                <div className="text-red-600 text-sm">
+                                    {typeof editError === 'string'
+                                        ? editError
+                                        : Object.entries(editError as Record<string, any>).map(([k, v]) => (
+                                            <div key={k}>{k}: {Array.isArray(v) ? v.join(', ') : v}</div>
+                                        ))}
+                                </div>
                             )}
                             <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded font-semibold hover:bg-blue-700" disabled={editLoading}>
                                 {editLoading ? 'Enregistrement...' : 'Enregistrer'}

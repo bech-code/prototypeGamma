@@ -1,5 +1,12 @@
 # 🚀 Guide Postman - API DepanneTeliman
 
+> **ℹ️ Tous les comptes de test utilisent le mot de passe universel : `bechir66312345`**
+> 
+> **Admin spécial recommandé pour les tests :**
+> - Nom d'utilisateur : `depan_use`
+> - Email : `mohamedbechirdiarra4@gmail.com`
+> - Mot de passe : `bechir66312345`
+
 Ce guide vous aide à configurer Postman pour tester l'API DepanneTeliman.
 
 ## 📥 **Import de la Collection Postman**
@@ -54,8 +61,9 @@ Content-Type: application/json
 **Body (raw JSON) :**
 ```json
 {
+    "username": "depan_use",
     "email": "mohamedbechirdiarra4@gmail.com",
-    "password": "votre_mot_de_passe"
+    "password": "bechir66312345"
 }
 ```
 

@@ -175,6 +175,7 @@ class TechnicianAPITester:
             self.technician_token
         )
         self.test_results.append(result)
+        assert result.success, result.error_message
         
         # Test demandes récentes
         result = self.make_request(
@@ -183,6 +184,7 @@ class TechnicianAPITester:
             self.technician_token
         )
         self.test_results.append(result)
+        assert result.success, result.error_message
         
         # Test notifications
         result = self.make_request(
@@ -191,6 +193,7 @@ class TechnicianAPITester:
             self.technician_token
         )
         self.test_results.append(result)
+        assert result.success, result.error_message
     
     def test_technician_profile_endpoints(self):
         """Test des endpoints du profil technicien"""
@@ -207,6 +210,7 @@ class TechnicianAPITester:
             self.technician_token
         )
         self.test_results.append(result)
+        assert result.success, result.error_message
         
         # Test mise à jour profil
         update_data = {
@@ -223,6 +227,7 @@ class TechnicianAPITester:
             update_data
         )
         self.test_results.append(result)
+        assert result.success, result.error_message
     
     def test_rewards_endpoints(self):
         """Test des endpoints de récompenses"""
@@ -239,6 +244,7 @@ class TechnicianAPITester:
             self.technician_token
         )
         self.test_results.append(result)
+        assert result.success, result.error_message
     
     def test_subscription_endpoints(self):
         """Test des endpoints d'abonnement"""
@@ -255,6 +261,7 @@ class TechnicianAPITester:
             self.technician_token
         )
         self.test_results.append(result)
+        assert result.success, result.error_message
         
         # Test renouvellement abonnement
         renewal_data = {
@@ -268,6 +275,7 @@ class TechnicianAPITester:
             renewal_data
         )
         self.test_results.append(result)
+        assert result.success, result.error_message
     
     def test_permissions(self):
         """Test des permissions d'accès"""
@@ -282,6 +290,7 @@ class TechnicianAPITester:
                 expected_status=403
             )
             self.test_results.append(result)
+            assert result.success, result.error_message
         
         # Test accès admin avec token technicien (doit échouer)
         if self.technician_token:
@@ -292,6 +301,7 @@ class TechnicianAPITester:
                 expected_status=403
             )
             self.test_results.append(result)
+            assert result.success, result.error_message
     
     def test_data_validation(self):
         """Test de validation des données"""
@@ -315,6 +325,7 @@ class TechnicianAPITester:
             expected_status=400
         )
         self.test_results.append(result)
+        assert result.success, result.error_message
         
         # Test données invalides pour renouvellement abonnement
         invalid_renewal = {
@@ -329,6 +340,7 @@ class TechnicianAPITester:
             expected_status=400
         )
         self.test_results.append(result)
+        assert result.success, result.error_message
     
     def test_performance(self):
         """Test de performance des endpoints"""
@@ -371,6 +383,7 @@ class TechnicianAPITester:
                 malicious_data
             )
             self.test_results.append(result)
+            assert result.success, result.error_message
         
         # Test sans token (doit échouer)
         result = self.make_request(
@@ -379,6 +392,7 @@ class TechnicianAPITester:
             expected_status=401
         )
         self.test_results.append(result)
+        assert result.success, result.error_message
     
     def run_all_tests(self):
         """Exécute tous les tests"""

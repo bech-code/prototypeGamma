@@ -219,6 +219,7 @@ def main():
     
     # Test 3: Endpoint de chat
     success = test_chat_endpoint(token, client_id, technician_id)
+    assert success, "Chat endpoint test failed"
     
     print("\n" + "=" * 50)
     print("📊 RÉSUMÉ")

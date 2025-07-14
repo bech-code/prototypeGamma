@@ -25,7 +25,7 @@ def test_geolocation_booking():
             
     except Exception as e:
         print(f"❌ Frontend non accessible: {e}")
-        return False
+        assert False, "Geolocation booking test failed"
     
     # Test du backend
     try:
@@ -75,7 +75,7 @@ def test_geolocation_booking():
         print(f"  Code {code}: {description}")
     
     print("\n✅ Test de la géolocalisation dans BookingForm terminé !")
-    return True
+    assert True, "Geolocation booking test passed"
 
 if __name__ == "__main__":
     test_geolocation_booking() 

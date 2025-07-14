@@ -108,3 +108,23 @@ WARNING "GET /ws/notifications/?token=..." HTTP/1.1" 404 2932
 ---
 
 **💡 Conseil :** Ajoutez `./start_backend.sh asgi` à vos raccourcis ou alias pour un démarrage rapide ! 
+
+# 🔑 Comptes de test universels
+
+Tous les comptes de test utilisent le mot de passe : **bechir66312345**
+
+| Rôle         | Email                        | Mot de passe        | Nom d'utilisateur |
+|--------------|------------------------------|---------------------|-------------------|
+| Admin        | admin@depanneteliman.com     | bechir66312345      | admin             |
+| Admin (spécial)| mohamedbechirdiarra4@gmail.com | bechir66312345  | depan_use         |
+| Technicien   | technicien@depanneteliman.com| bechir66312345      |                   |
+| Client       | client@depanneteliman.com    | bechir66312345      |                   |
+| Client 1     | client1@example.com          | bechir66312345      |                   |
+| Client 2     | client2@example.com          | bechir66312345      |                   |
+| Client 3     | client3@example.com          | bechir66312345      |                   |
+| Démo         | test@depanneteliman.com      | bechir66312345      |                   |
+| Plombier     | ballo@gmail.com              | bechir66312345      |                   |
+
+> **Remarque :** Vous pouvez utiliser ce mot de passe pour tous les comptes de test lors des connexions API, admin ou frontend.
+
+--- 

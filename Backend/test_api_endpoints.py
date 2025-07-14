@@ -77,7 +77,7 @@ class APITester:
         # Test 1: Login (avec des credentials de test)
         login_data = {
             "email": "mohamedbechirdiarra4@gmail.com",
-            "password": "bechir66312345"  # Remplacez par le vrai mot de passe
+            "password": "bechir66312345"
         }
         
         try:

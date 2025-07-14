@@ -21,11 +21,9 @@ def test_password_validation():
     try:
         response = requests.post("http://127.0.0.1:8000/users/login/", json=login_data)
         print(f"   Status: {response.status_code}")
-        if response.status_code == 200:
-            print("   ✅ Connexion réussie")
-            return True
-        else:
-            print(f"   ❌ Échec: {response.text}")
+        assert response.status_code == 200, "Password validation test failed"
+        print("   ✅ Connexion réussie")
+        return True
     except Exception as e:
         print(f"   ❌ Erreur: {e}")
     
@@ -39,11 +37,9 @@ def test_password_validation():
     try:
         response = requests.post("http://127.0.0.1:8000/users/login/", json=login_data_long)
         print(f"   Status: {response.status_code}")
-        if response.status_code == 200:
-            print("   ✅ Connexion réussie avec mot de passe long")
-            return True
-        else:
-            print(f"   ❌ Échec: {response.text}")
+        assert response.status_code == 200, "Password validation test failed"
+        print("   ✅ Connexion réussie avec mot de passe long")
+        return True
     except Exception as e:
         print(f"   ❌ Erreur: {e}")
     
@@ -57,11 +53,9 @@ def test_password_validation():
     try:
         response = requests.post("http://127.0.0.1:8000/users/login/", json=login_data_complex)
         print(f"   Status: {response.status_code}")
-        if response.status_code == 200:
-            print("   ✅ Connexion réussie avec mot de passe complexe")
-            return True
-        else:
-            print(f"   ❌ Échec: {response.text}")
+        assert response.status_code == 200, "Password validation test failed"
+        print("   ✅ Connexion réussie avec mot de passe complexe")
+        return True
     except Exception as e:
         print(f"   ❌ Erreur: {e}")
     
@@ -83,7 +77,9 @@ def test_user_info():
     
     django.setup()
     
-    from users.models import User
+    from django.contrib.auth import get_user_model
+    
+    User = get_user_model()
     
     try:
         user = User.objects.get(email="test_technicien@depanneteliman.com")

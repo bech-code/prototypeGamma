@@ -6,17 +6,6 @@ if [ -f .env ]; then
   echo "✅ Variables d'environnement chargées depuis .env"
 fi
 
-# Exporter la variable d'environnement pour Django
-export DJANGO_SETTINGS_MODULE=Backend.auth.settings
-
-# Définir la clé secrète Django (pour le développement)
-export DJANGO_SECRET_KEY="django-insecure-your-secret-key-for-development-only-change-in-production"
-
-# Ajouter Backend au PYTHONPATH pour les imports internes
-export PYTHONPATH="$PYTHONPATH:$(pwd)/Backend"
-
-# Exporter les variables d'environnement CinetPay (exemple, à adapter si besoin)
-
 # Activer l'environnement virtuel automatiquement
 if [ -f Backend/venv/bin/activate ]; then
   source Backend/venv/bin/activate
@@ -25,6 +14,10 @@ else
   exit 1
 fi
 
-# Démarrer le backend Django (ASGI avec Daphne)
+cd Backend
+export DJANGO_SETTINGS_MODULE=auth.settings
+export DJANGO_SECRET_KEY="django-insecure-your-secret-key-for-development-only-change-in-production"
+export PYTHONPATH=$(pwd)
+
 echo "🚀 Démarrage du Backend Django (ASGI avec WebSockets)..."
-daphne -b 0.0.0.0 -p 8000 Backend.auth.asgi:application 
+exec daphne -b 0.0.0.0 -p 8000 auth.asgi:application 

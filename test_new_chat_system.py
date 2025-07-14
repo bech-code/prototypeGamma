@@ -16,6 +16,7 @@ def test_health_check():
         print(f"✅ Health check: {response.status_code}")
         if response.status_code == 200:
             print(f"   Réponse: {response.json()}")
+        assert response.status_code == 200, "New chat system health check failed"
         return response.status_code == 200
     except Exception as e:
         print(f"❌ Erreur health check: {e}")

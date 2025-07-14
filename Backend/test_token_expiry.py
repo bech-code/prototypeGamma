@@ -9,6 +9,11 @@ User = get_user_model()
 
 class TokenExpiryTest(TestCase):
     def setUp(self):
+        # Supprimer l'utilisateur s'il existe déjà
+        try:
+            User.objects.get(username='testuser').delete()
+        except User.DoesNotExist:
+            pass
         self.user = User.objects.create_user(username='testuser', password='testpass')
         self.client = APIClient()
 

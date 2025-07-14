@@ -14,9 +14,11 @@ sys.path.append('/Users/mohamedbechirdiarra/Downloads/Prototype5b/Backend')
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'auth.settings')
 django.setup()
 
-from users.models import User
+from django.contrib.auth import get_user_model
 from depannage.models import Technician, TechnicianSubscription, CinetPayPayment
 from django.utils import timezone
+
+User = get_user_model()
 
 TECHNICIAN_EMAIL = "ballo@gmail.com"
 

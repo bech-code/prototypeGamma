@@ -31,10 +31,10 @@ def test_geolocation_obligatoire():
             print("✅ Connexion réussie")
         else:
             print(f"❌ Échec de connexion: {response.status_code}")
-            return False
+            assert False, "Échec de connexion"
     except Exception as e:
         print(f"❌ Erreur de connexion: {e}")
-        return False
+        assert False, "Erreur de connexion"
     
     # 2. Test création demande SANS géolocalisation (doit échouer)
     print("\n2. Test création demande sans géolocalisation...")
@@ -71,10 +71,10 @@ def test_geolocation_obligatoire():
             print(f"   Erreur: {error_data}")
         else:
             print(f"❌ Erreur: demande acceptée sans géolocalisation (status: {response.status_code})")
-            return False
+            assert False, "Demande acceptée sans géolocalisation"
     except Exception as e:
         print(f"❌ Erreur lors du test: {e}")
-        return False
+        assert False, "Erreur lors du test"
     
     # 3. Test création demande AVEC géolocalisation (doit réussir)
     print("\n3. Test création demande avec géolocalisation...")
@@ -107,10 +107,10 @@ def test_geolocation_obligatoire():
         else:
             print(f"❌ Erreur: demande rejetée avec géolocalisation (status: {response.status_code})")
             print(f"   Réponse: {response.text}")
-            return False
+            assert False, "Demande rejetée avec géolocalisation"
     except Exception as e:
         print(f"❌ Erreur lors du test: {e}")
-        return False
+        assert False, "Erreur lors du test"
     
     # 4. Vérifier les validations frontend
     print("\n4. Vérification des validations frontend...")
@@ -120,7 +120,7 @@ def test_geolocation_obligatoire():
     print("   ✅ Validations frontend à tester manuellement")
     
     print("\n🎉 Test de géolocalisation obligatoire terminé avec succès!")
-    return True
+    assert True, "Test de géolocalisation obligatoire terminé avec succès"
 
 def test_frontend_geolocation():
     """Test des fonctionnalités frontend de géolocalisation"""
@@ -144,6 +144,7 @@ def test_frontend_geolocation():
     print("   - Gestion des timeouts et erreurs GPS")
     
     print("\n✅ Tests frontend à effectuer manuellement dans le navigateur")
+    assert True, "Tests frontend à effectuer manuellement dans le navigateur"
 
 if __name__ == "__main__":
     print("🚀 Démarrage des tests de géolocalisation obligatoire")

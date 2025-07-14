@@ -59,8 +59,7 @@ def test_websocket_notification():
     
     # 1. Créer une notification
     notification = create_test_notification()
-    if not notification:
-        return
+    assert notification is not None, "Websocket notification failed"
     
     # 2. Vérifier que la notification existe en base
     try:

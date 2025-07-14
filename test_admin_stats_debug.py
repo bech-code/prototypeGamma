@@ -16,7 +16,8 @@ def test_backend_health():
         response = requests.get(f"{BASE_URL}/depannage/api/test/health_check/")
         print(f"Status: {response.status_code}")
         print(f"Response: {response.json()}")
-        return response.status_code == 200
+        assert response.status_code == 200, "Backend health test failed"
+        return True
     except Exception as e:
         print(f"Erreur: {e}")
         return False
@@ -62,14 +63,11 @@ def test_stats_endpoint(token):
         print(f"Status: {response.status_code}")
         print(f"Response: {response.text[:500]}...")
         
-        if response.status_code == 200:
-            data = response.json()
-            print("✅ Endpoint fonctionne!")
-            print(f"Statistiques: {json.dumps(data, indent=2)}")
-        else:
-            print("❌ Endpoint ne fonctionne pas")
-            
-        return response.status_code == 200
+        assert response.status_code == 200, "Stats endpoint test failed"
+        data = response.json()
+        print("✅ Endpoint fonctionne!")
+        print(f"Statistiques: {json.dumps(data, indent=2)}")
+        return True
     except Exception as e:
         print(f"Erreur: {e}")
         return False
@@ -94,7 +92,8 @@ def test_user_info(token):
             print(f"Email: {user.get('email', 'N/A')}")
             print(f"Is staff: {user.get('is_staff', False)}")
             print(f"Is superuser: {user.get('is_superuser', False)}")
-            return user.get('user_type') == 'admin'
+            assert user.get('user_type') == 'admin', "User info test failed"
+            return True
         else:
             print(f"❌ Erreur: {response.text}")
             return False

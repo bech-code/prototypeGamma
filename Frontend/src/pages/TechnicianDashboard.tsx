@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Clock, MessageSquare, MapPin, Phone, AlertCircle, CheckCircle, Wrench, TrendingUp } from 'lucide-react';
+import { Clock, MessageSquare, MapPin, Phone, AlertCircle, CheckCircle, Wrench, TrendingUp, Navigation } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchWithAuth } from '../contexts/fetchWithAuth';
 import TechnicianRequestsMap from '../components/TechnicianRequestsMap';
@@ -121,28 +121,61 @@ interface ReviewStats {
 
 // Mapping quartiers -> communes (doit être le même que côté admin)
 const quartierToCommune: Record<string, string> = {
-  'Sotuba': 'Commune I',
-  'Magnambougou': 'Commune VI',
-  'Yirimadio': 'Commune VI',
-  'Sabalibougou': 'Commune V',
-  'Lafiabougou': 'Commune IV',
-  'Badalabougou': 'Commune V',
-  'Hamdallaye': 'Commune IV',
-  'Missira': 'Commune II',
-  'Niamakoro': 'Commune VI',
-  'Banankabougou': 'Commune VI',
-  'Daoudabougou': 'Commune V',
-  'Djicoroni': 'Commune IV',
-  'Sogoniko': 'Commune VI',
-  'Faladié': 'Commune V',
-  'Niaréla': 'Commune II',
-  'Quinzambougou': 'Commune II',
-  'Medina Coura': 'Commune II',
-  'Bacodjicoroni': 'Commune V',
-  'Torokorobougou': 'Commune V',
-  'Sebenicoro': 'Commune IV',
-  'Kalaban Coura': 'Commune V',
-  'Kalabanbougou': 'Commune V',
+  'Sotuba': 'Commune 1',
+  'Magnambougou': 'Commune 6',
+  'Yirimadio': 'Commune 6',
+  'Sabalibougou': 'Commune 5',
+  'Lafiabougou': 'Commune 4',
+  'Badalabougou': 'Commune 5',
+  'Hamdallaye': 'Commune 4',
+  'Missira': 'Commune 2',
+  'Niamakoro': 'Commune 6',
+  'Banankabougou': 'Commune 6',
+  'Daoudabougou': 'Commune 5',
+  'Djicoroni': 'Commune 4',
+  'Sogoniko': 'Commune 6',
+  'Faladié': 'Commune 5',
+  'Niaréla': 'Commune 2',
+  'Quinzambougou': 'Commune 2',
+  'Medina Coura': 'Commune 2',
+  'Bacodjicoroni': 'Commune 5',
+  'Torokorobougou': 'Commune 5',
+  'Sebenicoro': 'Commune 4',
+  'Kalaban Coura': 'Commune 5',
+  'Kalabanbougou': 'Commune 5',
+  'Boulkassoumbougou': 'Commune 5',
+  'Dialakorodji': 'Commune 6',
+  'Niamana': 'Commune 6',
+  'Sirakoro Meguetana': 'Commune 6',
+  'Sangarebougou': 'Commune 6',
+  'Zerny': 'Commune 6',
+  'N\'Tabacoro': 'Commune 6',
+  'Niamakoro Koko': 'Commune 6',
+  'Sikoroni': 'Commune 6',
+  'Sogonafing': 'Commune 6',
+  'Djélibougou': 'Commune 4',
+  'Banconi': 'Commune 4',
+  'Lassa': 'Commune 4',
+  'Sébenikoro': 'Commune 4',
+  'N\'Tomikorobougou': 'Commune 4',
+  'Bolibana': 'Commune 3',
+  'Korofina': 'Commune 3',
+  'Hippodrome': 'Commune 3',
+  'Point G': 'Commune 3',
+  'Badialan': 'Commune 3',
+  'Bamako Coura': 'Commune 3',
+  'Bagadadji': 'Commune 3',
+  'Fadjiguila': 'Commune 3',
+  'Doumanzana': 'Commune 3',
+  'Missabougou': 'Commune 3',
+  'Sokorodji': 'Commune 3',
+  'Koulouba': 'Commune 3',
+  'Kouloubléni': 'Commune 3',
+  'Koulouba Plateau': 'Commune 3',
+  'Koulouba Marché': 'Commune 3',
+  'Koulouba Gare': 'Commune 3',
+  'Koulouba Cité': 'Commune 3',
+  'Koulouba Extension': 'Commune 3',
   // ... compléter selon besoin
 };
 
@@ -1299,21 +1332,20 @@ const TechnicianDashboard: React.FC = () => {
                                     onClick={async () => {
                                       setChatLoading(true);
                                       try {
-                                        // Simuler un délai ou une vérification d'accès
-                                        // await someAsyncCheck();
-                                        window.location.href = request.conversation ? `/chat/${request.conversation.id}` : '#';
+                                        // Rediriger vers la page de communication
+                                        navigate(`/communication/${request.id}`);
                                       } catch (e) {
-                                        setChatError("Impossible d'ouvrir la conversation.");
+                                        setChatError("Impossible d'ouvrir la communication.");
                                         setTimeout(() => setChatError(null), 3000);
                                       } finally {
                                         setChatLoading(false);
                                       }
                                     }}
                                     className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm relative"
-                                    aria-label="Ouvrir la conversation de chat"
+                                    aria-label="Ouvrir la communication"
                                   >
                                     <MessageSquare className="h-4 w-4 mr-2" />
-                                    Messages
+                                    Communication
                                     {/* Badge nouveaux messages */}
                                     {request.conversation?.unread_count > 0 && (
                                       <span className="ml-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold animate-pulse">
@@ -1398,6 +1430,16 @@ const TechnicianDashboard: React.FC = () => {
 
                                 {trackingRequestId === request.id && (
                                   <span className="ml-2 text-green-600 font-semibold animate-pulse">Tracking en cours...</span>
+                                )}
+
+                                {(request.status === 'assigned' || request.status === 'in_progress') && (
+                                  <button
+                                    onClick={() => navigate(`/tracking/${request.id}`)}
+                                    className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+                                  >
+                                    <Navigation className="h-4 w-4 mr-2" />
+                                    Suivre en temps réel
+                                  </button>
                                 )}
 
                                 {request.status === 'in_progress' && (

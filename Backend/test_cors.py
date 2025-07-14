@@ -16,7 +16,7 @@ def test_cors_preflight():
         print(f"Access-Control-Allow-Origin: {response.headers.get('Access-Control-Allow-Origin', 'Not found')}")
         print(f"Access-Control-Allow-Methods: {response.headers.get('Access-Control-Allow-Methods', 'Not found')}")
         print(f"Access-Control-Allow-Headers: {response.headers.get('Access-Control-Allow-Headers', 'Not found')}")
-        return response
+        assert response.status_code == 200, "CORS preflight failed"
     except Exception as e:
         print(f"Error: {e}")
         return None
@@ -38,7 +38,7 @@ def test_cors_post():
         print(f"\nPOST Status Code: {response.status_code}")
         print(f"POST Headers: {dict(response.headers)}")
         print(f"POST Response: {response.text}")
-        return response
+        assert response.status_code == 200, "CORS POST failed"
     except Exception as e:
         print(f"Error: {e}")
         return None

@@ -12,7 +12,6 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'auth.settings')
 django.setup()
 
 from django.contrib.auth import get_user_model
-from users.models import User
 
 def create_test_user():
     """Crée un utilisateur de test"""

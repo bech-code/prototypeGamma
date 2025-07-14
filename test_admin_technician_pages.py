@@ -56,10 +56,7 @@ def get_auth_token(username, password):
 def test_backend_subscription_status():
     """Teste que le backend retourne un statut d'abonnement gratuit."""
     print_section("TEST BACKEND - STATUT D'ABONNEMENT")
-    
-    if not TECHNICIAN_TOKEN:
-        print_test_result("Statut d'abonnement", False, "Token technicien non disponible")
-        return False
+    assert TECHNICIAN_TOKEN is not None, "Token technicien non disponible"
     
     try:
         headers = {"Authorization": f"Bearer {TECHNICIAN_TOKEN}"}
@@ -77,22 +74,19 @@ def test_backend_subscription_status():
             success = has_active and can_receive and status in ["active", "free"]
             print_test_result("Statut d'abonnement gratuit", success, 
                            f"has_active={has_active}, can_receive={can_receive}, status={status}")
-            return success
+            assert success, "Le statut d'abonnement n'est pas correct"
         else:
             print_test_result("Statut d'abonnement", False, f"Code {response.status_code}")
-            return False
+            assert False, f"Réponse inattendue: {response.status_code}"
             
     except Exception as e:
         print_test_result("Statut d'abonnement", False, f"Erreur: {e}")
-        return False
+        assert False, f"Exception: {e}"
 
 def test_backend_payment_endpoints_disabled():
     """Teste que les endpoints de paiement sont désactivés."""
     print_section("TEST BACKEND - ENDPOINTS DE PAIEMENT DÉSACTIVÉS")
-    
-    if not ADMIN_TOKEN:
-        print_test_result("Endpoints de paiement", False, "Token admin non disponible")
-        return False
+    assert ADMIN_TOKEN is not None, "Token admin non disponible"
     
     payment_endpoints = [
         "/depannage/api/payments/",
@@ -119,15 +113,12 @@ def test_backend_payment_endpoints_disabled():
         except Exception as e:
             print_test_result(f"Endpoint {endpoint}", True, f"Erreur de connexion: {e}")
     
-    return all_disabled
+    assert all_disabled, "Certains endpoints de paiement ne sont pas désactivés"
 
 def test_technician_has_active_subscription():
     """Teste que tous les techniciens ont un abonnement actif."""
     print_section("TEST BACKEND - ABONNEMENTS TECHNIENS")
-    
-    if not ADMIN_TOKEN:
-        print_test_result("Abonnements techniciens", False, "Token admin non disponible")
-        return False
+    assert ADMIN_TOKEN is not None, "Token admin non disponible"
     
     try:
         headers = {"Authorization": f"Bearer {ADMIN_TOKEN}"}
@@ -147,14 +138,14 @@ def test_technician_has_active_subscription():
                     print(f"  ✅ Technicien {tech.get('user', {}).get('username', 'N/A')}: abonnement actif")
             
             print_test_result("Tous les techniciens ont un abonnement actif", all_active)
-            return all_active
+            assert all_active, "Tous les techniciens n'ont pas un abonnement actif"
         else:
             print_test_result("Abonnements techniciens", False, f"Code {response.status_code}")
-            return False
+            assert False, f"Réponse inattendue: {response.status_code}"
             
     except Exception as e:
         print_test_result("Abonnements techniciens", False, f"Erreur: {e}")
-        return False
+        assert False, f"Exception: {e}"
 
 def test_frontend_pages_updated():
     """Teste que les pages frontend ont été mises à jour."""
@@ -223,7 +214,7 @@ def test_frontend_pages_updated():
             print_test_result(f"{file_path}", False, f"Erreur: {e}")
             all_updated = False
     
-    return all_updated
+    assert all_updated, "Toutes les pages frontend ne sont pas à jour"
 
 def test_backend_connectivity():
     """Teste la connectivité du backend."""
@@ -249,7 +240,7 @@ def main():
     # Test de connectivité d'abord
     if not test_backend_connectivity():
         print("❌ Backend non accessible. Vérifiez qu'il est démarré.")
-        return False
+        assert False, "Backend non accessible"
     
     # Connexion
     print("\n🔐 Connexion...")
@@ -268,7 +259,7 @@ def main():
         ADMIN_TOKEN = get_auth_token("admin", "admin123")
         if not ADMIN_TOKEN:
             print("❌ Aucun identifiant admin ne fonctionne")
-            return False
+            assert False, "Aucun identifiant admin ne fonctionne"
     
     print("✅ Connexion admin réussie")
     
@@ -299,11 +290,11 @@ def main():
     if success_count == total_count:
         print("🎉 TOUS LES TESTS SONT PASSÉS !")
         print("✅ La plateforme est entièrement en mode gratuit")
-        return True
+        assert True, "Tous les tests sont passés"
     else:
         print("⚠️  Certains tests ont échoué")
         print("❌ Des corrections sont nécessaires")
-        return False
+        assert False, "Certains tests ont échoué"
 
 if __name__ == "__main__":
     success = main()

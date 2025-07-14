@@ -41,29 +41,17 @@ def test_jwt_configuration():
     jwt_settings = settings.SIMPLE_JWT
     
     # Vérifier les paramètres critiques
-    if jwt_settings.get('ACCESS_TOKEN_LIFETIME'):
-        print("✅ ACCESS_TOKEN_LIFETIME configuré")
-    else:
-        print("❌ ACCESS_TOKEN_LIFETIME manquant")
-        return False
+    assert jwt_settings.get('ACCESS_TOKEN_LIFETIME'), "ACCESS_TOKEN_LIFETIME manquant"
+    print("✅ ACCESS_TOKEN_LIFETIME configuré")
     
-    if jwt_settings.get('REFRESH_TOKEN_LIFETIME'):
-        print("✅ REFRESH_TOKEN_LIFETIME configuré")
-    else:
-        print("❌ REFRESH_TOKEN_LIFETIME manquant")
-        return False
+    assert jwt_settings.get('REFRESH_TOKEN_LIFETIME'), "REFRESH_TOKEN_LIFETIME manquant"
+    print("✅ REFRESH_TOKEN_LIFETIME configuré")
     
-    if jwt_settings.get('SIGNING_KEY'):
-        print("✅ SIGNING_KEY configuré")
-    else:
-        print("❌ SIGNING_KEY manquant")
-        return False
+    assert jwt_settings.get('SIGNING_KEY'), "SIGNING_KEY manquant"
+    print("✅ SIGNING_KEY configuré")
     
-    if jwt_settings.get('ROTATE_REFRESH_TOKENS'):
-        print("✅ ROTATE_REFRESH_TOKENS activé")
-    else:
-        print("❌ ROTATE_REFRESH_TOKENS désactivé")
-        return False
+    assert jwt_settings.get('ROTATE_REFRESH_TOKENS'), "ROTATE_REFRESH_TOKENS désactivé"
+    print("✅ ROTATE_REFRESH_TOKENS activé")
     
     print("✅ Configuration JWT correcte")
     return True
@@ -72,18 +60,12 @@ def test_cors_configuration():
     """Test la configuration CORS."""
     print("\n🔍 Test de la configuration CORS...")
     
-    if hasattr(settings, 'CORS_ALLOWED_ORIGINS'):
-        print("✅ CORS_ALLOWED_ORIGINS configuré")
-        print(f"   Origines autorisées: {settings.CORS_ALLOWED_ORIGINS}")
-    else:
-        print("❌ CORS_ALLOWED_ORIGINS non configuré")
-        return False
+    assert hasattr(settings, 'CORS_ALLOWED_ORIGINS'), "CORS_ALLOWED_ORIGINS non configuré"
+    print("✅ CORS_ALLOWED_ORIGINS configuré")
+    print(f"   Origines autorisées: {settings.CORS_ALLOWED_ORIGINS}")
     
-    if not getattr(settings, 'CORS_ALLOW_ALL_ORIGINS', False):
-        print("✅ CORS_ALLOW_ALL_ORIGINS désactivé (sécurisé)")
-    else:
-        print("❌ CORS_ALLOW_ALL_ORIGINS activé (non sécurisé)")
-        return False
+    assert not getattr(settings, 'CORS_ALLOW_ALL_ORIGINS', False), "CORS_ALLOW_ALL_ORIGINS activé (non sécurisé)"
+    print("✅ CORS_ALLOW_ALL_ORIGINS désactivé (sécurisé)")
     
     print("✅ Configuration CORS sécurisée")
     return True
@@ -99,11 +81,8 @@ def test_security_headers():
     ]
     
     for setting, description in security_settings:
-        if getattr(settings, setting, None):
-            print(f"✅ {description} activé")
-        else:
-            print(f"❌ {description} désactivé")
-            return False
+        assert getattr(settings, setting, None), f"{description} désactivé"
+        print(f"✅ {description} activé")
     
     print("✅ Headers de sécurité configurés")
     return True

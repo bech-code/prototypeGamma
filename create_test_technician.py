@@ -15,7 +15,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'Backend'))
 
 django.setup()
 
-from users.models import User
+from django.contrib.auth import get_user_model
 from depannage.models import Technician, TechnicianSubscription
 from django.utils import timezone
 
@@ -26,6 +26,7 @@ def create_test_technician():
     
     email = "test_technicien@depanneteliman.com"
     password = "test123"
+    User = get_user_model()
     try:
         user = User.objects.get(email=email)
         user.set_password(password)

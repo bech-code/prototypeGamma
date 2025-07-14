@@ -26,7 +26,7 @@ def test_auth_flow():
         print(f"✅ Server is running (Status: {response.status_code})")
     except requests.exceptions.ConnectionError:
         print("❌ Server is not running. Please start the Django server first.")
-        return False
+        assert False, "Server is not running"
     
     # Test 2: Test login with admin credentials
     print("\n🔑 Testing Login...")
@@ -56,6 +56,7 @@ def test_auth_flow():
                 else:
                     print(f"❌ Token refresh failed: {refresh_response.status_code}")
                     print(f"   Response: {refresh_response.text}")
+                    assert False, "Token refresh failed"
                 
                 # Test 4: Test /users/me/ endpoint
                 print("\n👤 Testing /users/me/ endpoint...")
@@ -70,20 +71,21 @@ def test_auth_flow():
                 else:
                     print(f"❌ /users/me/ failed: {me_response.status_code}")
                     print(f"   Response: {me_response.text}")
+                    assert False, "Users/me endpoint failed"
                 
-                return True
+                assert True, "Authentication flow test passed"
             else:
                 print("❌ Login response missing tokens")
                 print(f"   Response: {data}")
-                return False
+                assert False, "Login response missing tokens"
         else:
             print(f"❌ Login failed: {response.status_code}")
             print(f"   Response: {response.text}")
-            return False
+            assert False, f"Login failed with status code: {response.status_code}"
             
     except Exception as e:
         print(f"❌ Login error: {e}")
-        return False
+        assert False, f"Login error: {e}"
 
 def test_statistics_endpoints():
     """Test statistics endpoints with authentication"""
@@ -101,7 +103,7 @@ def test_statistics_endpoints():
         response = requests.post(f"{BASE_URL}/users/login/", json=login_data)
         if response.status_code != 200:
             print("❌ Cannot get authentication token for statistics test")
-            return False
+            assert False, "Could not get authentication token for statistics test"
             
         data = response.json()
         headers = {"Authorization": f"Bearer {data['access']}"}
@@ -118,6 +120,7 @@ def test_statistics_endpoints():
         else:
             print(f"❌ Project statistics failed: {stats_response.status_code}")
             print(f"   Response: {stats_response.text}")
+            assert False, "Project statistics endpoint failed"
         
         # Test user statistics
         print("\n👥 Testing User Statistics...")
@@ -130,12 +133,13 @@ def test_statistics_endpoints():
         else:
             print(f"❌ User statistics failed: {user_stats_response.status_code}")
             print(f"   Response: {user_stats_response.text}")
+            assert False, "User statistics endpoint failed"
         
-        return True
+        assert True, "Statistics endpoints test passed"
         
     except Exception as e:
         print(f"❌ Statistics test error: {e}")
-        return False
+        assert False, f"Statistics test error: {e}"
 
 if __name__ == "__main__":
     print("🚀 Starting Authentication and Statistics Tests")

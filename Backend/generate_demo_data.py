@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'auth.settings')
 django.setup()
 
-from users.models import User
+from django.contrib.auth import get_user_model
 from depannage.models import RepairRequest, Technician, Client, Payment, Review
 from django.utils import timezone
 
@@ -31,6 +31,8 @@ TECH_EMAIL = 'technicien@depanneteliman.com'
 CLIENT_EMAIL = 'client@depanneteliman.com'
 
 random.seed(42)
+
+User = get_user_model()
 
 def get_user(email):
     try:

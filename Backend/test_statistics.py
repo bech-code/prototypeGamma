@@ -33,17 +33,17 @@ def test_health_check():
             print(f"✅ API en ligne: {data.get('message', 'OK')}")
             print(f"   Version: {data.get('version', 'N/A')}")
             print(f"   Timestamp: {data.get('timestamp', 'N/A')}")
-            return True
+            assert True, "API health check passed"
         else:
             print(f"❌ Erreur API: {response.status_code}")
-            return False
+            assert False, f"API health check failed: {response.status_code}"
     except requests.exceptions.ConnectionError:
         print("❌ Impossible de se connecter à l'API")
         print("   Assurez-vous que le serveur Django est démarré sur localhost:8000")
-        return False
+        assert False, "Connection error to API"
     except Exception as e:
         print(f"❌ Erreur: {str(e)}")
-        return False
+        assert False, f"Exception: {e}"
 
 def login_user(email, password):
     """Connexion d'un utilisateur et récupération du token"""
@@ -99,15 +99,15 @@ def test_dashboard_stats(token, user_type):
                 print(f"   Demandes actives: {data.get('active_requests', 0)}")
                 print(f"   Demandes terminées: {data.get('completed_requests', 0)}")
             
-            return True
+            assert True, "Dashboard stats test passed"
         else:
             print(f"❌ Erreur: {response.status_code}")
             print(f"   Réponse: {response.text}")
-            return False
+            assert False, f"Dashboard stats test failed: {response.status_code}"
             
     except Exception as e:
         print(f"❌ Erreur: {str(e)}")
-        return False
+        assert False, f"Exception: {e}"
 
 def test_project_statistics(token):
     """Test des statistiques complètes du projet (admin seulement)"""
@@ -155,18 +155,18 @@ def test_project_statistics(token):
             print(f"   Alertes sécurité: {security_data.get('security_alerts', 0)}")
             print(f"   Taux de succès: {security_data.get('success_rate', 0)}%")
             
-            return True
+            assert True, "Project statistics test passed"
         elif response.status_code == 403:
             print("❌ Accès refusé - Utilisateur non admin")
-            return False
+            assert False, "Access denied for non-admin user"
         else:
             print(f"❌ Erreur: {response.status_code}")
             print(f"   Réponse: {response.text}")
-            return False
+            assert False, f"Project statistics test failed: {response.status_code}"
             
     except Exception as e:
         print(f"❌ Erreur: {str(e)}")
-        return False
+        assert False, f"Exception: {e}"
 
 def test_available_technicians(token, specialty="plomberie"):
     """Test de récupération des techniciens disponibles"""
@@ -194,18 +194,18 @@ def test_available_technicians(token, specialty="plomberie"):
             if len(data) > 3:
                 print(f"   ... et {len(data) - 3} autres techniciens")
             
-            return True
+            assert True, "Available technicians test passed"
         elif response.status_code == 403:
             print("❌ Accès refusé - Utilisateur non admin")
-            return False
+            assert False, "Access denied for non-admin user"
         else:
             print(f"❌ Erreur: {response.status_code}")
             print(f"   Réponse: {response.text}")
-            return False
+            assert False, f"Available technicians test failed: {response.status_code}"
             
     except Exception as e:
         print(f"❌ Erreur: {str(e)}")
-        return False
+        assert False, f"Exception: {e}"
 
 def main():
     """Fonction principale"""
@@ -219,9 +219,9 @@ def main():
     
     # Test avec différents types d'utilisateurs
     test_users = [
-        ("admin@depanneteliman.com", "admin123", "admin"),
-        ("technicien@depanneteliman.com", "tech123", "technician"),
-        ("client@depanneteliman.com", "client123", "client"),
+        ("mohamedbechirdiarra4@gmail.com", "bechir66312345", "admin"),
+        ("technicien@depanneteliman.com", "bechir66312345", "technician"),
+        ("client@depanneteliman.com", "bechir66312345", "client"),
     ]
     
     results = {}

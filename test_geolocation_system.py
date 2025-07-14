@@ -68,7 +68,7 @@ class GeolocationTester:
         """Test du WebSocket technicien"""
         if not self.technician_id:
             print("❌ Pas d'ID technicien disponible")
-            return False
+            assert False, "Pas d'ID technicien disponible"
 
         uri = f"{WS_BASE_URL}/ws/technician-tracking/{self.technician_id}/"
         
@@ -91,20 +91,20 @@ class GeolocationTester:
                     response = await asyncio.wait_for(websocket.recv(), timeout=5.0)
                     data = json.loads(response)
                     print(f"✅ Réponse reçue: {data}")
-                    return True
+                    assert True, "Réponse WebSocket reçue"
                 except asyncio.TimeoutError:
                     print("⚠️ Timeout - Pas de réponse reçue")
-                    return False
+                    assert False, "Timeout - Pas de réponse WebSocket"
                     
         except Exception as e:
             print(f"❌ Erreur WebSocket technicien: {e}")
-            return False
+            assert False, f"Erreur WebSocket technicien: {e}"
 
     async def test_client_websocket(self):
         """Test du WebSocket client"""
         if not self.client_id:
             print("❌ Pas d'ID client disponible")
-            return False
+            assert False, "Pas d'ID client disponible"
 
         uri = f"{WS_BASE_URL}/ws/client-tracking/{self.client_id}/"
         
@@ -127,14 +127,14 @@ class GeolocationTester:
                     response = await asyncio.wait_for(websocket.recv(), timeout=5.0)
                     data = json.loads(response)
                     print(f"✅ Réponse reçue: {data}")
-                    return True
+                    assert True, "Réponse WebSocket reçue"
                 except asyncio.TimeoutError:
                     print("⚠️ Timeout - Pas de réponse reçue")
-                    return False
+                    assert False, "Timeout - Pas de réponse WebSocket"
                     
         except Exception as e:
             print(f"❌ Erreur WebSocket client: {e}")
-            return False
+            assert False, f"Erreur WebSocket client: {e}"
 
     def test_api_endpoints(self):
         """Test des endpoints API de géolocalisation"""

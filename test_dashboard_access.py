@@ -105,7 +105,7 @@ def test_dashboard_access():
     can_receive = technician.has_active_subscription
     print(f"   Peut recevoir des demandes (propriété): {can_receive}")
     
-    return True
+    assert True, "Dashboard access test terminé"
 
 if __name__ == "__main__":
     success = test_dashboard_access()

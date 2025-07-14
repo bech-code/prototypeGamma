@@ -7,7 +7,7 @@ from django.http import HttpResponse
 import openpyxl
 from openpyxl.utils import get_column_letter
 from .models import RepairRequest, Payment, Review
-from users.models import User
+from django.contrib.auth import get_user_model
 from django.db.models import Count, Sum, Avg, Q
 
 @api_view(['GET'])
@@ -29,7 +29,7 @@ def export_statistics_excel(request):
         now = timezone.now()
         
         # Utilisateurs actifs (correction de la requête)
-        active_users_30d = User.objects.filter(
+        active_users_30d = get_user_model().objects.filter(
             Q(client_profile__repair_requests__created_at__gte=now - timedelta(days=30)) |
             Q(technician_depannage__repair_requests__created_at__gte=now - timedelta(days=30))
         ).distinct().count()
@@ -39,10 +39,10 @@ def export_statistics_excel(request):
         ws.title = "Statistiques"
 
         # Statistiques utilisateurs
-        total_users = User.objects.count()
-        total_clients = User.objects.filter(user_type='client').count()
-        total_technicians = User.objects.filter(user_type='technician').count()
-        total_admins = User.objects.filter(user_type='admin').count()
+        total_users = get_user_model().objects.count()
+        total_clients = get_user_model().objects.filter(user_type='client').count()
+        total_technicians = get_user_model().objects.filter(user_type='technician').count()
+        total_admins = get_user_model().objects.filter(user_type='admin').count()
         ws.append(["Vue d'ensemble"])
         ws.append(["Total utilisateurs", total_users])
         ws.append(["Clients", total_clients])

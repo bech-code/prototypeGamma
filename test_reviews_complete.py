@@ -19,7 +19,7 @@ def test_reviews_system():
     print("\n1️⃣ Test de connexion client...")
     client_response = requests.post(
         f"{BASE_URL}/users/login/",
-        json={"email": "client2@example.com", "password": "client123"}
+        json={"email": "client2@example.com", "password": "bechir66312345"}
     )
     
     if client_response.status_code == 200:
@@ -51,6 +51,7 @@ def test_reviews_system():
             print(f"❌ Problème: {response.text}")
     else:
         print(f"❌ Échec connexion client: {client_response.status_code}")
+        return  # Arrêter le test si la connexion échoue
     
     # 2. Test de création d'un avis (si possible)
     print("\n2️⃣ Test de création d'avis...")
@@ -118,7 +119,7 @@ def test_reviews_system():
         try:
             response = requests.post(
                 f"{BASE_URL}/users/login/",
-                json={"email": email, "password": "password123"}
+                json={"email": email, "password": "bechir66312345"}
             )
             
             if response.status_code == 200:

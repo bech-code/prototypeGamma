@@ -1,0 +1,46 @@
+INFO 2025-07-13 18:59:45,056 autoreload 54210 8445354176 Watching for file changes with StatReloader
+INFO 2025-07-13 18:59:48,649 basehttp 54210 6189559808 "GET /depannage/api/test/health_check/ HTTP/1.1" 200 140
+WARNING 2025-07-13 19:00:07,820 log 54210 6189559808 Unauthorized: /depannage/api/permissions/
+WARNING 2025-07-13 19:00:07,821 basehttp 54210 6189559808 "GET /depannage/api/permissions/ HTTP/1.1" 401 58
+WARNING 2025-07-13 19:00:10,381 log 54210 6189559808 Unauthorized: /depannage/api/groups/
+WARNING 2025-07-13 19:00:10,381 basehttp 54210 6189559808 "GET /depannage/api/groups/ HTTP/1.1" 401 58
+INFO 2025-07-13 19:00:12,917 autoreload 54210 8445354176 /Users/mohamedbechirdiarra/Downloads/prototypeGamma/Backend/depannage/urls.py changed, reloading.
+INFO 2025-07-13 19:00:13,552 autoreload 54841 8445354176 Watching for file changes with StatReloader
+INFO 2025-07-13 19:00:24,273 autoreload 54841 8445354176 /Users/mohamedbechirdiarra/Downloads/prototypeGamma/Backend/depannage/urls.py changed, reloading.
+INFO 2025-07-13 19:00:25,025 autoreload 54880 8445354176 Watching for file changes with StatReloader
+INFO 2025-07-13 19:00:27,516 autoreload 54880 8445354176 /Users/mohamedbechirdiarra/Downloads/prototypeGamma/Backend/depannage/urls.py changed, reloading.
+INFO 2025-07-13 19:00:27,992 autoreload 54899 8445354176 Watching for file changes with StatReloader
+INFO 2025-07-13 19:08:45,728 autoreload 54899 8445354176 /Users/mohamedbechirdiarra/Downloads/prototypeGamma/Backend/depannage/views.py changed, reloading.
+INFO 2025-07-13 19:08:46,408 autoreload 55690 8445354176 Watching for file changes with StatReloader
+INFO 2025-07-13 19:10:51,151 autoreload 55690 8445354176 /Users/mohamedbechirdiarra/Downloads/prototypeGamma/Backend/depannage/views.py changed, reloading.
+INFO 2025-07-13 19:10:51,803 autoreload 55891 8445354176 Watching for file changes with StatReloader
+INFO 2025-07-13 19:10:57,503 autoreload 55891 8445354176 /Users/mohamedbechirdiarra/Downloads/prototypeGamma/Backend/depannage/views.py changed, reloading.
+INFO 2025-07-13 19:10:58,048 autoreload 55920 8445354176 Watching for file changes with StatReloader
+INFO 2025-07-13 19:11:17,749 basehttp 55920 6126809088 "GET /depannage/api/test/health_check/ HTTP/1.1" 200 140
+WARNING 2025-07-13 19:11:20,904 log 55920 6126809088 Unauthorized: /depannage/api/configuration/public_config/
+WARNING 2025-07-13 19:11:20,904 basehttp 55920 6126809088 "GET /depannage/api/configuration/public_config/ HTTP/1.1" 401 58
+INFO 2025-07-13 19:14:52,006 basehttp 55920 6126809088 "GET /depannage/api/test/health_check/ HTTP/1.1" 200 140
+WARNING 2025-07-13 19:14:56,394 log 55920 6126809088 Unauthorized: /depannage/api/admin/dashboard/stats/
+WARNING 2025-07-13 19:14:56,394 basehttp 55920 6126809088 "GET /depannage/api/admin/dashboard/stats/ HTTP/1.1" 401 58
+WARNING 2025-07-13 19:15:01,343 log 55920 6126809088 Unauthorized: /depannage/api/configuration/
+WARNING 2025-07-13 19:15:01,344 basehttp 55920 6126809088 "GET /depannage/api/configuration/ HTTP/1.1" 401 58
+INFO 2025-07-13 19:20:36,147 autoreload 55920 8445354176 /Users/mohamedbechirdiarra/Downloads/prototypeGamma/Backend/depannage/views.py changed, reloading.
+INFO 2025-07-13 19:20:36,802 autoreload 58020 8445354176 Watching for file changes with StatReloader
+INFO 2025-07-13 19:20:52,163 autoreload 58020 8445354176 /Users/mohamedbechirdiarra/Downloads/prototypeGamma/Backend/depannage/urls.py changed, reloading.
+INFO 2025-07-13 19:20:52,760 autoreload 58044 8445354176 Watching for file changes with StatReloader
+INFO 2025-07-13 19:21:18,493 autoreload 58044 8445354176 /Users/mohamedbechirdiarra/Downloads/prototypeGamma/Backend/depannage/urls.py changed, reloading.
+INFO 2025-07-13 19:21:19,068 autoreload 58090 8445354176 Watching for file changes with StatReloader
+INFO 2025-07-13 19:29:16,692 autoreload 58090 8445354176 /Users/mohamedbechirdiarra/Downloads/prototypeGamma/Backend/depannage/models.py changed, reloading.
+INFO 2025-07-13 19:29:17,434 autoreload 59416 8445354176 Watching for file changes with StatReloader
+INFO 2025-07-13 19:32:58,567 autoreload 59416 8445354176 /Users/mohamedbechirdiarra/Downloads/prototypeGamma/Backend/depannage/models.py changed, reloading.
+INFO 2025-07-13 19:32:59,156 autoreload 59944 8445354176 Watching for file changes with StatReloader
+INFO 2025-07-13 21:35:19,164 autoreload 59944 8445354176 /Users/mohamedbechirdiarra/Downloads/prototypeGamma/Backend/depannage/views.py changed, reloading.
+INFO 2025-07-13 21:35:20,098 autoreload 63612 8445354176 Watching for file changes with StatReloader
+INFO 2025-07-13 21:35:50,138 autoreload 63612 8445354176 /Users/mohamedbechirdiarra/Downloads/prototypeGamma/Backend/depannage/urls.py changed, reloading.
+INFO 2025-07-13 21:35:50,744 autoreload 63652 8445354176 Watching for file changes with StatReloader
+INFO 2025-07-13 21:35:57,570 autoreload 63652 8445354176 /Users/mohamedbechirdiarra/Downloads/prototypeGamma/Backend/depannage/urls.py changed, reloading.
+INFO 2025-07-13 21:35:58,205 autoreload 63673 8445354176 Watching for file changes with StatReloader
+INFO 2025-07-13 22:18:53,250 autoreload 63673 8445354176 /Users/mohamedbechirdiarra/Downloads/prototypeGamma/Backend/depannage/models.py changed, reloading.
+INFO 2025-07-13 22:18:54,158 autoreload 67884 8445354176 Watching for file changes with StatReloader
+INFO 2025-07-13 22:19:22,958 autoreload 67884 8445354176 /Users/mohamedbechirdiarra/Downloads/prototypeGamma/Backend/depannage/models.py changed, reloading.
+INFO 2025-07-13 22:19:23,672 autoreload 67931 8445354176 Watching for file changes with StatReloader

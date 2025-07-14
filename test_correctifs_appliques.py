@@ -65,14 +65,14 @@ def test_endpoint(endpoint, method="GET", data=None, expected_status=200, descri
         
         if response.status_code == expected_status:
             print(f"✅ {description} - {method} {endpoint} ({response.status_code})")
-            return True
+            assert True, f"{description} - {method} {endpoint} OK"
         else:
             print(f"❌ {description} - {method} {endpoint} ({response.status_code}) - {response.text}")
-            return False
+            assert False, f"{description} - {method} {endpoint} échoué : {response.status_code}"
             
     except Exception as e:
         print(f"❌ Erreur lors du test {description}: {e}")
-        return False
+        assert False, f"Erreur lors du test {description}: {e}"
 
 def test_pagination(endpoint, description=""):
     """Test de la pagination sur un endpoint."""
@@ -91,17 +91,17 @@ def test_pagination(endpoint, description=""):
             data = response.json()
             if "results" in data and "count" in data:
                 print(f"✅ Pagination fonctionnelle pour {description}")
-                return True
+                assert True, f"Pagination fonctionnelle pour {description}"
             else:
                 print(f"❌ Pagination manquante pour {description}")
-                return False
+                assert False, f"Pagination manquante pour {description}"
         else:
             print(f"❌ Erreur de pagination pour {description}: {response.status_code}")
-            return False
+            assert False, f"Erreur de pagination pour {description}: {response.status_code}"
             
     except Exception as e:
         print(f"❌ Erreur lors du test de pagination {description}: {e}")
-        return False
+        assert False, f"Erreur lors du test de pagination {description}: {e}"
 
 def test_rate_limiting():
     """Test de la limitation de débit."""
@@ -116,10 +116,10 @@ def test_rate_limiting():
         
         if response.status_code == 429:  # Too Many Requests
             print(f"✅ Limitation de débit activée après {i+1} tentatives")
-            return True
+            assert True, f"Limitation de débit activée après {i+1} tentatives"
     
     print("❌ Limitation de débit non activée")
-    return False
+    assert False, "Limitation de débit non activée"
 
 def test_security_headers():
     """Test des en-têtes de sécurité."""
@@ -141,11 +141,11 @@ def test_security_headers():
             else:
                 print(f"❌ En-tête de sécurité {header} manquant")
         
-        return True
+        assert True, "En-têtes de sécurité testés avec succès"
         
     except Exception as e:
         print(f"❌ Erreur lors du test des en-têtes de sécurité: {e}")
-        return False
+        assert False, f"Erreur lors du test des en-têtes de sécurité: {e}"
 
 def test_data_validation():
     """Test de la validation des données."""
@@ -171,14 +171,14 @@ def test_data_validation():
         
         if response.status_code == 400:
             print("✅ Validation des données fonctionnelle")
-            return True
+            assert True, "Validation des données fonctionnelle"
         else:
             print(f"❌ Validation des données échouée: {response.status_code}")
-            return False
+            assert False, f"Validation des données échouée: {response.status_code}"
             
     except Exception as e:
         print(f"❌ Erreur lors du test de validation: {e}")
-        return False
+        assert False, f"Erreur lors du test de validation: {e}"
 
 def main():
     """Fonction principale de test."""
@@ -257,13 +257,17 @@ def main():
             data = response.json()
             if "results" in data:
                 print("✅ Optimisation des requêtes avec select_related")
+                assert True, "Optimisation des requêtes avec select_related"
             else:
                 print("❌ Optimisation des requêtes non détectée")
+                assert False, "Optimisation des requêtes non détectée"
         else:
             print(f"❌ Erreur lors du test d'optimisation: {response.status_code}")
+            assert False, f"Erreur lors du test d'optimisation: {response.status_code}"
             
     except Exception as e:
         print(f"❌ Erreur lors du test d'optimisation: {e}")
+        assert False, f"Erreur lors du test d'optimisation: {e}"
     
     # Test du cache
     print("\n💾 Test du cache...")
@@ -280,11 +284,14 @@ def main():
         
         if time2 < time1:
             print("✅ Cache fonctionnel (deuxième requête plus rapide)")
+            assert True, "Cache fonctionnel (deuxième requête plus rapide)"
         else:
             print("⚠️ Cache potentiellement non fonctionnel")
+            assert False, "Cache potentiellement non fonctionnel"
             
     except Exception as e:
         print(f"❌ Erreur lors du test du cache: {e}")
+        assert False, f"Erreur lors du test du cache: {e}"
     
     print("\n🎉 Tests terminés!")
 

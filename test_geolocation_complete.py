@@ -33,7 +33,7 @@ def test_geolocation_fixes():
                 
     except Exception as e:
         print(f"❌ Frontend non accessible: {e}")
-        return False
+        assert False, "Frontend test failed"
     
     # Test du backend
     try:
@@ -84,7 +84,7 @@ def test_geolocation_fixes():
         print(f"  {rec}")
     
     print("\n✅ Test des corrections de géolocalisation terminé !")
-    return True
+    assert True, "Geolocation fixes test failed"
 
 if __name__ == "__main__":
     test_geolocation_fixes() 

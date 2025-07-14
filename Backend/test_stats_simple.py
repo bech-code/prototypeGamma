@@ -28,19 +28,17 @@ def test_with_token(token):
     print("\n1. Test des statistiques du tableau de bord...")
     try:
         response = requests.get(f"{API_BASE}/repair-requests/dashboard_stats/", headers=headers)
-        if response.status_code == 200:
-            data = response.json()
-            print("✅ Succès!")
-            print(f"   Données reçues: {len(data)} champs")
-            for key, value in data.items():
-                if isinstance(value, (int, float)):
-                    print(f"   {key}: {value}")
-                elif isinstance(value, list):
-                    print(f"   {key}: {len(value)} éléments")
-                else:
-                    print(f"   {key}: {value}")
-        else:
-            print(f"❌ Erreur {response.status_code}: {response.text}")
+        assert response.status_code == 200, "Dashboard stats endpoint failed"
+        data = response.json()
+        print("✅ Succès!")
+        print(f"   Données reçues: {len(data)} champs")
+        for key, value in data.items():
+            if isinstance(value, (int, float)):
+                print(f"   {key}: {value}")
+            elif isinstance(value, list):
+                print(f"   {key}: {len(value)} éléments")
+            else:
+                print(f"   {key}: {value}")
     except Exception as e:
         print(f"❌ Exception: {e}")
     
@@ -48,31 +46,27 @@ def test_with_token(token):
     print("\n2. Test des statistiques complètes du projet...")
     try:
         response = requests.get(f"{API_BASE}/repair-requests/project_statistics/", headers=headers)
-        if response.status_code == 200:
-            data = response.json()
-            print("✅ Succès!")
-            print(f"   Données reçues: {len(data)} sections")
-            
-            # Afficher la vue d'ensemble
-            overview = data.get('overview', {})
-            if overview:
-                print("\n   Vue d'ensemble:")
-                for key, value in overview.items():
-                    if isinstance(value, (int, float)):
-                        print(f"     {key}: {value}")
-            
-            # Afficher les demandes
-            requests_data = data.get('requests', {})
-            if requests_data:
-                print("\n   Demandes:")
-                for key, value in requests_data.items():
-                    if isinstance(value, (int, float)):
-                        print(f"     {key}: {value}")
-            
-        elif response.status_code == 403:
-            print("❌ Accès refusé - Utilisateur non admin")
-        else:
-            print(f"❌ Erreur {response.status_code}: {response.text}")
+        assert response.status_code == 200, "Project statistics endpoint failed"
+        data = response.json()
+        print("✅ Succès!")
+        print(f"   Données reçues: {len(data)} sections")
+        
+        # Afficher la vue d'ensemble
+        overview = data.get('overview', {})
+        if overview:
+            print("\n   Vue d'ensemble:")
+            for key, value in overview.items():
+                if isinstance(value, (int, float)):
+                    print(f"     {key}: {value}")
+        
+        # Afficher les demandes
+        requests_data = data.get('requests', {})
+        if requests_data:
+            print("\n   Demandes:")
+            for key, value in requests_data.items():
+                if isinstance(value, (int, float)):
+                    print(f"     {key}: {value}")
+        
     except Exception as e:
         print(f"❌ Exception: {e}")
 
@@ -81,35 +75,30 @@ def create_test_admin():
     print_header("CRÉATION D'UN ADMIN DE TEST")
     
     admin_data = {
-        "email": "testadmin@depanneteliman.com",
-        "password": "testadmin123",
-        "first_name": "Test",
-        "last_name": "Admin",
-        "user_type": "admin"
+        "email": "mohamedbechirdiarra4@gmail.com",
+        "password": "bechir66312345",
+        "first_name": "Mohamed",
+        "last_name": "Diarra",
+        "user_type": "admin",
+        "username": "depan_use"
     }
     
     try:
         # Créer l'utilisateur
         response = requests.post(f"{BASE_URL}/users/register/", json=admin_data)
-        if response.status_code == 201:
-            print("✅ Utilisateur admin créé avec succès")
-            
-            # Se connecter pour obtenir le token
-            login_response = requests.post(f"{BASE_URL}/users/login/", json={
-                "email": admin_data["email"],
-                "password": admin_data["password"]
-            })
-            
-            if login_response.status_code == 200:
-                token = login_response.json().get('access')
-                print("✅ Connexion réussie")
-                return token
-            else:
-                print(f"❌ Échec de connexion: {login_response.text}")
-                return None
-        else:
-            print(f"❌ Échec de création: {response.text}")
-            return None
+        assert response.status_code == 201, "User registration failed"
+        print("✅ Utilisateur admin créé avec succès")
+        
+        # Se connecter pour obtenir le token
+        login_response = requests.post(f"{BASE_URL}/users/login/", json={
+            "email": admin_data["email"],
+            "password": admin_data["password"]
+        })
+        
+        assert login_response.status_code == 200, "User login failed"
+        token = login_response.json().get('access')
+        print("✅ Connexion réussie")
+        return token
     except Exception as e:
         print(f"❌ Exception: {e}")
         return None
@@ -119,15 +108,12 @@ def test_health():
     print_header("TEST DE SANTÉ DE L'API")
     try:
         response = requests.get(f"{BASE_URL}/depannage/api/test/health_check/")
-        if response.status_code == 200:
-            data = response.json()
-            print("✅ API en ligne")
-            print(f"   Message: {data.get('message', 'N/A')}")
-            print(f"   Version: {data.get('version', 'N/A')}")
-            return True
-        else:
-            print(f"❌ API non disponible: {response.status_code}")
-            return False
+        assert response.status_code == 200, "Health endpoint failed"
+        data = response.json()
+        print("✅ API en ligne")
+        print(f"   Message: {data.get('message', 'N/A')}")
+        print(f"   Version: {data.get('version', 'N/A')}")
+        return True
     except Exception as e:
         print(f"❌ Erreur de connexion: {e}")
         return False

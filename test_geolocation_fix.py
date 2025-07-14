@@ -24,7 +24,7 @@ def test_geolocation_endpoints():
             
     except Exception as e:
         print(f"❌ Frontend non accessible: {e}")
-        return False
+        assert False, "Frontend is not accessible"
     
     # Test de l'API de géolocalisation (si disponible)
     try:
@@ -56,7 +56,7 @@ def test_geolocation_endpoints():
     print("   - Désactiver le GPS → Message POSITION_UNAVAILABLE")
     print("   - Connexion lente → Message TIMEOUT")
     
-    return True
+    assert True, "Geolocation endpoints test passed"
 
 if __name__ == "__main__":
     test_geolocation_endpoints() 

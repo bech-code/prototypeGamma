@@ -15,7 +15,6 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'auth.settings')
 django.setup()
 
 from depannage.models import Client, Technician, RepairRequest, Conversation, Message, Notification
-from users.models import User
 
 User = get_user_model()
 

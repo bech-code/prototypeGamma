@@ -76,7 +76,6 @@ def check_models():
             RepairRequest, Client, Technician, Payment, 
             Review, PlatformConfiguration
         )
-        from users.models import User
         
         models_info = [
             ('User', User, 'Utilisateurs'),

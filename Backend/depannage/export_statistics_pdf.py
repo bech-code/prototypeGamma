@@ -6,8 +6,10 @@ from django.http import HttpResponse
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from .models import RepairRequest, Payment, Review
-from users.models import User
+from django.contrib.auth import get_user_model
 from django.db.models import Count, Sum, Avg, Q
+
+User = get_user_model()
 
 @api_view(['GET'])
 @permission_classes([IsAdminUser])

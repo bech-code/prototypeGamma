@@ -35,8 +35,8 @@ def login_user(email, password):
 def create_test_conversation(token, client_id, technician_id):
     print("\n💬 Création d'une conversation de test...")
     conversation_data = {
-        "client_id": client_id,
-        "technician_id": technician_id,
+        "client": client_id,
+        "technician": technician_id,
     }
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     try:
@@ -113,6 +113,14 @@ def get_conversation_messages(token, conversation_id):
         print(f"❌ Erreur: {e}")
         return None
 
+def get_user_id(email, token):
+    """Récupérer l'ID d'un utilisateur via l'API /users/me/"""
+    headers = {"Authorization": f"Bearer {token}"}
+    resp = requests.get("http://127.0.0.1:8000/users/me/", headers=headers)
+    if resp.status_code == 200:
+        return resp.json()["user"]["id"]
+    return None
+
 def test_websocket_with_auth(token, conversation_id):
     """Test WebSocket avec authentification"""
     print(f"\n🔌 Test WebSocket avec authentification...")
@@ -156,16 +164,21 @@ def main():
     time.sleep(3)
     # Connexion client
     client_email = "client2@example.com"
-    client_password = "client123"
-    client_id = 1  # À ajuster si besoin
+    client_password = "bechir66312345"
     technician_email = "ballo@gmail.com"
     technician_password = "bechir66312345"
-    technician_id = 2  # À ajuster si besoin
-    # Étape 1: Connexion client
+    # Connexion client
     token = login_user(client_email, client_password)
     if not token:
         print("❌ Impossible de se connecter, arrêt des tests")
         return
+    client_id = get_user_id(client_email, token)
+    # Connexion technicien pour récupérer son ID
+    tech_token = login_user(technician_email, technician_password)
+    if not tech_token:
+        print("❌ Impossible de connecter le technicien, arrêt des tests")
+        return
+    technician_id = get_user_id(technician_email, tech_token)
     # Étape 2: Créer une conversation
     conversation = create_test_conversation(token, client_id, technician_id)
     if not conversation:

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Wrench, Zap, Key, Monitor, Thermometer, Fan, MapPin, Loader2 } from 'lucide-react';
+import { Wrench, Zap, Key, Monitor, Thermometer, Fan, MapPin, Loader2, Search } from 'lucide-react';
 import HeroSection from '../components/HeroSection';
 import ServiceCard from '../components/ServiceCard';
 import TechnicianMapHome from '../components/TechnicianMapHome';
@@ -450,8 +450,8 @@ const Home: React.FC = () => {
               Besoin d'une intervention urgente ? Localisez rapidement un technicien qualifié dans votre zone et obtenez une assistance immédiate.
             </p>
 
-            {/* Bouton de géolocalisation */}
-            <div className="flex justify-center mb-8">
+            {/* Boutons de géolocalisation */}
+            <div className="flex justify-center space-x-4 mb-8">
               <button
                 onClick={handleGetLocation}
                 disabled={loadingLocation}
@@ -469,6 +469,14 @@ const Home: React.FC = () => {
                   </>
                 )}
               </button>
+
+              <Link
+                to="/technician-search"
+                className="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-8 rounded-md transition-colors inline-flex items-center space-x-2"
+              >
+                <Search className="h-5 w-5" />
+                <span>Trouver les Techniciens Proches</span>
+              </Link>
             </div>
 
             {/* Message d'erreur */}

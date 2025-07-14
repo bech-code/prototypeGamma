@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import (
     Client, Technician, RepairRequest, RequestDocument, Review, 
     Payment, Conversation, Message, MessageAttachment, 
-    Notification, TechnicianLocation, SystemConfiguration, CinetPayPayment, PlatformConfiguration, ClientLocation, Report, AdminNotification, SubscriptionPaymentRequest, TechnicianSubscription, ChatConversation, ChatMessage, ChatMessageAttachment
+    Notification, TechnicianLocation, SystemConfiguration, CinetPayPayment, PlatformConfiguration, ClientLocation, Report, AdminNotification, SubscriptionPaymentRequest, TechnicianSubscription, ChatConversation, ChatMessage, ChatMessageAttachment, CommunicationStats, CommunicationSession, CommunicationNotification, CommunicationSettings, ReviewAnalytics, ReviewModeration, LocationHistory, ServiceZone, Route, PointOfInterest, GeolocationAlert, GeolocationSettings, SupportRequest, FAQ
 )
 from django.conf import settings
 from django.contrib.auth.models import Permission, Group
@@ -79,15 +79,29 @@ class ReviewSerializer(serializers.ModelSerializer):
     """Serializer pour les avis."""
     client_name = serializers.CharField(source='client.user.get_full_name', read_only=True)
     technician_name = serializers.CharField(source='technician.user.get_full_name', read_only=True)
+    overall_score = serializers.FloatField(read_only=True)
+    is_detailed_review = serializers.BooleanField(read_only=True)
+    review_completeness = serializers.FloatField(read_only=True)
 
     class Meta:
         model = Review
         fields = [
             'id', 'request', 'technician', 'rating',
             'comment', 'would_recommend', 'punctuality_rating', 'quality_rating', 
-            'communication_rating', 'client_name', 'technician_name', 'created_at', 'is_visible'
+            'communication_rating', 'client_name', 'technician_name', 'created_at', 'is_visible',
+            # Nouveaux champs de notation
+            'professionalism_rating', 'problem_solving_rating', 'cleanliness_rating', 'price_fairness_rating',
+            # Informations supplémentaires
+            'intervention_duration_minutes', 'was_urgent', 'problem_complexity',
+            'parts_used', 'warranty_offered', 'warranty_duration_days',
+            # Feedback détaillé
+            'positive_aspects', 'improvement_suggestions', 'would_use_again', 'would_recommend_to_friends',
+            # Métadonnées de qualité
+            'review_quality_score', 'is_verified_review', 'moderation_status', 'moderation_notes',
+            # Tags et propriétés calculées
+            'tags', 'overall_score', 'is_detailed_review', 'review_completeness'
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'created_at', 'overall_score', 'is_detailed_review', 'review_completeness', 'review_quality_score']
 
     def validate(self, data):
         user = self.context['request'].user
@@ -118,6 +132,38 @@ class ReviewSerializer(serializers.ModelSerializer):
             request=review.request
         )
         return review
+
+
+class ReviewAnalyticsSerializer(serializers.ModelSerializer):
+    """Serializer pour les analytics d'avis."""
+    technician_name = serializers.CharField(source='technician.user.get_full_name', read_only=True)
+    
+    class Meta:
+        model = ReviewAnalytics
+        fields = [
+            'id', 'technician', 'technician_name', 'total_reviews', 'average_rating',
+            'rating_distribution', 'avg_punctuality', 'avg_quality', 'avg_communication',
+            'avg_professionalism', 'avg_problem_solving', 'avg_cleanliness', 'avg_price_fairness',
+            'recommendation_rate', 'reuse_rate', 'friend_recommendation_rate',
+            'detailed_reviews_count', 'verified_reviews_count', 'avg_review_completeness',
+            'monthly_reviews', 'rating_trend', 'popular_tags', 'last_calculation'
+        ]
+        read_only_fields = ['id', 'last_calculation']
+
+
+class ReviewModerationSerializer(serializers.ModelSerializer):
+    """Serializer pour la modération d'avis."""
+    review_data = ReviewSerializer(source='review', read_only=True)
+    moderator_name = serializers.CharField(source='moderator.get_full_name', read_only=True)
+    
+    class Meta:
+        model = ReviewModeration
+        fields = [
+            'id', 'review', 'review_data', 'moderator', 'moderator_name', 'status',
+            'moderation_reason', 'moderation_notes', 'flagged_by_users', 'auto_moderation_score',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 class RepairRequestSerializer(serializers.ModelSerializer):
     client = serializers.SerializerMethodField()
@@ -698,15 +744,17 @@ class ChatMessageSerializer(serializers.ModelSerializer):
     sender_name = serializers.CharField(source='sender.get_full_name', read_only=True)
     sender_avatar = serializers.SerializerMethodField()
     attachments = serializers.SerializerMethodField()
+    reply_to_info = serializers.SerializerMethodField()
     
     class Meta:
         model = ChatMessage
         fields = [
             'id', 'conversation', 'sender', 'sender_name', 'sender_avatar',
             'content', 'message_type', 'is_read', 'read_at', 'attachments',
-            'latitude', 'longitude', 'created_at'
+            'latitude', 'longitude', 'voice_duration', 'is_edited', 'edited_at',
+            'reply_to', 'reply_to_info', 'created_at'
         ]
-        read_only_fields = ['id', 'created_at', 'read_at']
+        read_only_fields = ['id', 'created_at', 'read_at', 'edited_at']
     
     def get_sender_avatar(self, obj):
         # Placeholder pour avatar - à implémenter selon vos besoins
@@ -720,19 +768,90 @@ class ChatMessageSerializer(serializers.ModelSerializer):
                 'file_name': att.file_name,
                 'file_size': att.file_size,
                 'content_type': att.content_type,
-                'file_url': att.file.url if att.file else None
+                'file_url': att.get_file_url(),
+                'thumbnail_url': att.get_thumbnail_url(),
+                'duration': att.duration,
+                'is_processed': att.is_processed
             }
             for att in attachments
         ]
+    
+    def get_reply_to_info(self, obj):
+        if obj.reply_to:
+            return {
+                'id': obj.reply_to.id,
+                'content': obj.reply_to.content[:100] + '...' if len(obj.reply_to.content) > 100 else obj.reply_to.content,
+                'sender_name': obj.reply_to.sender.get_full_name(),
+                'message_type': obj.reply_to.message_type,
+                'created_at': obj.reply_to.created_at.isoformat()
+            }
+        return None
+
+
+class ChatConversationSerializer(serializers.ModelSerializer):
+    """Serializer pour les conversations de chat."""
+    
+    client_name = serializers.CharField(source='client.get_full_name', read_only=True)
+    technician_name = serializers.CharField(source='technician.get_full_name', read_only=True)
+    last_message = serializers.SerializerMethodField()
+    unread_count = serializers.SerializerMethodField()
+    is_muted = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = ChatConversation
+        fields = [
+            'id', 'client', 'technician', 'client_name', 'technician_name',
+            'request', 'is_active', 'last_message_at', 'last_message', 
+            'unread_count', 'is_pinned', 'muted_until', 'last_activity_type',
+            'is_muted', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'last_message_at']
+    
+    def get_last_message(self, obj):
+        last_msg = obj.latest_message
+        if last_msg:
+            return {
+                'id': last_msg.id,
+                'content': last_msg.content,
+                'message_type': last_msg.message_type,
+                'created_at': last_msg.created_at.isoformat(),
+                'sender_id': last_msg.sender.id,
+                'sender_name': last_msg.sender.get_full_name()
+            }
+        return None
+    
+    def get_unread_count(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.unread_count_for_user(request.user)
+        return 0
+    
+    def get_is_muted(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.is_muted_for_user(request.user)
+        return False
 
 
 class ChatMessageAttachmentSerializer(serializers.ModelSerializer):
     """Serializer pour les pièces jointes de chat."""
     
+    file_url = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
+    
     class Meta:
         model = ChatMessageAttachment
-        fields = ['id', 'message', 'file', 'file_name', 'file_size', 'content_type']
-        read_only_fields = ['id', 'file_size', 'content_type']
+        fields = [
+            'id', 'message', 'file', 'file_name', 'file_size', 'content_type',
+            'duration', 'thumbnail', 'is_processed', 'file_url', 'thumbnail_url'
+        ]
+        read_only_fields = ['id', 'file_size', 'content_type', 'file_url', 'thumbnail_url']
+    
+    def get_file_url(self, obj):
+        return obj.get_file_url()
+    
+    def get_thumbnail_url(self, obj):
+        return obj.get_thumbnail_url()
     
     def validate_file(self, value):
         """Validation du fichier uploadé."""
@@ -746,3 +865,591 @@ class ChatMessageAttachmentSerializer(serializers.ModelSerializer):
         validated_data['file_size'] = file_obj.size
         validated_data['content_type'] = file_obj.content_type
         return super().create(validated_data)
+
+
+class CommunicationStatsSerializer(serializers.ModelSerializer):
+    """Serializer pour les statistiques de communication."""
+    
+    conversation_info = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = CommunicationStats
+        fields = [
+            'id', 'conversation', 'conversation_info', 'total_messages',
+            'text_messages', 'voice_messages', 'location_shares', 'file_shares',
+            'avg_response_time_minutes', 'last_message_at', 'first_message_at',
+            'client_online_time', 'technician_online_time', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def get_conversation_info(self, obj):
+        return {
+            'id': obj.conversation.id,
+            'client_name': obj.conversation.client.get_full_name(),
+            'technician_name': obj.conversation.technician.get_full_name()
+        }
+
+
+class CommunicationSessionSerializer(serializers.ModelSerializer):
+    """Serializer pour les sessions de communication."""
+    
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    duration_minutes = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = CommunicationSession
+        fields = [
+            'id', 'conversation', 'user', 'user_name', 'started_at', 'ended_at',
+            'messages_sent', 'messages_received', 'is_active', 'device_info',
+            'ip_address', 'duration_minutes', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'started_at']
+    
+    def get_duration_minutes(self, obj):
+        return obj.get_duration_minutes()
+
+
+class CommunicationNotificationSerializer(serializers.ModelSerializer):
+    """Serializer pour les notifications de communication."""
+    
+    recipient_name = serializers.CharField(source='recipient.get_full_name', read_only=True)
+    conversation_info = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = CommunicationNotification
+        fields = [
+            'id', 'recipient', 'recipient_name', 'conversation', 'conversation_info',
+            'notification_type', 'title', 'message', 'is_read', 'read_at',
+            'extra_data', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'read_at']
+    
+    def get_conversation_info(self, obj):
+        return {
+            'id': obj.conversation.id,
+            'client_name': obj.conversation.client.get_full_name(),
+            'technician_name': obj.conversation.technician.get_full_name()
+        }
+
+
+class CommunicationSettingsSerializer(serializers.ModelSerializer):
+    """Serializer pour les paramètres de communication."""
+    
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    is_in_quiet_hours = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = CommunicationSettings
+        fields = [
+            'id', 'user', 'user_name', 'auto_read_receipts', 'typing_indicators',
+            'sound_notifications', 'vibration_notifications', 'message_preview',
+            'auto_download_media', 'max_file_size_mb', 'allowed_file_types',
+            'quiet_hours_start', 'quiet_hours_end', 'language', 'theme',
+            'is_in_quiet_hours', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def get_is_in_quiet_hours(self, obj):
+        return obj.is_in_quiet_hours()
+    
+    def validate_quiet_hours_start(self, value):
+        """Validation de l'heure de début des heures silencieuses."""
+        if value and self.instance and self.instance.quiet_hours_end:
+            if value >= self.instance.quiet_hours_end:
+                raise serializers.ValidationError(
+                    "L'heure de début doit être antérieure à l'heure de fin."
+                )
+        return value
+    
+    def validate_quiet_hours_end(self, value):
+        """Validation de l'heure de fin des heures silencieuses."""
+        if value and self.instance and self.instance.quiet_hours_start:
+            if value <= self.instance.quiet_hours_start:
+                raise serializers.ValidationError(
+                    "L'heure de fin doit être postérieure à l'heure de début."
+                )
+        return value
+    
+    def validate_max_file_size_mb(self, value):
+        """Validation de la taille maximale des fichiers."""
+        if value < 1:
+            raise serializers.ValidationError("La taille minimale est de 1MB.")
+        if value > 100:
+            raise serializers.ValidationError("La taille maximale est de 100MB.")
+        return value
+
+
+class MessageEditSerializer(serializers.Serializer):
+    """Serializer pour l'édition de messages."""
+    
+    content = serializers.CharField(max_length=5000)
+    
+    def validate_content(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("Le contenu ne peut pas être vide.")
+        return value.strip()
+
+
+class MessageReplySerializer(serializers.Serializer):
+    """Serializer pour les réponses aux messages."""
+    
+    content = serializers.CharField(max_length=5000)
+    message_type = serializers.ChoiceField(
+        choices=ChatMessage.MessageType.choices,
+        default=ChatMessage.MessageType.TEXT
+    )
+    reply_to_id = serializers.IntegerField(required=False)
+    
+    def validate_content(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("Le contenu ne peut pas être vide.")
+        return value.strip()
+
+
+class LocationShareSerializer(serializers.Serializer):
+    """Serializer pour le partage de localisation."""
+    
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
+    address = serializers.CharField(max_length=500, required=False)
+    
+    def validate_latitude(self, value):
+        if value < -90 or value > 90:
+            raise serializers.ValidationError("La latitude doit être entre -90 et 90.")
+        return value
+    
+    def validate_longitude(self, value):
+        if value < -180 or value > 180:
+            raise serializers.ValidationError("La longitude doit être entre -180 et 180.")
+        return value
+
+
+class VoiceMessageSerializer(serializers.Serializer):
+    """Serializer pour les messages vocaux."""
+    
+    audio_file = serializers.FileField()
+    duration = serializers.IntegerField(min_value=1, max_value=300)  # 1-300 secondes
+    
+    def validate_audio_file(self, value):
+        if not value.content_type.startswith('audio/'):
+            raise serializers.ValidationError("Le fichier doit être un fichier audio.")
+        if value.size > 50 * 1024 * 1024:  # 50MB max
+            raise serializers.ValidationError("Le fichier audio ne peut pas dépasser 50MB.")
+        return value
+
+
+class ConversationMuteSerializer(serializers.Serializer):
+    """Serializer pour le mode silencieux des conversations."""
+    
+    muted_until = serializers.DateTimeField(required=False)
+    mute_duration_hours = serializers.IntegerField(min_value=1, max_value=168, required=False)  # 1h-1semaine
+    
+    def validate(self, data):
+        if not data.get('muted_until') and not data.get('mute_duration_hours'):
+            raise serializers.ValidationError(
+                "Vous devez spécifier soit une date de fin, soit une durée."
+            )
+        return data
+
+
+class ConversationPinSerializer(serializers.Serializer):
+    """Serializer pour épingler/désépingler une conversation."""
+    
+    is_pinned = serializers.BooleanField()
+
+
+class CommunicationDashboardSerializer(serializers.Serializer):
+    """Serializer pour le tableau de bord de communication."""
+    
+    total_conversations = serializers.IntegerField()
+    active_conversations = serializers.IntegerField()
+    unread_messages = serializers.IntegerField()
+    total_messages_today = serializers.IntegerField()
+    voice_messages_today = serializers.IntegerField()
+    location_shares_today = serializers.IntegerField()
+    avg_response_time_minutes = serializers.FloatField()
+    recent_conversations = ChatConversationSerializer(many=True)
+    recent_notifications = CommunicationNotificationSerializer(many=True)
+
+class TechnicianLocationSerializer(serializers.ModelSerializer):
+    """Serializer pour la localisation des techniciens."""
+    
+    technician_name = serializers.CharField(source='technician.user.get_full_name', read_only=True)
+    distance_to_client = serializers.SerializerMethodField()
+    eta_minutes = serializers.SerializerMethodField()
+    location_quality = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = TechnicianLocation
+        fields = [
+            'id', 'technician', 'technician_name', 'latitude', 'longitude',
+            'accuracy', 'altitude', 'speed', 'heading', 'is_moving',
+            'battery_level', 'location_source', 'address', 'city', 'country',
+            'distance_to_client', 'eta_minutes', 'location_quality',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def get_distance_to_client(self, obj):
+        """Calcule la distance vers le client si fournie dans le contexte."""
+        request = self.context.get('request')
+        if request and hasattr(request, 'client_lat') and hasattr(request, 'client_lng'):
+            return obj.get_distance_to(request.client_lat, request.client_lng)
+        return None
+    
+    def get_eta_minutes(self, obj):
+        """Calcule le temps d'arrivée estimé."""
+        request = self.context.get('request')
+        if request and hasattr(request, 'client_lat') and hasattr(request, 'client_lng'):
+            return obj.get_eta_to(request.client_lat, request.client_lng)
+        return None
+    
+    def get_location_quality(self, obj):
+        """Retourne la qualité de la localisation."""
+        return obj.get_location_quality()
+
+
+class ClientLocationSerializer(serializers.ModelSerializer):
+    """Serializer pour la localisation des clients."""
+    
+    client_name = serializers.CharField(source='client.user.get_full_name', read_only=True)
+    location_quality = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = ClientLocation
+        fields = [
+            'id', 'client', 'client_name', 'latitude', 'longitude',
+            'accuracy', 'altitude', 'speed', 'heading', 'is_moving',
+            'battery_level', 'location_source', 'address', 'city', 'country',
+            'location_quality', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def get_location_quality(self, obj):
+        """Retourne la qualité de la localisation."""
+        return obj.get_location_quality()
+
+
+class LocationHistorySerializer(serializers.ModelSerializer):
+    """Serializer pour l'historique de localisation."""
+    
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    distance_from_previous = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = LocationHistory
+        fields = [
+            'id', 'user', 'user_name', 'latitude', 'longitude', 'accuracy',
+            'altitude', 'speed', 'heading', 'is_moving', 'battery_level',
+            'location_source', 'address', 'city', 'country', 'request',
+            'distance_from_previous', 'created_at'
+        ]
+        read_only_fields = ['id', 'created_at']
+    
+    def get_distance_from_previous(self, obj):
+        """Calcule la distance depuis la position précédente."""
+        previous_location = LocationHistory.objects.filter(
+            user=obj.user
+        ).exclude(id=obj.id).order_by('-created_at').first()
+        
+        if previous_location:
+            return obj.get_distance_to(previous_location.latitude, previous_location.longitude)
+        return None
+
+
+class ServiceZoneSerializer(serializers.ModelSerializer):
+    """Serializer pour les zones de service."""
+    
+    technician_count = serializers.SerializerMethodField()
+    is_point_inside = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = ServiceZone
+        fields = [
+            'id', 'name', 'description', 'center_latitude', 'center_longitude',
+            'radius_km', 'is_active', 'color', 'technicians', 'technician_count',
+            'is_point_inside', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def get_technician_count(self, obj):
+        """Retourne le nombre de techniciens dans la zone."""
+        return obj.technicians.count()
+    
+    def get_is_point_inside(self, obj):
+        """Vérifie si un point est dans la zone."""
+        request = self.context.get('request')
+        if request and hasattr(request, 'lat') and hasattr(request, 'lng'):
+            return obj.is_point_inside(request.lat, request.lng)
+        return None
+
+
+class RouteSerializer(serializers.ModelSerializer):
+    """Serializer pour les itinéraires."""
+    
+    technician_name = serializers.CharField(source='technician.user.get_full_name', read_only=True)
+    request_title = serializers.CharField(source='request.title', read_only=True)
+    calculated_distance = serializers.SerializerMethodField()
+    estimated_duration = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Route
+        fields = [
+            'id', 'name', 'description', 'start_latitude', 'start_longitude',
+            'end_latitude', 'end_longitude', 'distance_km', 'estimated_duration_minutes',
+            'route_type', 'is_active', 'request', 'technician', 'technician_name',
+            'request_title', 'calculated_distance', 'estimated_duration',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def get_calculated_distance(self, obj):
+        """Retourne la distance calculée."""
+        return obj.calculate_distance()
+    
+    def get_estimated_duration(self, obj):
+        """Retourne la durée estimée."""
+        return obj.estimate_duration()
+
+
+class PointOfInterestSerializer(serializers.ModelSerializer):
+    """Serializer pour les points d'intérêt."""
+    
+    distance_to_user = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = PointOfInterest
+        fields = [
+            'id', 'name', 'description', 'latitude', 'longitude', 'poi_type',
+            'address', 'phone', 'website', 'is_active', 'rating',
+            'distance_to_user', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def get_distance_to_user(self, obj):
+        """Calcule la distance vers l'utilisateur."""
+        request = self.context.get('request')
+        if request and hasattr(request, 'user_lat') and hasattr(request, 'user_lng'):
+            return obj.get_distance_to(request.user_lat, request.user_lng)
+        return None
+
+
+class GeolocationAlertSerializer(serializers.ModelSerializer):
+    """Serializer pour les alertes de géolocalisation."""
+    
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    request_title = serializers.CharField(source='request.title', read_only=True)
+    
+    class Meta:
+        model = GeolocationAlert
+        fields = [
+            'id', 'alert_type', 'title', 'message', 'severity', 'is_read',
+            'read_at', 'latitude', 'longitude', 'extra_data', 'user', 'user_name',
+            'request', 'request_title', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'read_at']
+
+
+class GeolocationSettingsSerializer(serializers.ModelSerializer):
+    """Serializer pour les paramètres de géolocalisation."""
+    
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    
+    class Meta:
+        model = GeolocationSettings
+        fields = [
+            'id', 'user', 'user_name', 'location_sharing_enabled',
+            'background_location_enabled', 'high_accuracy_mode',
+            'location_update_interval_seconds', 'max_location_history_days',
+            'geofencing_enabled', 'speed_limit_kmh', 'battery_threshold_percent',
+            'accuracy_threshold_meters', 'alert_notifications_enabled',
+            'map_provider', 'default_zoom_level', 'show_traffic', 'show_pois',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def validate_location_update_interval_seconds(self, value):
+        """Validation de l'intervalle de mise à jour."""
+        if value < 5:
+            raise serializers.ValidationError("L'intervalle minimum est de 5 secondes.")
+        if value > 3600:
+            raise serializers.ValidationError("L'intervalle maximum est de 3600 secondes.")
+        return value
+    
+    def validate_max_location_history_days(self, value):
+        """Validation de la durée d'historique."""
+        if value < 1:
+            raise serializers.ValidationError("La durée minimum est de 1 jour.")
+        if value > 365:
+            raise serializers.ValidationError("La durée maximum est de 365 jours.")
+        return value
+    
+    def validate_battery_threshold_percent(self, value):
+        """Validation du seuil de batterie."""
+        if value < 0 or value > 100:
+            raise serializers.ValidationError("Le seuil doit être entre 0 et 100%.")
+        return value
+    
+    def validate_accuracy_threshold_meters(self, value):
+        """Validation du seuil de précision."""
+        if value < 1:
+            raise serializers.ValidationError("Le seuil minimum est de 1 mètre.")
+        if value > 10000:
+            raise serializers.ValidationError("Le seuil maximum est de 10000 mètres.")
+        return value
+
+
+class LocationUpdateSerializer(serializers.Serializer):
+    """Serializer pour la mise à jour de localisation."""
+    
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
+    accuracy = serializers.FloatField(required=False, allow_null=True)
+    altitude = serializers.FloatField(required=False, allow_null=True)
+    speed = serializers.FloatField(required=False, allow_null=True)
+    heading = serializers.FloatField(required=False, allow_null=True)
+    is_moving = serializers.BooleanField(required=False, default=False)
+    battery_level = serializers.IntegerField(required=False, allow_null=True)
+    location_source = serializers.ChoiceField(
+        choices=[
+            ('gps', 'GPS'),
+            ('network', 'Réseau cellulaire'),
+            ('wifi', 'WiFi'),
+            ('manual', 'Manuel'),
+        ],
+        required=False,
+        default='gps'
+    )
+    address = serializers.CharField(required=False, allow_blank=True)
+    city = serializers.CharField(required=False, allow_blank=True)
+    country = serializers.CharField(required=False, default='CI')
+    
+    def validate_latitude(self, value):
+        """Validation de la latitude."""
+        if value < -90 or value > 90:
+            raise serializers.ValidationError("La latitude doit être entre -90 et 90.")
+        return value
+    
+    def validate_longitude(self, value):
+        """Validation de la longitude."""
+        if value < -180 or value > 180:
+            raise serializers.ValidationError("La longitude doit être entre -180 et 180.")
+        return value
+    
+    def validate_accuracy(self, value):
+        """Validation de la précision."""
+        if value is not None and value < 0:
+            raise serializers.ValidationError("La précision doit être positive.")
+        return value
+    
+    def validate_speed(self, value):
+        """Validation de la vitesse."""
+        if value is not None and value < 0:
+            raise serializers.ValidationError("La vitesse doit être positive.")
+        return value
+    
+    def validate_heading(self, value):
+        """Validation de la direction."""
+        if value is not None and (value < 0 or value > 360):
+            raise serializers.ValidationError("La direction doit être entre 0 et 360 degrés.")
+        return value
+    
+    def validate_battery_level(self, value):
+        """Validation du niveau de batterie."""
+        if value is not None and (value < 0 or value > 100):
+            raise serializers.ValidationError("Le niveau de batterie doit être entre 0 et 100%.")
+        return value
+
+
+class GeofenceSerializer(serializers.Serializer):
+    """Serializer pour les géofences."""
+    
+    name = serializers.CharField(max_length=200)
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
+    radius_meters = serializers.FloatField()
+    is_active = serializers.BooleanField(default=True)
+    
+    def validate_radius_meters(self, value):
+        """Validation du rayon."""
+        if value < 10:
+            raise serializers.ValidationError("Le rayon minimum est de 10 mètres.")
+        if value > 50000:
+            raise serializers.ValidationError("Le rayon maximum est de 50000 mètres.")
+        return value
+
+
+class RouteCalculationSerializer(serializers.Serializer):
+    """Serializer pour le calcul d'itinéraire."""
+    
+    start_latitude = serializers.FloatField()
+    start_longitude = serializers.FloatField()
+    end_latitude = serializers.FloatField()
+    end_longitude = serializers.FloatField()
+    route_type = serializers.ChoiceField(
+        choices=[
+            ('driving', 'Voiture'),
+            ('walking', 'À pied'),
+            ('bicycling', 'Vélo'),
+            ('transit', 'Transport en commun'),
+        ],
+        default='driving'
+    )
+    avoid_tolls = serializers.BooleanField(default=False)
+    avoid_highways = serializers.BooleanField(default=False)
+    
+    def validate(self, data):
+        """Validation croisée des coordonnées."""
+        start_lat, start_lng = data['start_latitude'], data['start_longitude']
+        end_lat, end_lng = data['end_latitude'], data['end_longitude']
+        
+        # Vérifier que les points de départ et d'arrivée sont différents
+        if abs(start_lat - end_lat) < 0.0001 and abs(start_lng - end_lng) < 0.0001:
+            raise serializers.ValidationError("Les points de départ et d'arrivée doivent être différents.")
+        
+        return data
+
+
+class NearbyTechniciansSerializer(serializers.Serializer):
+    """Serializer pour les techniciens à proximité."""
+    
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
+    radius_km = serializers.FloatField(default=10.0)
+    specialty = serializers.CharField(required=False, allow_blank=True)
+    max_results = serializers.IntegerField(default=10, min_value=1, max_value=50)
+    
+    def validate_radius_km(self, value):
+        """Validation du rayon de recherche."""
+        if value < 0.1:
+            raise serializers.ValidationError("Le rayon minimum est de 0.1 km.")
+        if value > 100:
+            raise serializers.ValidationError("Le rayon maximum est de 100 km.")
+        return value
+
+
+class GeolocationDashboardSerializer(serializers.Serializer):
+    """Serializer pour le tableau de bord de géolocalisation."""
+    
+    total_active_locations = serializers.IntegerField()
+    technicians_online = serializers.IntegerField()
+    clients_online = serializers.IntegerField()
+    active_zones = serializers.IntegerField()
+    total_routes = serializers.IntegerField()
+    alerts_today = serializers.IntegerField()
+    avg_location_accuracy = serializers.FloatField()
+    recent_locations = LocationHistorySerializer(many=True)
+    active_zones_list = ServiceZoneSerializer(many=True)
+    recent_alerts = GeolocationAlertSerializer(many=True)
+
+class SupportRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SupportRequest
+        fields = ['id', 'name', 'email', 'subject', 'message', 'attachment', 'status', 'created_at', 'user']
+        read_only_fields = ['id', 'status', 'created_at', 'user']
+
+class FAQSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FAQ
+        fields = ['id', 'question', 'answer', 'category', 'order', 'is_active']
+        read_only_fields = ['id']

@@ -12,6 +12,7 @@ def test_login():
     
     try:
         response = requests.post(url, json=data, headers=headers)
+        assert response.status_code == 200, "Login failed"
         print(f"Status Code: {response.status_code}")
         print(f"Response: {response.text}")
         return response

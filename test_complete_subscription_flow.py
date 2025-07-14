@@ -34,10 +34,7 @@ def test_complete_subscription_flow():
     
     try:
         login_response = requests.post(LOGIN_URL, json=login_data)
-        if login_response.status_code != 200:
-            print(f"❌ Échec de connexion: {login_response.status_code}")
-            print(login_response.text)
-            return False
+        assert login_response.status_code == 200, "Complete subscription flow failed"
             
         login_data = login_response.json()
         access_token = login_data.get('access')
@@ -62,9 +59,7 @@ def test_complete_subscription_flow():
         payment_response = requests.post(SUBSCRIPTION_URL, json=payment_data, headers=headers)
         print(f"   Status: {payment_response.status_code}")
         
-        if payment_response.status_code != 200:
-            print(f"❌ Échec d'initiation: {payment_response.text}")
-            return False
+        assert payment_response.status_code == 200, "Complete subscription flow failed"
             
         payment_result = payment_response.json()
         print("✅ Paiement initié avec succès")
@@ -106,9 +101,7 @@ def test_complete_subscription_flow():
         notify_response = requests.post(NOTIFY_URL, json=notification_data, headers={'Content-Type': 'application/json'})
         print(f"   Status: {notify_response.status_code}")
         
-        if notify_response.status_code != 200:
-            print(f"❌ Échec notification: {notify_response.text}")
-            return False
+        assert notify_response.status_code == 200, "Complete subscription flow failed"
             
         notify_result = notify_response.json()
         print("✅ Notification traitée avec succès")
@@ -125,9 +118,7 @@ def test_complete_subscription_flow():
         status_response = requests.get(SUBSCRIPTION_STATUS_URL, headers=headers)
         print(f"   Status: {status_response.status_code}")
         
-        if status_response.status_code != 200:
-            print(f"❌ Erreur vérification statut: {status_response.text}")
-            return False
+        assert status_response.status_code == 200, "Complete subscription flow failed"
             
         status_data = status_response.json()
         print("✅ Statut d'abonnement récupéré")
